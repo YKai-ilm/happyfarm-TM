@@ -1,0 +1,937 @@
+:root {
+  --sky: #b8deec;
+  --grass: #6c9b55;
+  --grass-deep: #3f6f43;
+  --soil: #9b623d;
+  --soil-dark: #754326;
+  --cream: #fff8e8;
+  --paper: #fffaf0;
+  --ink: #263126;
+  --muted: #657265;
+  --line: #dacaa8;
+  --gold: #e8ae36;
+  --red: #cf4b3f;
+  --blue: #3f83a6;
+  --green: #4f8a48;
+  --scene-image: url("./assets/farm-background-v1.png");
+  --shadow: 0 18px 40px rgba(73, 58, 36, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 32%),
+    linear-gradient(180deg, var(--sky) 0 29%, #e5ce85 29% 46%, var(--grass) 46% 100%);
+  background-color: #78bd63;
+}
+
+button {
+  font: inherit;
+}
+
+.farm-app {
+  width: min(1480px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(92, 79, 46, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f8dca2;
+  border: 1px solid rgba(112, 54, 41, 0.22);
+}
+
+.brand-mark svg,
+.button-icon svg,
+.stat-icon svg,
+.icon-button svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.brand p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stat-pill,
+.level-stat {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf5;
+}
+
+.stat-icon,
+.button-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  color: currentColor;
+}
+
+.level-stat {
+  min-width: 134px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.level-stat span {
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.xp-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eadfca;
+}
+
+.xp-track span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), #6aa56a);
+  transition: width 200ms ease;
+}
+
+.icon-button,
+.compact-button,
+.tool-button,
+.tab,
+.seed-button,
+.action-button {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.icon-button {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #274157;
+  background: #dbeef4;
+  border: 1px solid #adcfe0;
+}
+
+.icon-button svg {
+  width: 21px;
+  height: 21px;
+}
+
+.compact-button,
+.tool-button,
+.seed-button,
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 10px;
+  font-weight: 800;
+  color: var(--ink);
+  background: #f5ecd8;
+  border: 1px solid var(--line);
+}
+
+.icon-button:hover,
+.compact-button:hover,
+.tool-button:hover,
+.tab:hover,
+.seed-button:hover,
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(70, 50, 24, 0.13);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+  box-shadow: none;
+}
+
+.game-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, 270px) minmax(390px, 1fr) minmax(270px, 330px);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.panel {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 79, 46, 0.2);
+  background: rgba(255, 250, 240, 0.95);
+  box-shadow: var(--shadow);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-head h2,
+.tabs,
+.tab-content h2 {
+  font-size: 1rem;
+}
+
+.inventory-list {
+  display: grid;
+  gap: 8px;
+}
+
+.inventory-row,
+.upgrade-row,
+.order-card,
+.seed-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf5;
+}
+
+.inventory-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.mini-crop {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #edf2db;
+}
+
+.mini-crop svg {
+  width: 34px;
+  height: 34px;
+}
+
+.mini-crop img {
+  width: 38px;
+  height: 38px;
+  display: block;
+  object-fit: contain;
+}
+
+.item-title,
+.item-meta,
+.order-reward {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.item-title strong {
+  font-size: 0.92rem;
+}
+
+.item-title span,
+.item-meta,
+.order-reward span,
+.ledger span,
+.seed-meta,
+.upgrade-meta,
+.plot-label,
+.plot-time {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.mini-sell {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  color: #704218;
+  background: #f6dc9d;
+  cursor: pointer;
+}
+
+.mini-sell svg {
+  width: 18px;
+  height: 18px;
+  margin: auto;
+  display: block;
+}
+
+.ledger {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ledger div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #efe7d2;
+}
+
+.farm-stage {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+}
+
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(92, 79, 46, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.93);
+  box-shadow: var(--shadow);
+}
+
+.tool-button.is-active,
+.tab.is-active,
+.seed-button.is-active {
+  color: #fffaf0;
+  border-color: #315f37;
+  background: var(--green);
+}
+
+.field-frame {
+  min-height: 520px;
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1672 / 941;
+  display: block;
+  padding: 0;
+  border: 1px solid rgba(44, 72, 35, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(39, 89, 40, 0.08)),
+    var(--scene-image) center center / 100% 100% no-repeat;
+  box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.12), var(--shadow);
+}
+
+.farm-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+}
+
+.plot {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: stretch;
+  padding: clamp(3px, 1.2vw, 8px);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #fff8e8;
+  background: rgba(72, 38, 18, 0.03);
+  box-shadow: none;
+  clip-path: var(--plot-shape, polygon(0 0, 100% 0, 100% 100%, 0 100%));
+  cursor: pointer;
+}
+
+.farm-grid .plot {
+  position: absolute;
+  left: var(--plot-x);
+  top: var(--plot-y);
+  width: var(--plot-w);
+  height: var(--plot-h);
+}
+
+.farm-grid .plot:nth-child(1) {
+  --plot-x: 28.83%;
+  --plot-y: 51.33%;
+  --plot-w: 9.75%;
+  --plot-h: 5.63%;
+  --plot-shape: polygon(5% 7%, 96% 0, 100% 88%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(2) {
+  --plot-x: 39%;
+  --plot-y: 51.33%;
+  --plot-w: 9.03%;
+  --plot-h: 5.63%;
+  --plot-shape: polygon(4% 0, 97% 3%, 100% 92%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(3) {
+  --plot-x: 48.8%;
+  --plot-y: 51.33%;
+  --plot-w: 9.03%;
+  --plot-h: 5.63%;
+  --plot-shape: polygon(3% 2%, 96% 0, 100% 92%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(4) {
+  --plot-x: 58.13%;
+  --plot-y: 51.33%;
+  --plot-w: 9.93%;
+  --plot-h: 5.63%;
+  --plot-shape: polygon(2% 0, 96% 4%, 100% 100%, 0 90%);
+}
+
+.farm-grid .plot:nth-child(5) {
+  --plot-x: 26.26%;
+  --plot-y: 57.39%;
+  --plot-w: 11%;
+  --plot-h: 6.91%;
+  --plot-shape: polygon(4% 4%, 97% 0, 100% 91%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(6) {
+  --plot-x: 37.68%;
+  --plot-y: 57.39%;
+  --plot-w: 10.35%;
+  --plot-h: 6.91%;
+  --plot-shape: polygon(2% 0, 98% 2%, 100% 94%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(7) {
+  --plot-x: 48.86%;
+  --plot-y: 57.39%;
+  --plot-w: 10.29%;
+  --plot-h: 6.91%;
+  --plot-shape: polygon(2% 2%, 98% 0, 100% 100%, 0 94%);
+}
+
+.farm-grid .plot:nth-child(8) {
+  --plot-x: 59.51%;
+  --plot-y: 57.39%;
+  --plot-w: 11.06%;
+  --plot-h: 6.91%;
+  --plot-shape: polygon(2% 0, 96% 4%, 100% 100%, 0 92%);
+}
+
+.farm-grid .plot:nth-child(9) {
+  --plot-x: 23.03%;
+  --plot-y: 64.82%;
+  --plot-w: 12.68%;
+  --plot-h: 8.5%;
+  --plot-shape: polygon(4% 6%, 98% 0, 100% 93%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(10) {
+  --plot-x: 35.94%;
+  --plot-y: 64.82%;
+  --plot-w: 11.96%;
+  --plot-h: 8.5%;
+  --plot-shape: polygon(2% 0, 99% 2%, 100% 96%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(11) {
+  --plot-x: 48.86%;
+  --plot-y: 64.82%;
+  --plot-w: 11.78%;
+  --plot-h: 8.5%;
+  --plot-shape: polygon(1% 2%, 98% 0, 100% 100%, 0 96%);
+}
+
+.farm-grid .plot:nth-child(12) {
+  --plot-x: 61.18%;
+  --plot-y: 64.82%;
+  --plot-w: 12.86%;
+  --plot-h: 8.5%;
+  --plot-shape: polygon(2% 0, 96% 5%, 100% 100%, 0 93%);
+}
+
+.farm-grid .plot:nth-child(13) {
+  --plot-x: 18.78%;
+  --plot-y: 74.07%;
+  --plot-w: 15.91%;
+  --plot-h: 11.48%;
+  --plot-shape: polygon(6% 5%, 98% 0, 100% 96%, 0 100%);
+}
+
+.farm-grid .plot:nth-child(14) {
+  --plot-x: 35.89%;
+  --plot-y: 74.07%;
+  --plot-w: 12.62%;
+  --plot-h: 11.48%;
+  --plot-shape: polygon(2% 0, 99% 2%, 100% 100%, 0 98%);
+}
+
+.farm-grid .plot:nth-child(15) {
+  --plot-x: 48.92%;
+  --plot-y: 74.07%;
+  --plot-w: 13.58%;
+  --plot-h: 11.48%;
+  --plot-shape: polygon(1% 2%, 98% 0, 100% 100%, 0 98%);
+}
+
+.farm-grid .plot:nth-child(16) {
+  --plot-x: 62.92%;
+  --plot-y: 74.07%;
+  --plot-w: 15.13%;
+  --plot-h: 11.48%;
+  --plot-shape: polygon(2% 0, 96% 5%, 100% 100%, 0 96%);
+}
+
+.plot::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 244, 190, 0);
+  border-radius: 9px;
+  clip-path: var(--plot-shape, polygon(0 0, 100% 0, 100% 100%, 0 100%));
+  pointer-events: none;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.plot:hover::after,
+.plot:focus-visible::after {
+  border-color: rgba(255, 244, 190, 0.75);
+  background: rgba(255, 248, 210, 0.08);
+  box-shadow: 0 0 0 2px rgba(93, 66, 31, 0.18);
+}
+
+.plot.empty::before {
+  display: none;
+}
+
+.plot.empty .plot-info {
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.plot.empty:hover .plot-info,
+.plot.empty:focus-visible .plot-info {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.plot.ready {
+  border-color: #f4c95d;
+  background: radial-gradient(circle at 50% 56%, rgba(255, 224, 92, 0.18), rgba(255, 224, 92, 0) 60%);
+  box-shadow: 0 0 0 3px rgba(244, 201, 93, 0.22);
+}
+
+.plot.locked {
+  place-items: center;
+  grid-template-rows: 1fr auto;
+  color: #efe7d2;
+  background: rgba(34, 41, 38, 0.56);
+  border-color: rgba(35, 39, 36, 0.5);
+}
+
+.plot.locked svg {
+  width: 28px;
+  height: 28px;
+}
+
+.crop-visual {
+  display: grid;
+  place-items: end center;
+  min-height: 0;
+  z-index: 1;
+}
+
+.crop-visual svg {
+  width: min(86%, 82px);
+  height: min(86%, 82px);
+  filter: drop-shadow(0 5px 3px rgba(44, 27, 12, 0.22));
+}
+
+.plot-info {
+  display: grid;
+  gap: 4px;
+  z-index: 1;
+  padding: 4px 5px;
+  border-radius: 6px;
+  background: rgba(60, 39, 17, 0.44);
+  backdrop-filter: blur(2px);
+}
+
+.field-frame.is-calibrating .plot::after {
+  inset: 0;
+  border: 2px solid rgba(238, 241, 232, 0.78);
+  border-radius: 4px;
+  background: rgba(245, 248, 241, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(56, 58, 48, 0.18), 0 0 5px rgba(42, 44, 36, 0.18);
+}
+
+.field-frame.is-calibrating .plot {
+  background: transparent;
+  filter: none;
+}
+
+.field-frame.is-calibrating .plot::before {
+  content: attr(data-slot);
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  z-index: 4;
+  min-width: 20px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(33, 35, 30, 0.38);
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.field-frame.is-calibrating .plot-info,
+.field-frame.is-calibrating .plot.locked svg,
+.field-frame.is-calibrating .plot.locked .plot-label,
+.field-frame.is-calibrating .water-badge {
+  opacity: 0;
+}
+
+.field-frame.is-calibrating .plot.locked {
+  background: transparent;
+}
+
+.plot-label,
+.plot-time {
+  min-height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff6df;
+  text-shadow: 0 1px 1px rgba(52, 29, 14, 0.65);
+}
+
+.plot-time {
+  color: #ffecb3;
+}
+
+.plot-meter {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.plot-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #f3d157;
+}
+
+.water-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: #174c68;
+  border-radius: 999px;
+  background: #cae9f6;
+  border: 1px solid rgba(23, 76, 104, 0.3);
+}
+
+.water-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #eee1c4;
+}
+
+.tab {
+  min-height: 34px;
+  color: var(--ink);
+  background: transparent;
+}
+
+.tab-content {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.seed-card,
+.upgrade-row,
+.order-card {
+  padding: 10px;
+}
+
+.seed-card {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.seed-card.is-locked {
+  opacity: 0.62;
+}
+
+.seed-details {
+  display: grid;
+  gap: 8px;
+}
+
+.seed-title,
+.upgrade-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.seed-title strong,
+.upgrade-title strong {
+  font-size: 0.93rem;
+}
+
+.seed-title span,
+.price-tag {
+  white-space: nowrap;
+  font-weight: 800;
+  color: #795215;
+}
+
+.seed-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.seed-button,
+.action-button {
+  min-width: 92px;
+  background: #e7f0dc;
+  border-color: #c8dbb5;
+}
+
+.order-card {
+  display: grid;
+  gap: 10px;
+}
+
+.order-items {
+  display: grid;
+  gap: 6px;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: #f2ecd9;
+  font-size: 0.88rem;
+}
+
+.order-item.is-ready {
+  color: #245f31;
+  background: #e1f0d6;
+}
+
+.order-item.is-short {
+  color: #8a332b;
+  background: #f7e2d8;
+}
+
+.order-reward strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upgrade-row {
+  display: grid;
+  gap: 8px;
+}
+
+.upgrade-meta {
+  line-height: 1.4;
+}
+
+.toast-zone {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: min(320px, calc(100vw - 32px));
+}
+
+.toast {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #fffdf5;
+  background: rgba(44, 61, 42, 0.94);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  animation: toast-in 160ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (max-width: 1100px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-panel,
+  .work-panel {
+    order: 2;
+  }
+
+  .farm-stage {
+    order: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  .farm-app {
+    padding: 10px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stats-bar {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .stat-pill,
+  .level-stat {
+    flex: 1 1 130px;
+  }
+
+  .field-frame {
+    min-height: 300px;
+  }
+
+  .farm-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(3px, 2%, 8px);
+  }
+
+  .plot {
+    padding: 5px;
+  }
+
+  .plot-label,
+  .plot-time {
+    font-size: 0.7rem;
+  }
+
+  .seed-card {
+    grid-template-columns: 44px 1fr;
+  }
+}
