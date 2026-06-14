@@ -575,9 +575,9 @@ button:disabled {
 
 .plot:hover::after,
 .plot:focus-visible::after {
-  border-color: rgba(255, 244, 190, 0.75);
-  background: rgba(255, 248, 210, 0.08);
-  box-shadow: 0 0 0 2px rgba(93, 66, 31, 0.18);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .plot.empty::before {
@@ -594,8 +594,8 @@ button:disabled {
 
 .plot.empty:hover .plot-info,
 .plot.empty:focus-visible .plot-info {
-  opacity: 1;
-  transform: translateY(0);
+  opacity: 0;
+  transform: translateY(3px);
 }
 
 .plot.ready {
@@ -608,13 +608,18 @@ button:disabled {
   place-items: center;
   grid-template-rows: 1fr auto;
   color: #efe7d2;
-  background: rgba(34, 41, 38, 0.56);
-  border-color: rgba(35, 39, 36, 0.5);
+  background: transparent;
+  border-color: transparent;
 }
 
 .plot.locked svg {
   width: 28px;
   height: 28px;
+  opacity: 0;
+}
+
+.plot.locked .plot-label {
+  opacity: 0;
 }
 
 .crop-visual {
@@ -933,5 +938,658 @@ button:disabled {
 
   .seed-card {
     grid-template-columns: 44px 1fr;
+  }
+}
+
+/* Landscape game-board layout */
+body {
+  overflow: hidden;
+}
+
+.farm-app {
+  width: min(1180px, 100%);
+  height: 100dvh;
+  min-height: 0;
+  padding: 8px;
+  gap: 8px;
+}
+
+.topbar {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) auto auto;
+  padding: 6px 8px;
+  gap: 8px;
+}
+
+.main-nav {
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.main-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-button {
+  min-width: max-content;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid rgba(92, 79, 46, 0.22);
+  border-radius: 6px;
+  color: #263126;
+  font-weight: 800;
+  background: rgba(255, 253, 245, 0.92);
+  cursor: pointer;
+}
+
+.nav-button.is-active,
+.nav-button:hover {
+  color: #fffaf0;
+  border-color: #315f37;
+  background: #4f8a48;
+}
+
+.brand {
+  justify-content: center;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+}
+
+.brand h1 {
+  font-size: 1rem;
+}
+
+.brand p {
+  max-width: 210px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+}
+
+.stats-bar {
+  flex-wrap: nowrap;
+}
+
+.stat-pill,
+.level-stat {
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+}
+
+.game-layout {
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 204px minmax(0, 1fr) 258px;
+  gap: 8px;
+}
+
+.panel {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.farm-stage {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.scene-toolbar,
+.bottom-tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(92, 79, 46, 0.2);
+  border-radius: 8px;
+  background: rgba(44, 61, 42, 0.42);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px rgba(42, 35, 19, 0.12);
+}
+
+.scene-action,
+.bottom-tool-row .tool-button {
+  min-width: 78px;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 244, 213, 0.38);
+  border-radius: 8px;
+  color: #fffaf0;
+  font-weight: 900;
+  background: rgba(40, 72, 44, 0.76);
+  cursor: pointer;
+}
+
+.scene-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.scene-action:hover,
+.scene-action.is-active,
+.bottom-tool-row .tool-button:hover,
+.bottom-tool-row .tool-button.is-active {
+  background: rgba(238, 176, 56, 0.92);
+  color: #2d281b;
+}
+
+.field-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.crop-visual svg {
+  width: min(98%, 96px);
+  height: min(98%, 96px);
+}
+
+.plot.growing .crop-visual {
+  transform: translateY(4%);
+}
+
+.plot.watered .crop-visual {
+  transform: translateY(0);
+}
+
+.plot.ready .crop-visual {
+  animation: ready-bob 900ms ease-in-out infinite alternate;
+}
+
+.plot.ready {
+  background: radial-gradient(circle at 50% 56%, rgba(255, 238, 132, 0.2), rgba(255, 238, 132, 0) 62%);
+}
+
+@keyframes ready-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+
+.inventory-panel.is-pulsing {
+  animation: panel-pulse 900ms ease-out;
+}
+
+@keyframes panel-pulse {
+  0%,
+  100% {
+    box-shadow: var(--shadow);
+  }
+  35% {
+    box-shadow: 0 0 0 4px rgba(244, 201, 93, 0.52), var(--shadow);
+  }
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  .farm-app {
+    width: 100%;
+    padding: 5px;
+    gap: 5px;
+  }
+
+  .topbar {
+    min-height: 48px;
+    grid-template-columns: minmax(360px, 1fr) auto;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .nav-button {
+    min-height: 32px;
+    padding: 5px 9px;
+    font-size: 0.78rem;
+  }
+
+  .stats-bar {
+    gap: 4px;
+  }
+
+  .stat-pill,
+  .level-stat {
+    min-height: 32px;
+    padding: 4px 6px;
+    font-size: 0.72rem;
+  }
+
+  .level-stat {
+    min-width: 92px;
+  }
+
+  .icon-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .game-layout {
+    grid-template-columns: 148px minmax(0, 1fr) 198px;
+    gap: 5px;
+  }
+
+  .panel {
+    padding: 7px;
+  }
+
+  .panel-head {
+    margin-bottom: 6px;
+  }
+
+  .inventory-row {
+    grid-template-columns: 34px 1fr auto;
+    padding: 5px;
+  }
+
+  .mini-crop {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mini-crop img,
+  .mini-crop svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .tabs {
+    gap: 3px;
+  }
+
+  .tab {
+    min-height: 28px;
+    font-size: 0.72rem;
+  }
+
+  .tab-content {
+    margin-top: 6px;
+    gap: 6px;
+  }
+
+  .seed-card,
+  .upgrade-row,
+  .order-card {
+    padding: 6px;
+  }
+
+  .scene-toolbar,
+  .bottom-tool-row {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .scene-action,
+  .bottom-tool-row .tool-button {
+    min-width: 58px;
+    min-height: 30px;
+    padding: 4px 6px;
+    gap: 4px;
+    font-size: 0.72rem;
+  }
+
+  .button-icon,
+  .stat-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .field-frame {
+    min-height: 0;
+  }
+
+  .plot-info {
+    display: none;
+  }
+
+  .toast-zone {
+    right: 8px;
+    bottom: 8px;
+  }
+}
+
+/* Main-screen overlay panels */
+.game-layout {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+}
+
+.farm-stage {
+  grid-column: 1;
+}
+
+.inventory-panel,
+.work-panel {
+  position: absolute;
+  top: 58px;
+  z-index: 12;
+  display: none;
+  max-height: min(620px, calc(100% - 70px));
+  border-color: rgba(92, 79, 46, 0.28);
+  background: rgba(255, 250, 240, 0.97);
+  box-shadow: 0 16px 34px rgba(37, 46, 31, 0.28);
+}
+
+.inventory-panel {
+  left: 12px;
+  width: min(320px, 38vw);
+}
+
+.work-panel {
+  right: 12px;
+  width: min(380px, 42vw);
+}
+
+.inventory-panel.is-open,
+.work-panel.is-open {
+  display: block;
+  animation: panel-drop 130ms ease-out;
+}
+
+@keyframes panel-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.scene-toolbar {
+  justify-content: flex-start;
+}
+
+.scene-status-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.scene-stat {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: #263126;
+  font-weight: 800;
+  background: rgba(255, 250, 240, 0.86);
+  border: 1px solid rgba(255, 244, 213, 0.5);
+  white-space: nowrap;
+}
+
+.scene-stat strong {
+  font-size: 1rem;
+  color: #243f28;
+}
+
+.barn-hotspot {
+  position: absolute;
+  left: 68.4%;
+  top: 30.5%;
+  width: 16.5%;
+  height: 28.5%;
+  z-index: 4;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.barn-hotspot:focus-visible {
+  outline: 2px solid rgba(255, 250, 240, 0.85);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .inventory-panel,
+  .work-panel {
+    top: 42px;
+    max-height: calc(100% - 48px);
+    padding: 7px;
+  }
+
+  .inventory-panel {
+    left: 6px;
+    width: min(230px, 36vw);
+  }
+
+  .work-panel {
+    right: 6px;
+    width: min(300px, 44vw);
+  }
+
+  .scene-status-strip {
+    gap: 4px;
+  }
+
+  .scene-stat {
+    min-height: 30px;
+    padding: 4px 7px;
+    gap: 5px;
+    font-size: 0.72rem;
+  }
+
+  .scene-stat strong {
+    font-size: 0.76rem;
+  }
+}
+
+/* Dropdown menus and crop stages */
+.inventory-panel,
+.work-panel {
+  overflow: auto;
+}
+
+.inventory-panel {
+  width: min(340px, 34vw);
+}
+
+.work-panel {
+  width: min(430px, 42vw);
+}
+
+.work-panel .tabs {
+  display: none;
+}
+
+.work-panel-head {
+  margin-bottom: 8px;
+}
+
+.work-panel-head h2 {
+  font-size: 1.04rem;
+}
+
+.work-panel .tab-content {
+  margin-top: 0;
+}
+
+.bottom-tool-row .button-icon {
+  width: 26px;
+  height: 26px;
+  overflow: visible;
+}
+
+.tool-asset-icon {
+  width: 34px;
+  height: 34px;
+  display: block;
+  object-fit: contain;
+  transform: scale(1.18);
+  filter: drop-shadow(0 2px 1px rgba(34, 24, 14, 0.22));
+}
+
+.plot.growing,
+.plot.ready {
+  display: block;
+  overflow: visible;
+  clip-path: none;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.plot.growing .plot-info,
+.water-badge {
+  display: none;
+}
+
+.plot.growing .plot-info,
+.plot.ready .plot-info {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 1%;
+  z-index: 9;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 5px;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(42, 29, 16, 0.52);
+  pointer-events: none;
+}
+
+.plot.growing .plot-label,
+.plot.ready .plot-label,
+.plot.growing .plot-time,
+.plot.ready .plot-time {
+  min-height: 0;
+  color: #fff8e6;
+  font-size: clamp(0.58rem, 0.82vw, 0.78rem);
+  line-height: 1.05;
+}
+
+.plot.growing .plot-time,
+.plot.ready .plot-time {
+  color: #ffe9a1;
+  font-weight: 800;
+}
+
+.plot.growing .plot-meter,
+.plot.ready .plot-meter {
+  grid-column: 1 / -1;
+  height: 3px;
+}
+
+.plot.growing .crop-visual,
+.plot.ready .crop-visual {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  z-index: 6;
+  width: 86%;
+  height: 126%;
+  display: block;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.plot.watered .crop-visual {
+  bottom: 10%;
+  width: 108%;
+  height: 154%;
+}
+
+.plot.ready .crop-visual {
+  bottom: 5%;
+  width: 132%;
+  height: 178%;
+  animation: none;
+}
+
+.crop-stage-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 4px rgba(44, 27, 12, 0.3));
+}
+
+.plot.ready .crop-stage-image {
+  animation: crop-ready-bob 900ms ease-in-out infinite alternate;
+}
+
+.plot.ready::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 12%;
+  bottom: 12%;
+  z-index: 5;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 229, 110, 0.24), rgba(255, 229, 110, 0) 68%);
+  pointer-events: none;
+  animation: ready-glow 980ms ease-in-out infinite alternate;
+}
+
+@keyframes crop-ready-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes ready-glow {
+  from {
+    opacity: 0.45;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+.farm-app.is-planting-tool .field-frame,
+.farm-app.is-planting-tool .plot {
+  cursor: url("./assets/tools/hoe-cursor-v1.png") 8 54, pointer;
+}
+
+.farm-app.is-watering-tool .field-frame,
+.farm-app.is-watering-tool .plot {
+  cursor: url("./assets/tools/watering-can-cursor-v1.png") 8 54, pointer;
+}
+
+@media (max-width: 980px) and (orientation: landscape) {
+  .inventory-panel {
+    width: min(270px, 38vw);
+  }
+
+  .work-panel {
+    width: min(340px, 46vw);
   }
 }

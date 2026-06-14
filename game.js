@@ -84,6 +84,8 @@ const ICONS = {
   energy: `<svg viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 9-13h-6z" fill="#f0c643" stroke="#8b6321" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
   seed: `<svg viewBox="0 0 24 24"><path d="M12 20c-4.5-2.7-6.9-6-7-10.1 4.2.2 7.2 2.4 8.8 6.8 1.5-4 3.5-6.6 6.2-7.8.3 4.6-2.3 8.3-8 11.1z" fill="#5fa84d" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 20V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   drop: `<svg viewBox="0 0 24 24"><path d="M12 3c4.2 5 6.3 8.7 6.3 11.3A6.3 6.3 0 1 1 5.7 14.3C5.7 11.7 7.8 8 12 3z" fill="#7ac7e6" stroke="#23617c" stroke-width="1.5"/></svg>`,
+  hoe: `<img class="tool-asset-icon" src="./assets/tools/hoe-v1.png" alt="" />`,
+  watering: `<img class="tool-asset-icon" src="./assets/tools/watering-can-v1.png" alt="" />`,
   basket: `<svg viewBox="0 0 24 24"><path d="M5 10h14l-1.4 9H6.4z" fill="#c7843e" stroke="#704126" stroke-width="1.5"/><path d="M8 10a4 4 0 0 1 8 0" fill="none" stroke="#704126" stroke-width="1.7"/><path d="M8 14h8" stroke="#f4c66a" stroke-width="1.4" stroke-linecap="round"/></svg>`,
   cart: `<svg viewBox="0 0 24 24"><path d="M4 5h2l2 10h9l2-7H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="19" r="1.8" fill="currentColor"/><circle cx="17" cy="19" r="1.8" fill="currentColor"/></svg>`,
   lock: `<svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"/></svg>`,
@@ -103,9 +105,12 @@ const elements = {
   statusLine: document.querySelector("#statusLine"),
   weatherValue: document.querySelector("#weatherValue"),
   dayValue: document.querySelector("#dayValue"),
+  sceneWeatherValue: document.querySelector("#sceneWeatherValue"),
+  sceneDayValue: document.querySelector("#sceneDayValue"),
   farmGrid: document.querySelector("#farmGrid"),
   inventoryList: document.querySelector("#inventoryList"),
   tabContent: document.querySelector("#tabContent"),
+  workPanelTitle: document.querySelector("#workPanelTitle"),
   toastZone: document.querySelector("#toastZone"),
   restButton: document.querySelector("#restButton"),
   sellAllButton: document.querySelector("#sellAllButton"),
@@ -185,14 +190,108 @@ function bindStaticEvents() {
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.activeTab = button.dataset.tab;
+      const nextTab = button.dataset.tab;
+      const workPanel = document.querySelector(".work-panel");
+      const isSameOpen = workPanel?.classList.contains("is-open") && state.activeTab === nextTab;
+      state.activeTab = nextTab;
+      if (isSameOpen) {
+        openPanel("");
+      } else {
+        openPanel("work", getPanelAnchor(button));
+      }
       saveState();
       render();
     });
   });
 
+  document.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.action === "rest") {
+        restOneDay();
+      }
+      if (button.dataset.action === "sell-all") {
+        sellAllInventory();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-menu-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
+      button.classList.add("is-active");
+      const labels = {
+        profile: "角色設定會放頭像、稱號和玩家資料。",
+        farm: "農場設定會放農場名稱、佈景和公開狀態。",
+        invite: "邀請好友會放好友碼和拜訪連結。",
+        notice: "常見問題會放操作說明和版本資訊。",
+      };
+      toast(labels[button.dataset.menuAction] || "功能準備中。");
+    });
+  });
+
+  document.querySelectorAll("[data-panel-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      togglePanel(button.dataset.panelTarget, getPanelAnchor(button));
+    });
+  });
+
   elements.restButton.addEventListener("click", restOneDay);
   elements.sellAllButton.addEventListener("click", sellAllInventory);
+}
+
+function openPanel(target, anchor) {
+  const panels = {
+    inventory: document.querySelector(".inventory-panel"),
+    work: document.querySelector(".work-panel"),
+  };
+
+  Object.entries(panels).forEach(([name, panel]) => {
+    if (panel) {
+      panel.classList.toggle("is-open", name === target);
+      if (name === target && anchor) {
+        positionPanel(panel, anchor);
+      }
+    }
+  });
+}
+
+function togglePanel(target, anchor) {
+  const panel = document.querySelector(`.${target}-panel`);
+  if (!panel) {
+    return;
+  }
+
+  openPanel(panel.classList.contains("is-open") ? "" : target, anchor);
+}
+
+function getPanelAnchor(button) {
+  if (button.dataset.panelTarget === "inventory") {
+    return document.querySelector('.scene-action[data-panel-target="inventory"]') || button;
+  }
+
+  if (button.dataset.tab) {
+    return document.querySelector(`.scene-action[data-tab="${button.dataset.tab}"]`) || button;
+  }
+
+  return button;
+}
+
+function positionPanel(panel, anchor) {
+  const layout = document.querySelector(".game-layout");
+  if (!layout || !anchor) {
+    return;
+  }
+
+  const layoutRect = layout.getBoundingClientRect();
+  const anchorRect = anchor.getBoundingClientRect();
+  const panelWidth = panel.offsetWidth || 340;
+  const leftMax = Math.max(8, layoutRect.width - panelWidth - 8);
+  const left = Math.min(leftMax, Math.max(8, anchorRect.right - layoutRect.left - panelWidth));
+  const top = Math.max(8, anchorRect.bottom - layoutRect.top + 8);
+
+  panel.style.left = `${left}px`;
+  panel.style.right = "auto";
+  panel.style.top = `${top}px`;
 }
 
 function render() {
@@ -211,8 +310,14 @@ function renderHeader() {
   elements.energyValue.textContent = `${state.energy}/${state.maxEnergy}`;
   elements.levelValue.textContent = `Lv. ${state.level}`;
   elements.xpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
-  elements.weatherValue.textContent = WEATHERS[state.weather].name;
-  elements.dayValue.textContent = `第 ${state.day} 天`;
+  if (elements.weatherValue) {
+    elements.weatherValue.textContent = WEATHERS[state.weather].name;
+  }
+  if (elements.dayValue) {
+    elements.dayValue.textContent = `第 ${state.day} 天`;
+  }
+  elements.sceneWeatherValue.textContent = WEATHERS[state.weather].name;
+  elements.sceneDayValue.textContent = `第 ${state.day} 天`;
 
   const seed = CROPS[state.selectedSeed];
   if (state.energy <= 0) {
@@ -253,7 +358,7 @@ function renderFarm() {
       const crop = CROPS[plot.crop];
       const progress = getPlotProgress(plot);
       const ready = progress >= 1;
-      const stage = getPlotStage(progress);
+      const stage = getPlotStage(plot, progress);
       const remaining = Math.max(0, getPlotDuration(plot) - (Date.now() - plot.plantedAt));
 
       return `
@@ -307,13 +412,22 @@ function renderInventory() {
 }
 
 function renderTabs() {
+  document.querySelector(".farm-app")?.classList.toggle("is-watering-tool", state.selectedTool === "water");
+  document.querySelector(".farm-app")?.classList.toggle("is-planting-tool", state.selectedTool === "seed");
+  const workOpen = document.querySelector(".work-panel")?.classList.contains("is-open");
+
   document.querySelectorAll("[data-tool]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.tool === state.selectedTool);
   });
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.tab === state.activeTab);
+    button.classList.toggle("is-active", workOpen && button.dataset.tab === state.activeTab);
   });
+
+  if (elements.workPanelTitle) {
+    const titles = { shop: "種子", orders: "訂單", upgrades: "升級" };
+    elements.workPanelTitle.textContent = titles[state.activeTab] || "農場管理";
+  }
 }
 
 function renderTabContent() {
@@ -543,7 +657,8 @@ function waterPlot(index) {
   }
 
   plot.watered = true;
-  toast("澆水完成，成長速度提升。");
+  state.selectedTool = "seed";
+  toast("澆水完成，這格作物進入半成長，時間縮短三分之一。");
   saveState();
   render();
 }
@@ -755,7 +870,7 @@ function getPlotDuration(plot) {
 
   const windmill = 1 - (state.upgrades.windmill || 0) * 0.06;
   const weather = WEATHERS[state.weather].growth;
-  const water = plot.watered ? 0.72 : 1;
+  const water = plot.watered ? 2 / 3 : 1;
   return crop.grow * 1000 * Math.max(0.48, windmill * weather * water);
 }
 
@@ -767,17 +882,14 @@ function getPlotProgress(plot) {
   return Math.min(1, (Date.now() - plot.plantedAt) / getPlotDuration(plot));
 }
 
-function getPlotStage(progress) {
+function getPlotStage(plot, progress) {
   if (progress >= 1) {
     return "ripe";
   }
-  if (progress >= 0.58) {
+  if (plot.watered) {
     return "leaf";
   }
-  if (progress >= 0.28) {
-    return "sprout";
-  }
-  return "seed";
+  return "sprout";
 }
 
 function applyWeatherPassive() {
@@ -833,59 +945,77 @@ function toast(message) {
 }
 
 function cropVisual(id, stage) {
-  const crop = CROPS[id];
-  if (!crop) {
+  if (!CROPS[id]) {
     return "";
   }
 
+  const validStage = stage === "leaf" || stage === "ripe" ? stage : "sprout";
+  return `<img class="crop-stage-image crop-${id} crop-stage-${validStage}" src="./assets/crops/field/${id}-${validStage}.png" alt="" />`;
+}
+
+function sproutCropSvg(leaf) {
+  return `
+    <path d="M48 78C48 66 48 57 48 48" fill="none" stroke="#4e8f46" stroke-width="4" stroke-linecap="round"/>
+    <path d="M48 56c-10-8-21-9-31-2 10 6 21 7 31 2z" fill="${leaf}"/>
+    <path d="M48 56c10-8 21-9 31-2-10 6-21 7-31 2z" fill="#76b95f"/>
+    <path d="M48 45c-5-6-5-13 1-20 6 7 6 14-1 20z" fill="#8ed06e"/>
+  `;
+}
+
+function halfCropSvg(id, crop) {
   const [primary, shadow, leaf] = crop.colors;
-  const scale = { seed: 0.55, sprout: 0.7, leaf: 0.9, ripe: 1 }[stage] || 1;
-  const fruit = stage === "ripe" ? primary : stage === "leaf" ? primary : "#6db65a";
-  const fruitOpacity = stage === "seed" ? 0 : stage === "sprout" ? 0.15 : 1;
+  const bud = id === "corn" ? "#f3d35b" : primary;
+  return `
+    <path d="M48 78V36" fill="none" stroke="#3e7f3d" stroke-width="5" stroke-linecap="round"/>
+    <path d="M48 64c-14-10-28-11-40-3 12 7 27 8 40 3z" fill="${leaf}"/>
+    <path d="M48 63c14-10 28-11 40-3-12 7-27 8-40 3z" fill="#74b95d"/>
+    <path d="M48 49c-11-9-23-10-34-4 11 7 23 8 34 4z" fill="#66aa55"/>
+    <path d="M48 49c11-9 23-10 34-4-11 7-23 8-34 4z" fill="${leaf}"/>
+    <path d="M48 36c-7-8-7-18 1-28 8 10 7 20-1 28z" fill="#8acc66"/>
+    <circle cx="48" cy="42" r="${id === "pumpkin" ? 7 : 5}" fill="${bud}" stroke="${shadow}" stroke-width="1.5" opacity=".7"/>
+  `;
+}
+
+function ripeCropSvg(id, crop) {
+  const [primary, shadow, leaf] = crop.colors;
+  const sharedLeaves = `
+    <path d="M48 80V32" fill="none" stroke="#39793a" stroke-width="6" stroke-linecap="round"/>
+    <path d="M48 66c-17-12-32-12-45-2 13 8 29 8 45 2z" fill="${leaf}"/>
+    <path d="M48 66c17-12 32-12 45-2-13 8-29 8-45 2z" fill="#74b95d"/>
+    <path d="M48 50c-14-11-28-12-40-3 12 7 26 8 40 3z" fill="#5ea64e"/>
+    <path d="M48 50c14-11 28-12 40-3-12 7-26 8-40 3z" fill="${leaf}"/>
+  `;
 
   if (id === "corn") {
     return `
-      <svg viewBox="0 0 72 72" style="transform:scale(${scale})" aria-hidden="true">
-        <path d="M36 63c-9-12-13-25-10-38 8 5 11 16 10 38z" fill="${leaf}"/>
-        <path d="M36 63c9-12 13-25 10-38-8 5-11 16-10 38z" fill="#6baa52"/>
-        <path d="M36 14c8 9 10 22 0 39-10-17-8-30 0-39z" fill="${fruit}" opacity="${fruitOpacity}"/>
-        <path d="M31 24h10M30 33h12M31 42h10" stroke="${shadow}" stroke-width="2" opacity="${fruitOpacity}" stroke-linecap="round"/>
-      </svg>
+      ${sharedLeaves}
+      <path d="M48 16c13 13 15 32 0 54-15-22-13-41 0-54z" fill="#f6d64d" stroke="${shadow}" stroke-width="2"/>
+      <path d="M40 30h16M39 42h18M41 54h14" stroke="#c8922f" stroke-width="2.5" stroke-linecap="round"/>
     `;
   }
 
   if (id === "strawberry") {
     return `
-      <svg viewBox="0 0 72 72" style="transform:scale(${scale})" aria-hidden="true">
-        <path d="M36 62V28" stroke="${leaf}" stroke-width="5" stroke-linecap="round"/>
-        <path d="M36 29c-8-5-14-5-20-1 6 3 12 5 20 1zM36 29c8-5 14-5 20-1-6 3-12 5-20 1z" fill="${leaf}"/>
-        <path d="M36 28c13 5 19 15 13 25-4 8-22 8-26 0-6-10 0-20 13-25z" fill="${fruit}" opacity="${fruitOpacity}"/>
-        <path d="M31 38h1M39 38h1M35 47h1M45 47h1M27 47h1" stroke="#ffe3a0" stroke-width="3" stroke-linecap="round" opacity="${fruitOpacity}"/>
-      </svg>
+      ${sharedLeaves}
+      <path d="M48 25c15 7 22 19 14 31-6 10-22 12-28 0-8-12-1-24 14-31z" fill="${primary}" stroke="${shadow}" stroke-width="2"/>
+      <path d="M41 39h1M50 37h1M56 46h1M44 51h1M36 47h1" stroke="#ffe29a" stroke-width="3" stroke-linecap="round"/>
     `;
   }
 
   if (id === "pumpkin") {
     return `
-      <svg viewBox="0 0 72 72" style="transform:scale(${scale})" aria-hidden="true">
-        <path d="M35 23c-4-9 2-13 8-14" fill="none" stroke="${leaf}" stroke-width="4" stroke-linecap="round"/>
-        <path d="M22 38c0-11 7-18 14-18s14 7 14 18c0 13-7 22-14 22S22 51 22 38z" fill="${fruit}" opacity="${fruitOpacity}"/>
-        <path d="M14 40c0-10 6-17 13-17s13 7 13 17c0 12-6 20-13 20s-13-8-13-20zM32 40c0-10 6-17 13-17s13 7 13 17c0 12-6 20-13 20S32 52 32 40z" fill="${fruit}" opacity="${fruitOpacity * 0.9}"/>
-        <path d="M36 25v34" stroke="${shadow}" stroke-width="2" opacity=".35"/>
-        <path d="M27 28c-6 5-9 21 0 29M45 28c6 5 9 21 0 29" fill="none" stroke="${shadow}" stroke-width="2" opacity=".35"/>
-        <path d="M36 29c-6-6-13-7-21-3 7 3 14 5 21 3zM36 29c6-6 13-7 21-3-7 3-14 5-21 3z" fill="${leaf}"/>
-      </svg>
+      <path d="M48 35c-3-12 4-20 15-23" fill="none" stroke="${leaf}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M26 54c0-15 10-25 22-25s22 10 22 25c0 17-10 27-22 27S26 71 26 54z" fill="${primary}" stroke="${shadow}" stroke-width="2"/>
+      <path d="M11 57c0-13 9-23 20-23s20 10 20 23c0 15-9 24-20 24s-20-9-20-24zM45 57c0-13 9-23 20-23s20 10 20 23c0 15-9 24-20 24S45 72 45 57z" fill="${primary}" opacity=".9" stroke="${shadow}" stroke-width="1.5"/>
+      <path d="M48 35v43M32 39c-8 8-10 25-1 38M64 39c8 8 10 25 1 38" fill="none" stroke="${shadow}" stroke-width="2" opacity=".4"/>
     `;
   }
 
   return `
-    <svg viewBox="0 0 72 72" style="transform:scale(${scale})" aria-hidden="true">
-      <path d="M36 63V29" stroke="${leaf}" stroke-width="5" stroke-linecap="round"/>
-      <path d="M36 34c-9-7-18-8-26-3 9 4 17 5 26 3zM36 34c9-7 18-8 26-3-9 4-17 5-26 3z" fill="${leaf}"/>
-      <path d="M22 42c0-8 6-15 14-15s14 7 14 15c0 10-7 18-14 18S22 52 22 42z" fill="${fruit}" opacity="${fruitOpacity}"/>
-      <path d="M28 42c0-8 4-14 8-14s8 6 8 14c0 10-4 17-8 17s-8-7-8-17z" fill="${shadow}" opacity="${fruitOpacity * 0.2}"/>
-      <path d="M31 22c2-6 8-9 14-9 0 8-5 13-14 9z" fill="${leaf}" opacity="${stage === "seed" ? 0.4 : 1}"/>
-    </svg>
+    ${sharedLeaves}
+    <path d="M30 47c0-13 8-23 18-23s18 10 18 23c0 17-9 29-18 29S30 64 30 47z" fill="${primary}" stroke="${shadow}" stroke-width="2"/>
+    <path d="M39 46c0-12 4-21 9-21s9 9 9 21c0 16-4 27-9 27s-9-11-9-27z" fill="${shadow}" opacity=".18"/>
+    <path d="M42 18c4-8 13-11 23-8-2 11-10 16-23 8z" fill="${leaf}"/>
   `;
 }
 

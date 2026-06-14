@@ -9,6 +9,14 @@
   <body>
     <div class="farm-app">
       <header class="topbar">
+        <nav class="main-nav" aria-label="主選單">
+          <button class="nav-button is-active" type="button" data-menu-action="profile">角色設定</button>
+          <button class="nav-button" type="button" data-menu-action="farm">農場設定</button>
+          <button class="nav-button" type="button" data-menu-action="invite">邀請好友</button>
+          <button class="nav-button" type="button" data-tab="orders">農民市集</button>
+          <button class="nav-button" type="button" data-menu-action="notice">常見問題</button>
+        </nav>
+
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 64 64" role="img">
@@ -21,7 +29,7 @@
           </span>
           <div>
             <h1>開心農場</h1>
-            <p id="statusLine">田裡還有晨露，今天適合播種。</p>
+            <p id="statusLine">選工具後點田地操作。</p>
           </div>
         </div>
 
@@ -58,39 +66,69 @@
             </button>
           </div>
           <div id="inventoryList" class="inventory-list"></div>
-          <div class="ledger">
-            <div>
-              <span>今日天氣</span>
-              <strong id="weatherValue">晴朗</strong>
-            </div>
-            <div>
-              <span>農場日</span>
-              <strong id="dayValue">第 1 天</strong>
-            </div>
-          </div>
         </section>
 
-        <section class="farm-stage" aria-label="田地">
-          <div class="tool-row" role="toolbar" aria-label="工具列">
-            <button class="tool-button is-active" data-tool="seed" type="button" title="種子">
+        <section class="farm-stage" aria-label="農場場景">
+          <div class="scene-toolbar scene-toolbar-top" role="toolbar" aria-label="圖例功能">
+            <div class="scene-status-strip" aria-label="農場狀態">
+              <span class="scene-stat">今日天氣 <strong id="sceneWeatherValue">晴朗</strong></span>
+              <span class="scene-stat">農場日 <strong id="sceneDayValue">第 1 天</strong></span>
+            </div>
+            <button class="scene-action" type="button" data-panel-target="inventory">
+              <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
+              倉庫
+            </button>
+            <button class="scene-action" type="button" data-tab="shop">
               <span class="button-icon" aria-hidden="true" data-icon="seed"></span>
               種子
             </button>
+            <button class="scene-action" type="button" data-tab="orders">
+              <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
+              訂單
+            </button>
+            <button class="scene-action" type="button" data-tab="upgrades">
+              <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
+              升級
+            </button>
+            <button class="scene-action" type="button" data-action="rest">
+              <span class="button-icon" aria-hidden="true" data-icon="sun"></span>
+              休息
+            </button>
+          </div>
+
+          <div class="field-frame">
+            <button class="barn-hotspot" type="button" data-panel-target="inventory" aria-label="開啟倉庫" title="開啟倉庫"></button>
+            <div id="farmGrid" class="farm-grid"></div>
+          </div>
+
+          <div class="bottom-tool-row" role="toolbar" aria-label="農場操作">
+            <button class="tool-button is-active" data-tool="seed" type="button" title="種植">
+              <span class="button-icon" aria-hidden="true" data-icon="hoe"></span>
+              種植
+            </button>
             <button class="tool-button" data-tool="water" type="button" title="澆水">
-              <span class="button-icon" aria-hidden="true" data-icon="drop"></span>
+              <span class="button-icon" aria-hidden="true" data-icon="watering"></span>
               澆水
             </button>
             <button class="tool-button" data-tool="harvest" type="button" title="收成">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               收成
             </button>
-          </div>
-          <div class="field-frame is-calibrating">
-            <div id="farmGrid" class="farm-grid"></div>
+            <button class="tool-button" type="button" data-tab="shop" title="換種子">
+              <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
+              換種子
+            </button>
+            <button class="tool-button" type="button" data-action="sell-all" title="全部出售">
+              <span class="button-icon" aria-hidden="true" data-icon="coin"></span>
+              出售
+            </button>
           </div>
         </section>
 
         <aside class="panel work-panel" aria-label="農場管理">
+          <div class="panel-head work-panel-head">
+            <h2 id="workPanelTitle">種子</h2>
+          </div>
           <div class="tabs" role="tablist" aria-label="管理分頁">
             <button class="tab is-active" data-tab="shop" type="button">種子</button>
             <button class="tab" data-tab="orders" type="button">訂單</button>
