@@ -1593,3 +1593,752 @@ body {
     width: min(340px, 46vw);
   }
 }
+
+/* Mobile scale and right-side tool rail */
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.topbar > .stats-bar {
+  display: none;
+}
+
+.topbar {
+  grid-template-columns: minmax(0, auto) minmax(120px, 1fr);
+}
+
+.main-nav {
+  justify-content: flex-start;
+}
+
+.nav-button {
+  min-height: 31px;
+  padding: 4px 9px;
+  font-size: 0.82rem;
+}
+
+.brand {
+  justify-content: flex-end;
+}
+
+.scene-toolbar-top {
+  grid-area: top;
+  min-width: 0;
+}
+
+.scene-status-strip {
+  margin-right: 0;
+}
+
+.scene-stats {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-inline: auto;
+}
+
+.scene-stat-pill,
+.scene-level-pill {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(218, 202, 168, 0.9);
+  border-radius: 8px;
+  color: #263126;
+  font-weight: 900;
+  background: rgba(255, 253, 245, 0.9);
+  white-space: nowrap;
+}
+
+.scene-level-pill {
+  min-width: 92px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+}
+
+.scene-xp-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eadfca;
+}
+
+.scene-xp-track span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), #6aa56a);
+}
+
+.scene-stats + .scene-action {
+  margin-left: auto;
+}
+
+.farm-stage {
+  grid-template-columns: minmax(0, 1fr) clamp(72px, 7.5vw, 112px);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "top top"
+    "field tools";
+}
+
+.field-frame {
+  grid-area: field;
+}
+
+.bottom-tool-row {
+  grid-area: tools;
+  width: 100%;
+  align-self: stretch;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px;
+}
+
+.bottom-tool-row .tool-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 4px;
+  font-size: clamp(0.68rem, 1vw, 0.86rem);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.bottom-tool-row .button-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.plot.growing .crop-visual,
+.plot.ready .crop-visual {
+  bottom: -4%;
+  width: 148%;
+  height: 208%;
+}
+
+.plot.watered .crop-visual {
+  bottom: -8%;
+  width: 170%;
+  height: 236%;
+}
+
+.plot.ready .crop-visual {
+  bottom: -12%;
+  width: 194%;
+  height: 262%;
+}
+
+.plot.growing .plot-info,
+.plot.ready .plot-info {
+  left: 18%;
+  right: 18%;
+  bottom: -4%;
+  grid-template-columns: 1fr;
+  padding: 2px 4px;
+  background: rgba(42, 29, 16, 0.2);
+  backdrop-filter: none;
+  opacity: 0.82;
+}
+
+.plot.growing .plot-label,
+.plot.ready .plot-label,
+.plot.growing .plot-meter,
+.plot.ready .plot-meter {
+  display: none;
+}
+
+.plot.growing .plot-time,
+.plot.ready .plot-time {
+  color: rgba(255, 246, 220, 0.88);
+  font-size: clamp(0.48rem, 0.68vw, 0.66rem);
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(42, 29, 16, 0.45);
+}
+
+@media (hover: none), (max-width: 1180px) {
+  body {
+    background-color: #74b967;
+  }
+
+  .farm-app {
+    width: 100vw;
+    max-width: none;
+    height: 100svh;
+    min-height: 0;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .topbar {
+    min-height: 39px;
+    padding: 4px;
+    gap: 4px;
+    border-radius: 6px;
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .brand h1 {
+    font-size: 0.76rem;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .nav-button {
+    min-height: 29px;
+    padding: 3px 7px;
+    font-size: clamp(0.62rem, 1.85vw, 0.78rem);
+  }
+
+  .scene-toolbar,
+  .bottom-tool-row {
+    border-radius: 6px;
+  }
+
+  .scene-toolbar-top {
+    min-height: 36px;
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .scene-stat,
+  .scene-stat-pill,
+  .scene-level-pill {
+    min-height: 28px;
+    padding: 3px 6px;
+    gap: 4px;
+    font-size: clamp(0.6rem, 1.7vw, 0.76rem);
+    border-radius: 6px;
+  }
+
+  .scene-level-pill {
+    min-width: 76px;
+  }
+
+  .scene-action {
+    min-width: 48px;
+    min-height: 28px;
+    padding: 3px 5px;
+    gap: 3px;
+    font-size: clamp(0.58rem, 1.7vw, 0.72rem);
+    border-radius: 6px;
+  }
+
+  .scene-action .button-icon,
+  .scene-stats .stat-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .farm-stage {
+    gap: 4px;
+    grid-template-columns: minmax(0, 1fr) clamp(58px, 8vw, 84px);
+  }
+
+  .bottom-tool-row {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .bottom-tool-row .tool-button {
+    min-height: 44px;
+    padding: 4px 2px;
+    font-size: clamp(0.54rem, 1.55vw, 0.68rem);
+  }
+
+  .bottom-tool-row .button-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .tool-asset-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (orientation: landscape) and (hover: none) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .main-nav {
+    width: 100%;
+  }
+
+  .field-frame {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+@media (orientation: portrait) and (hover: none), (max-width: 720px) {
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .farm-app {
+    height: auto;
+    min-height: 100svh;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .main-nav {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .scene-toolbar-top {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .scene-status-strip,
+  .scene-stats {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .scene-status-strip::-webkit-scrollbar,
+  .scene-stats::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scene-stats + .scene-action {
+    margin-left: 0;
+  }
+
+  .scene-action {
+    flex: 0 0 auto;
+  }
+
+  .farm-stage {
+    grid-template-columns: minmax(0, 1fr) 58px;
+    grid-template-rows: auto auto;
+  }
+
+  .field-frame {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 1672 / 941;
+  }
+
+  .bottom-tool-row {
+    align-self: stretch;
+    min-height: 0;
+  }
+
+  .bottom-tool-row .tool-button {
+    min-height: 42px;
+  }
+}
+
+/* Keep the illustrated farm scene visible after mobile grid changes. */
+.farm-stage {
+  min-height: 0;
+}
+
+.field-frame {
+  display: block;
+  width: 100%;
+  min-height: clamp(300px, calc(100svh - 142px), 720px);
+  height: auto;
+  aspect-ratio: 1672 / 941;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(39, 89, 40, 0.08)),
+    url("./assets/farm-background-v1.png") center center / 100% 100% no-repeat;
+  background-color: #78bd63;
+}
+
+@media (orientation: landscape) {
+  .field-frame {
+    min-height: 0;
+    height: 100%;
+  }
+}
+
+@media (orientation: portrait) {
+  .field-frame {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* Latest layout guard: title lives beside resources, and the farm art is a real layer. */
+.topbar > .brand {
+  display: none;
+}
+
+.scene-brand {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: #203126;
+  white-space: nowrap;
+}
+
+.scene-brand .brand-mark {
+  width: 38px;
+  height: 38px;
+}
+
+.scene-brand h1 {
+  margin: 0;
+  font-size: clamp(0.82rem, 1.25vw, 1.06rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.scene-brand p {
+  max-width: 260px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: clamp(0.58rem, 0.86vw, 0.72rem);
+  font-weight: 700;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+}
+
+.scene-brand + .scene-stats {
+  margin-inline: 0;
+}
+
+.field-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #78bd63 !important;
+}
+
+.field-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(39, 89, 40, 0.08)),
+    var(--scene-image) center center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+@media (hover: none), (max-width: 1180px) {
+  .scene-brand {
+    gap: 5px;
+  }
+
+  .scene-brand .brand-mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .scene-brand p {
+    display: none;
+  }
+}
+
+@media (orientation: portrait) and (hover: none), (max-width: 720px) {
+  .scene-brand {
+    flex: 0 0 auto;
+    margin-left: 0;
+  }
+
+  .scene-brand + .scene-stats {
+    flex: 1 1 auto;
+  }
+}
+
+/* ===== 存檔備份視窗（Claude 版新增） ===== */
+.save-box {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(40, 26, 16, 0.55);
+}
+.save-box[hidden] {
+  display: none;
+}
+.save-card {
+  width: min(420px, 92vw);
+  background: #fdf6ec;
+  border: 3px solid #7a4a35;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(40, 26, 16, 0.35);
+  padding: 22px 22px 18px;
+  color: #4a2f1d;
+}
+.save-card h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  color: #9c3b1e;
+}
+.save-card p {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.save-actions button {
+  flex: 1 1 150px;
+  font: inherit;
+  font-size: 15px;
+  padding: 11px 8px;
+  border-radius: 10px;
+  border: 2px solid #7a4a35;
+  cursor: pointer;
+}
+.save-primary {
+  background: #e8b94a;
+  color: #5a3526;
+  font-weight: bold;
+}
+.save-secondary {
+  background: #fff3df;
+  color: #5a3526;
+}
+.save-close {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 8px;
+  border-radius: 10px;
+  border: 2px solid #b89a86;
+  background: #f3e6d6;
+  color: #6a4a36;
+  cursor: pointer;
+}
+
+/* ===== 頂列重排（Claude 版）：左＝農場標題＋資源，中＝主選單，右＝天氣/農場日 ===== */
+.topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 14px;
+  grid-template-columns: none;
+}
+
+/* 取消先前把標題與資源列隱藏的設定，改放最左邊 */
+.topbar > .brand {
+  display: inline-flex;
+  order: 0;
+  flex: 0 0 auto;
+  margin: 0;
+  justify-content: flex-start;
+}
+.topbar > .brand p {
+  display: none; /* 標題旁不擠提示文字，保持精簡；提示仍在場景列下方更新 */
+}
+.topbar > .stats-bar {
+  display: flex;
+  order: 1;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  margin: 0;
+  gap: 8px;
+}
+.topbar > .main-nav {
+  order: 2;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.topbar > .topbar-status {
+  order: 3;
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.topbar-stat {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: #263126;
+  font-weight: 800;
+  background: rgba(255, 250, 240, 0.92);
+  border: 1px solid rgba(218, 202, 168, 0.9);
+  white-space: nowrap;
+}
+.topbar-stat strong {
+  color: #243f28;
+}
+
+/* 場景列裡重複的標題／資源／天氣改由頂列顯示，這裡隱藏避免重複 */
+.scene-status-strip {
+  display: none;
+}
+.scene-brand {
+  display: none;
+}
+.scene-stats {
+  display: none;
+}
+
+/* 窄螢幕：資源與天氣縮小、提示維持隱藏，間距收緊 */
+@media (hover: none), (max-width: 1180px) {
+  .topbar {
+    gap: 8px;
+  }
+  .topbar-stat {
+    min-height: 31px;
+    padding: 4px 8px;
+    font-size: 0.82rem;
+  }
+}
+
+/* 場景列移除資源後，剩下的快捷按鈕靠左排 */
+.scene-stats + .scene-action {
+  margin-left: 0;
+}
+
+/* ===== 修正 v2：標題＋資源回到場景列最左；topbar 只留主選單(左)＋天氣(右) ===== */
+/* topbar：左＝主選單，右＝天氣；標題與資源不放這裡（避免主選單被擠到切掉）*/
+.topbar > .brand { display: none; }
+.topbar > .stats-bar { display: none; }
+.topbar > .main-nav { order: 0; flex: 1 1 auto; justify-content: flex-start; }
+.topbar > .topbar-status { order: 1; margin-left: auto; }
+
+/* 場景列：開心農場標題＋金幣/體力/等級放最左，快捷按鈕維持在右 */
+.scene-status-strip { display: none; }     /* 天氣已移到 topbar */
+.scene-brand {
+  display: inline-flex;
+  order: 0;
+  flex: 0 0 auto;
+  margin-left: 0;
+  margin-right: 0;
+}
+.scene-stats {
+  display: flex;
+  order: 1;
+  flex: 0 0 auto;
+  margin-inline: 0;
+  justify-content: flex-start;
+}
+.scene-stats + .scene-action {
+  margin-left: auto;   /* 把快捷按鈕群推回右邊（原本位置）*/
+}
+
+/* ===== 修正 v3 ===== */
+/* 天氣／農場日縮成跟主選單按鈕（角色設定…）一樣的字級與高度 */
+.topbar-stat {
+  min-height: 31px;
+  padding: 4px 9px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 4px;
+}
+.topbar > .topbar-status {
+  gap: 4px;
+}
+
+/* 場景列：資源（$/體力/等級）移到標題右邊，五個快捷鈕移到最右（兩者對調）*/
+.scene-stats {
+  order: 1;
+  margin-inline: 0;
+}
+.scene-toolbar-top .scene-action {
+  order: 2;
+}
+.scene-stats + .scene-action {
+  margin-left: auto;
+}
+
+/* ===== 訂單報酬：金幣與經驗各自帶圖示的膠囊，不再擠成一行 ===== */
+.order-reward {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.order-reward-label {
+  width: 100%;
+}
+.order-reward .reward-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.order-reward .reward-pill svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+.order-reward .reward-pill strong {
+  font-size: 0.9rem;
+}
+.order-reward .reward-coin {
+  color: #7a5a17;
+  background: #fdf3d6;
+  border: 1px solid #ecd28f;
+}
+.order-reward .reward-xp {
+  color: #3f6a34;
+  background: #eef4e6;
+  border: 1px solid #cfe0bd;
+}
+
+/* ===== 等級膠囊：橫條圖改放到 Lv. 數字右邊，降低高度 ===== */
+.scene-level-pill {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.scene-level-pill .scene-xp-track {
+  width: 60px;
+  flex: 0 0 auto;
+}

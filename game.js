@@ -95,6 +95,7 @@ const ICONS = {
   cloud: `<svg viewBox="0 0 24 24"><path d="M7.5 18h9.1a4.2 4.2 0 0 0 .2-8.4 6 6 0 0 0-11.4 2A3.3 3.3 0 0 0 7.5 18z" fill="#d7e3e7" stroke="#60747c" stroke-width="1.4"/></svg>`,
   rain: `<svg viewBox="0 0 24 24"><path d="M7.5 14h9.1a4.2 4.2 0 0 0 .2-8.4 6 6 0 0 0-11.4 2A3.3 3.3 0 0 0 7.5 14z" fill="#c8dce5" stroke="#52717c" stroke-width="1.4"/><path d="M8 17v3M12 16v4M16 17v3" stroke="#3489b2" stroke-width="1.7" stroke-linecap="round"/></svg>`,
   wind: `<svg viewBox="0 0 24 24"><path d="M4 8h11a3 3 0 1 0-3-3M4 13h15a3 3 0 1 1-3 3M4 18h7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  star: `<svg viewBox="0 0 24 24"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z" fill="#f0c64a" stroke="#9a6b1e" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
 };
 
 const elements = {
@@ -103,10 +104,15 @@ const elements = {
   levelValue: document.querySelector("#levelValue"),
   xpFill: document.querySelector("#xpFill"),
   statusLine: document.querySelector("#statusLine"),
+  sceneStatusLine: document.querySelector("#sceneStatusLine"),
   weatherValue: document.querySelector("#weatherValue"),
   dayValue: document.querySelector("#dayValue"),
   sceneWeatherValue: document.querySelector("#sceneWeatherValue"),
   sceneDayValue: document.querySelector("#sceneDayValue"),
+  sceneCoinValue: document.querySelector("#sceneCoinValue"),
+  sceneEnergyValue: document.querySelector("#sceneEnergyValue"),
+  sceneLevelValue: document.querySelector("#sceneLevelValue"),
+  sceneXpFill: document.querySelector("#sceneXpFill"),
   farmGrid: document.querySelector("#farmGrid"),
   inventoryList: document.querySelector("#inventoryList"),
   tabContent: document.querySelector("#tabContent"),
@@ -179,6 +185,89 @@ function saveState() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
 }
 
+function encodeSave() {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+}
+
+function decodeSave(code) {
+  const trimmed = (code || "").trim();
+  if (!trimmed) {
+    return null;
+  }
+  let data;
+  try {
+    data = JSON.parse(decodeURIComponent(escape(atob(trimmed))));
+  } catch {
+    try {
+      data = JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  }
+  return data && typeof data === "object" ? data : null;
+}
+
+function openSaveBox() {
+  const box = document.querySelector("#saveBox");
+  if (box) {
+    box.hidden = false;
+  }
+}
+
+function closeSaveBox() {
+  const box = document.querySelector("#saveBox");
+  if (box) {
+    box.hidden = true;
+  }
+}
+
+function exportCode() {
+  const code = encodeSave();
+  let copied = false;
+  try {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      copied = true;
+    }
+  } catch {
+    copied = false;
+  }
+  if (copied) {
+    toast("已複製備份碼，貼到記事本或傳給自己保存即可。");
+  } else {
+    window.prompt("複製此備份碼保存：", code);
+  }
+}
+
+function importCode() {
+  const code = window.prompt("貼上備份碼還原進度：");
+  if (code === null) {
+    return;
+  }
+  const data = decodeSave(code);
+  if (!data) {
+    toast("備份碼無效，請確認是否完整貼上。");
+    return;
+  }
+  const defaults = createDefaultState();
+  state = {
+    ...defaults,
+    ...data,
+    inventory: { ...defaults.inventory, ...(data.inventory || {}) },
+    upgrades: { ...defaults.upgrades, ...(data.upgrades || {}) },
+    plots: defaults.plots.map((plot, index) => ({
+      ...plot,
+      ...((data.plots && data.plots[index]) || {}),
+    })),
+    orders: Array.isArray(data.orders) ? data.orders : [],
+  };
+  ensureOrders();
+  saveState();
+  closeSaveBox();
+  render();
+  toast("已用備份碼還原進度。");
+}
+
 function bindStaticEvents() {
   document.querySelectorAll("[data-tool]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -217,6 +306,10 @@ function bindStaticEvents() {
 
   document.querySelectorAll("[data-menu-action]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.dataset.menuAction === "save") {
+        openSaveBox();
+        return;
+      }
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
       button.classList.add("is-active");
       const labels = {
@@ -228,6 +321,19 @@ function bindStaticEvents() {
       toast(labels[button.dataset.menuAction] || "功能準備中。");
     });
   });
+
+  const saveBox = document.querySelector("#saveBox");
+  const exportBtn = document.querySelector("#exportCodeBtn");
+  const importBtn = document.querySelector("#importCodeBtn");
+  const saveBoxClose = document.querySelector("#saveBoxClose");
+  if (exportBtn) exportBtn.addEventListener("click", exportCode);
+  if (importBtn) importBtn.addEventListener("click", importCode);
+  if (saveBoxClose) saveBoxClose.addEventListener("click", closeSaveBox);
+  if (saveBox) {
+    saveBox.addEventListener("click", (event) => {
+      if (event.target === saveBox) closeSaveBox();
+    });
+  }
 
   document.querySelectorAll("[data-panel-target]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -310,6 +416,10 @@ function renderHeader() {
   elements.energyValue.textContent = `${state.energy}/${state.maxEnergy}`;
   elements.levelValue.textContent = `Lv. ${state.level}`;
   elements.xpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
+  elements.sceneCoinValue.textContent = state.coins;
+  elements.sceneEnergyValue.textContent = `${state.energy}/${state.maxEnergy}`;
+  elements.sceneLevelValue.textContent = `Lv. ${state.level}`;
+  elements.sceneXpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
   if (elements.weatherValue) {
     elements.weatherValue.textContent = WEATHERS[state.weather].name;
   }
@@ -328,6 +438,10 @@ function renderHeader() {
     elements.statusLine.textContent = "水壺已經裝滿，幫作物加快一段腳步。";
   } else {
     elements.statusLine.textContent = "成熟作物會亮起來，收成後放進倉庫。";
+  }
+
+  if (elements.sceneStatusLine) {
+    elements.sceneStatusLine.textContent = elements.statusLine.textContent;
   }
 }
 
@@ -503,8 +617,9 @@ function renderOrders() {
               .join("")}
           </div>
           <div class="order-reward">
-            <span>報酬</span>
-            <strong>${ICONS.coin} ${order.reward} · XP ${order.xp}</strong>
+            <span class="order-reward-label">報酬</span>
+            <span class="reward-pill reward-coin">${ICONS.coin}<strong>${order.reward}</strong></span>
+            <span class="reward-pill reward-xp">${ICONS.star}<strong>${order.xp}</strong> XP</span>
           </div>
           <button class="action-button" type="button" data-complete-order="${order.id}" ${canFill ? "" : "disabled"}>
             <span class="button-icon" aria-hidden="true" data-icon="check"></span>

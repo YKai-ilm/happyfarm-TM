@@ -2,9 +2,14 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="開心農場" />
+    <meta name="theme-color" content="#cf4b3f" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-claude-005" />
   </head>
   <body>
     <div class="farm-app">
@@ -14,6 +19,7 @@
           <button class="nav-button" type="button" data-menu-action="farm">農場設定</button>
           <button class="nav-button" type="button" data-menu-action="invite">邀請好友</button>
           <button class="nav-button" type="button" data-tab="orders">農民市集</button>
+          <button class="nav-button" type="button" data-menu-action="save">存檔備份</button>
           <button class="nav-button" type="button" data-menu-action="notice">常見問題</button>
         </nav>
 
@@ -54,6 +60,11 @@
             </svg>
           </button>
         </div>
+
+        <div class="topbar-status" aria-label="天氣與農場日">
+          <span class="topbar-stat">今日天氣 <strong id="weatherValue">晴朗</strong></span>
+          <span class="topbar-stat">農場日 <strong id="dayValue">第 1 天</strong></span>
+        </div>
       </header>
 
       <main class="game-layout">
@@ -73,6 +84,35 @@
             <div class="scene-status-strip" aria-label="農場狀態">
               <span class="scene-stat">今日天氣 <strong id="sceneWeatherValue">晴朗</strong></span>
               <span class="scene-stat">農場日 <strong id="sceneDayValue">第 1 天</strong></span>
+            </div>
+            <div class="scene-brand" aria-label="目前農場">
+              <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 64 64" role="img">
+                  <path d="M8 28 32 10l24 18v28H8z" fill="#cf4b3f" />
+                  <path d="M8 28 32 10l24 18" fill="none" stroke="#703629" stroke-width="4" stroke-linejoin="round" />
+                  <path d="M24 56V36h16v20" fill="#f4c66a" />
+                  <path d="M18 56V42h8v14M38 56V42h8v14" fill="#ffe09a" opacity=".8" />
+                  <path d="M29 20h6v9h-6z" fill="#f7efe3" />
+                </svg>
+              </span>
+              <div>
+                <h1>開心農場</h1>
+                <p id="sceneStatusLine">選工具後點田地操作。</p>
+              </div>
+            </div>
+            <div class="scene-stats" aria-label="農場資源">
+              <span class="scene-stat-pill">
+                <span class="stat-icon" aria-hidden="true" data-icon="coin"></span>
+                <strong id="sceneCoinValue">0</strong>
+              </span>
+              <span class="scene-stat-pill">
+                <span class="stat-icon" aria-hidden="true" data-icon="energy"></span>
+                <strong id="sceneEnergyValue">0/0</strong>
+              </span>
+              <span class="scene-level-pill">
+                <strong id="sceneLevelValue">Lv. 1</strong>
+                <span class="scene-xp-track" aria-hidden="true"><span id="sceneXpFill"></span></span>
+              </span>
             </div>
             <button class="scene-action" type="button" data-panel-target="inventory">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
@@ -125,22 +165,4 @@
           </div>
         </section>
 
-        <aside class="panel work-panel" aria-label="農場管理">
-          <div class="panel-head work-panel-head">
-            <h2 id="workPanelTitle">種子</h2>
-          </div>
-          <div class="tabs" role="tablist" aria-label="管理分頁">
-            <button class="tab is-active" data-tab="shop" type="button">種子</button>
-            <button class="tab" data-tab="orders" type="button">訂單</button>
-            <button class="tab" data-tab="upgrades" type="button">升級</button>
-          </div>
-          <div id="tabContent" class="tab-content"></div>
-        </aside>
-      </main>
-
-      <div id="toastZone" class="toast-zone" aria-live="polite" aria-atomic="true"></div>
-    </div>
-
-    <script src="./game.js"></script>
-  </body>
-</html>
+        <aside class
