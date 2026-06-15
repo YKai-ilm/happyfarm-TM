@@ -165,4 +165,41 @@
           </div>
         </section>
 
-        <aside class
+        <aside class="panel work-panel" aria-label="農場管理">
+          <div class="panel-head work-panel-head">
+            <h2 id="workPanelTitle">種子</h2>
+          </div>
+          <div class="tabs" role="tablist" aria-label="管理分頁">
+            <button class="tab is-active" data-tab="shop" type="button">種子</button>
+            <button class="tab" data-tab="orders" type="button">訂單</button>
+            <button class="tab" data-tab="upgrades" type="button">升級</button>
+          </div>
+          <div id="tabContent" class="tab-content"></div>
+        </aside>
+      </main>
+
+      <div id="toastZone" class="toast-zone" aria-live="polite" aria-atomic="true"></div>
+    </div>
+
+    <div id="saveBox" class="save-box" hidden>
+      <div class="save-card" role="dialog" aria-modal="true" aria-label="存檔備份">
+        <h2>存檔備份</h2>
+        <p>遊戲進度會自動存在這台裝置。把進度複製成「備份碼」另外保存，換手機或瀏覽器被清掉時就能還原。</p>
+        <div class="save-actions">
+          <button id="exportCodeBtn" type="button" class="save-primary">複製備份碼</button>
+          <button id="importCodeBtn" type="button" class="save-secondary">貼備份碼還原</button>
+        </div>
+        <button id="saveBoxClose" type="button" class="save-close">關閉</button>
+      </div>
+    </div>
+
+    <script src="./game.js?v=20260615-claude-005"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js").catch(function () {});
+        });
+      }
+    </script>
+  </body>
+</html>
