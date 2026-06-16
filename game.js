@@ -1,52 +1,38 @@
 const SAVE_KEY = "happy-farm-browser-game-v1";
 const PLOT_COUNT = 16;
+// 原版開墾：最初 6 格，之後依序解鎖（金幣 / 需求等級）
+const PLOT_UNLOCKS = [
+  { cost: 10000, level: 5 },
+  { cost: 20000, level: 7 },
+  { cost: 30000, level: 9 },
+  { cost: 50000, level: 11 },
+  { cost: 70000, level: 13 },
+  { cost: 90000, level: 15 },
+  { cost: 120000, level: 17 },
+  { cost: 150000, level: 19 },
+  { cost: 180000, level: 21 },
+  { cost: 230000, level: 23 },
+];
 
+// grow / regrow 單位為「小時」（照原版開心農場數值）；img:true 代表有田間 PNG 圖，其餘用程式繪製的 SVG 代替
 const CROPS = {
-  turnip: {
-    name: "小蘿蔔",
-    cost: 4,
-    sell: 9,
-    grow: 18,
-    xp: 4,
-    unlock: 1,
-    colors: ["#f8f3ee", "#d94c75", "#67a84f"],
-  },
-  carrot: {
-    name: "紅蘿蔔",
-    cost: 7,
-    sell: 16,
-    grow: 34,
-    xp: 6,
-    unlock: 1,
-    colors: ["#f08a2d", "#ca5c24", "#5fa84d"],
-  },
-  corn: {
-    name: "玉米",
-    cost: 13,
-    sell: 31,
-    grow: 54,
-    xp: 9,
-    unlock: 2,
-    colors: ["#f7d64c", "#e2a73a", "#4d8a43"],
-  },
-  strawberry: {
-    name: "草莓",
-    cost: 20,
-    sell: 52,
-    grow: 76,
-    xp: 12,
-    unlock: 3,
-    colors: ["#de3f4f", "#9c2734", "#4e9c50"],
-  },
-  pumpkin: {
-    name: "南瓜",
-    cost: 32,
-    sell: 88,
-    grow: 112,
-    xp: 18,
-    unlock: 4,
-    colors: ["#e98231", "#b44f25", "#3e7d43"],
-  },
+  turnip:      { name: "白蘿蔔", cost: 125,  sell: 17, grow: 10, regrow: 0,  seasons: 1, xp: 15, unlock: 0,  img: true, colors: ["#f8f3ee", "#d94c75", "#67a84f"] },
+  carrot:      { name: "胡蘿蔔", cost: 163,  sell: 21, grow: 13, regrow: 0,  seasons: 1, xp: 18, unlock: 0,  img: true, colors: ["#f08a2d", "#ca5c24", "#5fa84d"] },
+  corn:        { name: "玉米",   cost: 175,  sell: 23, grow: 14, regrow: 0,  seasons: 1, xp: 19, unlock: 3,  img: true, colors: ["#f7d64c", "#e2a73a", "#4d8a43"] },
+  potato:      { name: "土豆",   cost: 188,  sell: 24, grow: 15, regrow: 0,  seasons: 1, xp: 20, unlock: 4,  colors: ["#d9a86a", "#a9783f", "#6a9a4c"] },
+  eggplant:    { name: "茄子",   cost: 237,  sell: 25, grow: 16, regrow: 0,  seasons: 1, xp: 21, unlock: 5,  colors: ["#7b4ea3", "#4f2f70", "#5a9a4c"] },
+  tomato:      { name: "番茄",   cost: 251,  sell: 26, grow: 17, regrow: 0,  seasons: 1, xp: 22, unlock: 6,  colors: ["#e0473a", "#a82b22", "#5a9a4c"] },
+  pea:         { name: "豌豆",   cost: 266,  sell: 27, grow: 18, regrow: 0,  seasons: 1, xp: 23, unlock: 7,  colors: ["#8fc24f", "#5d9a32", "#4d8a43"] },
+  pepper:      { name: "辣椒",   cost: 296,  sell: 28, grow: 20, regrow: 0,  seasons: 1, xp: 25, unlock: 8,  colors: ["#d8362b", "#9a241c", "#5a9a4c"] },
+  pumpkin:     { name: "南瓜",   cost: 325,  sell: 30, grow: 22, regrow: 0,  seasons: 1, xp: 27, unlock: 9,  img: true, colors: ["#e98231", "#b44f25", "#3e7d43"] },
+  apple:       { name: "蘋果",   cost: 578,  sell: 24, grow: 21, regrow: 9,  seasons: 2, xp: 18, unlock: 10, colors: ["#e23b3b", "#a3242b", "#5aa14c"] },
+  strawberry:  { name: "草莓",   cost: 605,  sell: 27, grow: 24, regrow: 11, seasons: 2, xp: 20, unlock: 10, img: true, colors: ["#de3f4f", "#9c2734", "#4e9c50"] },
+  watermelon:  { name: "西瓜",   cost: 708,  sell: 29, grow: 28, regrow: 13, seasons: 2, xp: 23, unlock: 11, colors: ["#4ca64c", "#2f6f37", "#3e7d43"] },
+  banana:      { name: "香蕉",   cost: 900,  sell: 32, grow: 31, regrow: 14, seasons: 2, xp: 25, unlock: 12, colors: ["#f2cf3e", "#c79a2a", "#5a9a4c"] },
+  peach:       { name: "桃子",   cost: 1200, sell: 40, grow: 42, regrow: 18, seasons: 2, xp: 33, unlock: 13, colors: ["#f3a6b0", "#d76b7e", "#5aa14c"] },
+  orange:      { name: "橙子",   cost: 1587, sell: 41, grow: 37, regrow: 16, seasons: 3, xp: 25, unlock: 14, colors: ["#f0922e", "#c4671e", "#5aa14c"] },
+  grape:       { name: "葡萄",   cost: 1978, sell: 47, grow: 46, regrow: 20, seasons: 3, xp: 30, unlock: 15, colors: ["#7b4ea3", "#4f2f70", "#5aa14c"] },
+  pomegranate: { name: "石榴",   cost: 2425, sell: 54, grow: 52, regrow: 22, seasons: 3, xp: 34, unlock: 16, colors: ["#cf3a4a", "#8f2330", "#5aa14c"] },
 };
 
 const WEATHERS = {
@@ -56,13 +42,6 @@ const WEATHERS = {
 };
 
 const UPGRADES = {
-  well: {
-    name: "水井",
-    icon: "drop",
-    max: 4,
-    description: "每級增加 4 點體力上限。",
-    cost: (level) => 85 + level * 55,
-  },
   windmill: {
     name: "風車",
     icon: "wind",
@@ -127,30 +106,28 @@ ensureOrders();
 hydrateIcons();
 bindStaticEvents();
 render();
-window.setInterval(render, 1000);
+window.setInterval(tick, 1000);
 
 function createDefaultState() {
   return {
-    coins: 90,
+    coins: 3000,
     level: 1,
     xp: 0,
     day: 1,
     weather: "sun",
-    energy: 24,
-    maxEnergy: 24,
     selectedTool: "seed",
     selectedSeed: "turnip",
     activeTab: "shop",
     inventory: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
     plots: Array.from({ length: PLOT_COUNT }, (_, index) => ({
-      unlocked: index < 12,
+      unlocked: index < 6,
       crop: null,
       plantedAt: 0,
+      season: 0,
       watered: false,
     })),
     orders: [],
     upgrades: {
-      well: 0,
       windmill: 0,
       stand: 0,
     },
@@ -410,14 +387,61 @@ function render() {
   hydrateIcons();
 }
 
+// 每秒的輕量更新：只就地更新成長倒數與進度，不重建 DOM，避免畫面閃爍
+function tick() {
+  applyWeatherPassive();
+  updateFarmTimers();
+}
+
+function updateFarmTimers() {
+  if (!elements.farmGrid) {
+    return;
+  }
+  elements.farmGrid.querySelectorAll("[data-plot]").forEach((button) => {
+    const index = Number(button.dataset.plot);
+    const plot = state.plots[index];
+    if (!plot || !plot.unlocked || !plot.crop) {
+      return;
+    }
+    const progress = getPlotProgress(plot);
+    const ready = progress >= 1;
+    button.classList.toggle("ready", ready);
+    button.classList.toggle("growing", !ready);
+    button.classList.toggle("watered", !!plot.watered);
+
+    const timeEl = button.querySelector(".plot-time");
+    if (timeEl) {
+      const remaining = Math.max(0, getPlotDuration(plot) - (Date.now() - plot.plantedAt));
+      const text = ready ? "可收成" : formatTime(remaining);
+      if (timeEl.textContent !== text) {
+        timeEl.textContent = text;
+      }
+    }
+
+    const meter = button.querySelector(".plot-meter span");
+    if (meter) {
+      meter.style.width = `${Math.min(100, Math.round(progress * 100))}%`;
+    }
+
+    const stage = getPlotStage(plot, progress);
+    const img = button.querySelector(".crop-stage-image");
+    if (img) {
+      const suffix = `${plot.crop}-${stage}.png`;
+      const cur = img.getAttribute("src") || "";
+      if (!cur.endsWith(suffix)) {
+        img.setAttribute("src", `./assets/crops/field/${suffix}`);
+        img.className = `crop-stage-image crop-${plot.crop} crop-stage-${stage}`;
+      }
+    }
+  });
+}
+
 function renderHeader() {
   const requiredXp = xpToNextLevel();
   elements.coinValue.textContent = state.coins;
-  elements.energyValue.textContent = `${state.energy}/${state.maxEnergy}`;
   elements.levelValue.textContent = `Lv. ${state.level}`;
   elements.xpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
   elements.sceneCoinValue.textContent = state.coins;
-  elements.sceneEnergyValue.textContent = `${state.energy}/${state.maxEnergy}`;
   elements.sceneLevelValue.textContent = `Lv. ${state.level}`;
   elements.sceneXpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
   if (elements.weatherValue) {
@@ -430,12 +454,10 @@ function renderHeader() {
   elements.sceneDayValue.textContent = `第 ${state.day} 天`;
 
   const seed = CROPS[state.selectedSeed];
-  if (state.energy <= 0) {
-    elements.statusLine.textContent = "體力見底了，休息一天就能重新開工。";
-  } else if (state.selectedTool === "seed") {
+  if (state.selectedTool === "seed") {
     elements.statusLine.textContent = `選中 ${seed.name}，空地點一下就能播種。`;
   } else if (state.selectedTool === "water") {
-    elements.statusLine.textContent = "水壺已經裝滿，幫作物加快一段腳步。";
+    elements.statusLine.textContent = "水壺已裝滿，幫作物加快成長。";
   } else {
     elements.statusLine.textContent = "成熟作物會亮起來，收成後放進倉庫。";
   }
@@ -637,9 +659,10 @@ function renderOrders() {
 
 function renderUpgrades() {
   const nextLockedIndex = state.plots.findIndex((plot) => !plot.unlocked);
-  const plotCost = nextPlotCost();
+  const plotInfo = nextPlotInfo();
+  const canPlot = !!plotInfo && state.level >= plotInfo.level && state.coins >= plotInfo.cost;
   const plotRow =
-    nextLockedIndex === -1
+    nextLockedIndex === -1 || !plotInfo
       ? `
         <article class="upgrade-row">
           <span class="upgrade-title"><strong>開墾田地</strong><span>完成</span></span>
@@ -648,9 +671,9 @@ function renderUpgrades() {
       `
       : `
         <article class="upgrade-row">
-          <span class="upgrade-title"><strong>開墾田地</strong><span>${plotCost} 金幣</span></span>
-          <span class="upgrade-meta">增加 1 格可種植的田地。</span>
-          <button class="action-button" type="button" data-buy-plot ${state.coins < plotCost ? "disabled" : ""}>
+          <span class="upgrade-title"><strong>開墾田地</strong><span>${plotInfo.cost} 金幣</span></span>
+          <span class="upgrade-meta">需 Lv.${plotInfo.level}，增加 1 格可種植的田地。</span>
+          <button class="action-button" type="button" data-buy-plot ${canPlot ? "" : "disabled"}>
             <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
             開墾
           </button>
@@ -734,15 +757,12 @@ function plantPlot(index) {
     return;
   }
 
-  if (!spendEnergy(1)) {
-    return;
-  }
-
   state.coins -= crop.cost;
   state.plots[index] = {
     ...state.plots[index],
     crop: state.selectedSeed,
     plantedAt: Date.now(),
+    season: 0,
     watered: state.weather === "rain",
   };
   toast(`${crop.name} 已播種。`);
@@ -767,13 +787,9 @@ function waterPlot(index) {
     return;
   }
 
-  if (!spendEnergy(1)) {
-    return;
-  }
-
   plot.watered = true;
   state.selectedTool = "seed";
-  toast("澆水完成，這格作物進入半成長，時間縮短三分之一。");
+  toast("澆水完成，成長速度加快。");
   saveState();
   render();
 }
@@ -790,52 +806,35 @@ function harvestPlot(index) {
     return;
   }
 
-  if (!spendEnergy(1)) {
-    return;
-  }
-
   const crop = CROPS[plot.crop];
   const bonus = plot.watered && Math.random() < 0.24 ? 1 : 0;
   const amount = 1 + bonus;
   state.inventory[plot.crop] = (state.inventory[plot.crop] || 0) + amount;
   addXp(crop.xp);
-  state.plots[index] = {
-    ...plot,
-    crop: null,
-    plantedAt: 0,
-    watered: false,
-  };
-  toast(`${crop.name} 收成 ${amount} 個。`);
+  const season = plot.season || 0;
+  const seasons = crop.seasons || 1;
+  if (season + 1 < seasons) {
+    state.plots[index] = { ...plot, plantedAt: Date.now(), season: season + 1, watered: false };
+    toast(`${crop.name} 收成 ${amount} 個，還會再長第 ${season + 2} 季。`);
+  } else {
+    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, watered: false };
+    toast(`${crop.name} 收成 ${amount} 個。`);
+  }
   saveState();
   render();
-}
-
-function spendEnergy(amount) {
-  if (state.energy < amount) {
-    toast("體力不夠了，休息一天吧。");
-    return false;
-  }
-
-  state.energy -= amount;
-  return true;
 }
 
 function restOneDay() {
   const weatherIds = Object.keys(WEATHERS);
   state.day += 1;
-  state.energy = state.maxEnergy;
   state.weather = weatherIds[Math.floor(Math.random() * weatherIds.length)];
-
-  const timeJump = 26000 + state.level * 6000;
-  state.plots.forEach((plot) => {
-    if (plot.crop) {
-      plot.plantedAt -= timeJump;
-      if (state.weather === "rain") {
+  if (state.weather === "rain") {
+    state.plots.forEach((plot) => {
+      if (plot.crop) {
         plot.watered = true;
       }
-    }
-  });
-
+    });
+  }
   toast(`${WEATHERS[state.weather].name}，${WEATHERS[state.weather].line}`);
   saveState();
   render();
@@ -896,13 +895,21 @@ function buyPlot() {
     return;
   }
 
-  const cost = nextPlotCost();
-  if (state.coins < cost) {
+  const info = nextPlotInfo();
+  if (!info) {
+    toast("已達開墾上限。");
+    return;
+  }
+  if (state.level < info.level) {
+    toast(`需要 Lv.${info.level} 才能開墾下一格。`);
+    return;
+  }
+  if (state.coins < info.cost) {
     toast("金幣不夠開墾。");
     return;
   }
 
-  state.coins -= cost;
+  state.coins -= info.cost;
   state.plots[index].unlocked = true;
   toast("新田地開好了。");
   saveState();
@@ -924,10 +931,6 @@ function buyUpgrade(id) {
 
   state.coins -= cost;
   state.upgrades[id] = level + 1;
-  if (id === "well") {
-    state.maxEnergy += 4;
-    state.energy += 4;
-  }
   toast(`${upgrade.name} 升到 Lv.${state.upgrades[id]}。`);
   saveState();
   render();
@@ -966,15 +969,13 @@ function addXp(amount) {
   while (state.xp >= xpToNextLevel()) {
     state.xp -= xpToNextLevel();
     state.level += 1;
-    state.maxEnergy += 2;
-    state.energy = state.maxEnergy;
     state.coins += 25 + state.level * 5;
-    toast(`升到 Lv.${state.level}，新種子也靠近了。`);
+    toast(`升到 Lv.${state.level}，解鎖新作物更近了。`);
   }
 }
 
 function xpToNextLevel() {
-  return 54 + (state.level - 1) * 38;
+  return state.level * 200;
 }
 
 function getPlotDuration(plot) {
@@ -983,10 +984,11 @@ function getPlotDuration(plot) {
     return 0;
   }
 
+  const baseHours = plot.season && plot.season > 0 && crop.regrow ? crop.regrow : crop.grow;
   const windmill = 1 - (state.upgrades.windmill || 0) * 0.06;
   const weather = WEATHERS[state.weather].growth;
   const water = plot.watered ? 2 / 3 : 1;
-  return crop.grow * 1000 * Math.max(0.48, windmill * weather * water);
+  return baseHours * 3600 * 1000 * Math.max(0.48, windmill * weather * water);
 }
 
 function getPlotProgress(plot) {
@@ -1033,21 +1035,33 @@ function inventoryValue() {
   return Object.entries(state.inventory).reduce((sum, [id, count]) => sum + sellPrice(id) * count, 0);
 }
 
-function nextPlotCost() {
+function nextPlotInfo() {
   const unlocked = state.plots.filter((plot) => plot.unlocked).length;
-  return 44 + unlocked * 9;
+  return PLOT_UNLOCKS[unlocked - 6] || null;
 }
 
 function formatTime(ms) {
-  const seconds = Math.ceil(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const rest = String(seconds % 60).padStart(2, "0");
-  return minutes > 0 ? `${minutes}:${rest}` : `${rest} 秒`;
+  const totalSec = Math.ceil(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const sec = totalSec % 60;
+  if (h > 0) {
+    return `${h} 小時 ${m} 分`;
+  }
+  if (m > 0) {
+    return `${m} 分 ${String(sec).padStart(2, "0")} 秒`;
+  }
+  return `${sec} 秒`;
 }
 
 function hydrateIcons(root = document) {
   root.querySelectorAll("[data-icon]").forEach((element) => {
-    element.innerHTML = ICONS[element.dataset.icon] || "";
+    const name = element.dataset.icon;
+    if (element.dataset.iconRendered === name) {
+      return;
+    }
+    element.innerHTML = ICONS[name] || "";
+    element.dataset.iconRendered = name;
   });
 }
 
@@ -1059,11 +1073,17 @@ function toast(message) {
   window.setTimeout(() => note.remove(), 2600);
 }
 
+function cropSvgWrap(inner) {
+  return `<svg class="crop-stage-svg" viewBox="0 0 96 88" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+
 function cropVisual(id, stage) {
-  if (!CROPS[id]) {
+  const crop = CROPS[id];
+  if (!crop) {
     return "";
   }
 
+  // 所有作物都已有田間 PNG（含 GPT 補的 12 種），一律用圖片
   const validStage = stage === "leaf" || stage === "ripe" ? stage : "sprout";
   return `<img class="crop-stage-image crop-${id} crop-stage-${validStage}" src="./assets/crops/field/${id}-${validStage}.png" alt="" />`;
 }

@@ -2342,3 +2342,13 @@ body {
   width: 60px;
   flex: 0 0 auto;
 }
+
+
+/* ===== 手機版也顯示農場標題下的操作提示文字 ===== */
+.scene-brand p {
+  display: block;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
