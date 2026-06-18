@@ -14,32 +14,47 @@ const PLOT_UNLOCKS = [
   { cost: 230000, level: 23 },
 ];
 
-// grow / regrow 單位為「小時」（照原版開心農場數值）；img:true 代表有田間 PNG 圖，其餘用程式繪製的 SVG 代替
+// GM 修改數據欄位設定（min/max/step）
+const GM_FIELDS = {
+  coins: { min: 0, max: 1000000, step: 100 },
+  level: { min: 1, max: 50, step: 1 },
+  xp: { min: 0, max: 50000, step: 50 },
+};
+
+let gmEditSnap = null;
+let gmInvSnap = null;
+
+// grow/regrow 單位「分鐘」；sell=每顆售價(原版)；yieldCount=每次收成顆數(原版產量)；img:true 有田間 PNG
 const CROPS = {
-  turnip:      { name: "白蘿蔔", cost: 125,  sell: 17, grow: 10, regrow: 0,  seasons: 1, xp: 15, unlock: 0,  img: true, colors: ["#f8f3ee", "#d94c75", "#67a84f"] },
-  carrot:      { name: "胡蘿蔔", cost: 163,  sell: 21, grow: 13, regrow: 0,  seasons: 1, xp: 18, unlock: 0,  img: true, colors: ["#f08a2d", "#ca5c24", "#5fa84d"] },
-  corn:        { name: "玉米",   cost: 175,  sell: 23, grow: 14, regrow: 0,  seasons: 1, xp: 19, unlock: 3,  img: true, colors: ["#f7d64c", "#e2a73a", "#4d8a43"] },
-  potato:      { name: "土豆",   cost: 188,  sell: 24, grow: 15, regrow: 0,  seasons: 1, xp: 20, unlock: 4,  colors: ["#d9a86a", "#a9783f", "#6a9a4c"] },
-  eggplant:    { name: "茄子",   cost: 237,  sell: 25, grow: 16, regrow: 0,  seasons: 1, xp: 21, unlock: 5,  colors: ["#7b4ea3", "#4f2f70", "#5a9a4c"] },
-  tomato:      { name: "番茄",   cost: 251,  sell: 26, grow: 17, regrow: 0,  seasons: 1, xp: 22, unlock: 6,  colors: ["#e0473a", "#a82b22", "#5a9a4c"] },
-  pea:         { name: "豌豆",   cost: 266,  sell: 27, grow: 18, regrow: 0,  seasons: 1, xp: 23, unlock: 7,  colors: ["#8fc24f", "#5d9a32", "#4d8a43"] },
-  pepper:      { name: "辣椒",   cost: 296,  sell: 28, grow: 20, regrow: 0,  seasons: 1, xp: 25, unlock: 8,  colors: ["#d8362b", "#9a241c", "#5a9a4c"] },
-  pumpkin:     { name: "南瓜",   cost: 325,  sell: 30, grow: 22, regrow: 0,  seasons: 1, xp: 27, unlock: 9,  img: true, colors: ["#e98231", "#b44f25", "#3e7d43"] },
-  apple:       { name: "蘋果",   cost: 578,  sell: 24, grow: 21, regrow: 9,  seasons: 2, xp: 18, unlock: 10, colors: ["#e23b3b", "#a3242b", "#5aa14c"] },
-  strawberry:  { name: "草莓",   cost: 605,  sell: 27, grow: 24, regrow: 11, seasons: 2, xp: 20, unlock: 10, img: true, colors: ["#de3f4f", "#9c2734", "#4e9c50"] },
-  watermelon:  { name: "西瓜",   cost: 708,  sell: 29, grow: 28, regrow: 13, seasons: 2, xp: 23, unlock: 11, colors: ["#4ca64c", "#2f6f37", "#3e7d43"] },
-  banana:      { name: "香蕉",   cost: 900,  sell: 32, grow: 31, regrow: 14, seasons: 2, xp: 25, unlock: 12, colors: ["#f2cf3e", "#c79a2a", "#5a9a4c"] },
-  peach:       { name: "桃子",   cost: 1200, sell: 40, grow: 42, regrow: 18, seasons: 2, xp: 33, unlock: 13, colors: ["#f3a6b0", "#d76b7e", "#5aa14c"] },
-  orange:      { name: "橙子",   cost: 1587, sell: 41, grow: 37, regrow: 16, seasons: 3, xp: 25, unlock: 14, colors: ["#f0922e", "#c4671e", "#5aa14c"] },
-  grape:       { name: "葡萄",   cost: 1978, sell: 47, grow: 46, regrow: 20, seasons: 3, xp: 30, unlock: 15, colors: ["#7b4ea3", "#4f2f70", "#5aa14c"] },
-  pomegranate: { name: "石榴",   cost: 2425, sell: 54, grow: 52, regrow: 22, seasons: 3, xp: 34, unlock: 16, colors: ["#cf3a4a", "#8f2330", "#5aa14c"] },
+  turnip:      { name: "白蘿蔔", cost: 125,   sell: 17, yieldCount: 16, grow: 2.5,  regrow: 0,    seasons: 1, xp: 15, unlock: 0,  img: true, colors: ["#f8f3ee", "#d94c75", "#67a84f"] },
+  carrot:      { name: "胡蘿蔔", cost: 163,   sell: 21, yieldCount: 17, grow: 3.25, regrow: 0,    seasons: 1, xp: 18, unlock: 0,  img: true, colors: ["#f08a2d", "#ca5c24", "#5fa84d"] },
+  corn:        { name: "玉米",   cost: 175,   sell: 23, yieldCount: 17, grow: 3.5,  regrow: 0,    seasons: 1, xp: 19, unlock: 3,  img: true, colors: ["#f7d64c", "#e2a73a", "#4d8a43"] },
+  potato:      { name: "土豆",   cost: 188,   sell: 24, yieldCount: 18, grow: 3.75, regrow: 0,    seasons: 1, xp: 20, unlock: 4,  colors: ["#d9a86a", "#a9783f", "#6a9a4c"] },
+  eggplant:    { name: "茄子",   cost: 237,   sell: 25, yieldCount: 20, grow: 4,    regrow: 0,    seasons: 1, xp: 21, unlock: 5,  colors: ["#7b4ea3", "#4f2f70", "#5a9a4c"] },
+  tomato:      { name: "番茄",   cost: 251,   sell: 26, yieldCount: 21, grow: 4.25, regrow: 0,    seasons: 1, xp: 22, unlock: 6,  colors: ["#e0473a", "#a82b22", "#5a9a4c"] },
+  pea:         { name: "豌豆",   cost: 266,   sell: 27, yieldCount: 22, grow: 4.5,  regrow: 0,    seasons: 1, xp: 23, unlock: 7,  colors: ["#8fc24f", "#5d9a32", "#4d8a43"] },
+  pepper:      { name: "辣椒",   cost: 296,   sell: 28, yieldCount: 24, grow: 5,    regrow: 0,    seasons: 1, xp: 25, unlock: 8,  colors: ["#d8362b", "#9a241c", "#5a9a4c"] },
+  pumpkin:     { name: "南瓜",   cost: 325,   sell: 30, yieldCount: 25, grow: 5.5,  regrow: 0,    seasons: 1, xp: 27, unlock: 9,  img: true, colors: ["#e98231", "#b44f25", "#3e7d43"] },
+  apple:       { name: "蘋果",   cost: 578,   sell: 24, yieldCount: 23, grow: 5.25, regrow: 2.25, seasons: 2, xp: 18, unlock: 10, colors: ["#e23b3b", "#a3242b", "#5aa14c"] },
+  strawberry:  { name: "草莓",   cost: 605,   sell: 27, yieldCount: 24, grow: 6,    regrow: 2.75, seasons: 2, xp: 20, unlock: 10, img: true, colors: ["#de3f4f", "#9c2734", "#4e9c50"] },
+  watermelon:  { name: "西瓜",   cost: 708,   sell: 29, yieldCount: 27, grow: 7,    regrow: 3.25, seasons: 2, xp: 23, unlock: 11, colors: ["#4ca64c", "#2f6f37", "#3e7d43"] },
+  banana:      { name: "香蕉",   cost: 900,   sell: 32, yieldCount: 29, grow: 7.75, regrow: 3.5,  seasons: 2, xp: 25, unlock: 12, colors: ["#f2cf3e", "#c79a2a", "#5a9a4c"] },
+  peach:       { name: "桃子",   cost: 1200,  sell: 40, yieldCount: 32, grow: 10.5, regrow: 4.5,  seasons: 2, xp: 33, unlock: 13, colors: ["#f3a6b0", "#d76b7e", "#5aa14c"] },
+  orange:      { name: "橙子",   cost: 1587,  sell: 41, yieldCount: 26, grow: 9.25, regrow: 4,    seasons: 3, xp: 25, unlock: 14, colors: ["#f0922e", "#c4671e", "#5aa14c"] },
+  grape:       { name: "葡萄",   cost: 1978,  sell: 47, yieldCount: 29, grow: 11.5, regrow: 5,    seasons: 3, xp: 30, unlock: 15, colors: ["#7b4ea3", "#4f2f70", "#5aa14c"] },
+  pomegranate: { name: "石榴",   cost: 2425,  sell: 54, yieldCount: 30, grow: 13,   regrow: 5.5,  seasons: 3, xp: 34, unlock: 16, colors: ["#cf3a4a", "#8f2330", "#5aa14c"] },
 };
 
 const WEATHERS = {
-  sun: { name: "晴朗", icon: "sun", growth: 0.94, line: "陽光很足，作物會精神一點。" },
-  cloud: { name: "多雲", icon: "cloud", growth: 1, line: "雲層厚厚的，節奏剛剛好。" },
-  rain: { name: "小雨", icon: "rain", growth: 0.82, line: "雨水落下，田地自己喝飽了。" },
+  sun: { name: "晴朗", icon: "sun", growth: 1.0, line: "陽光普照，作物正常生長。" },
+  cloud: { name: "多雲", icon: "cloud", growth: 1.1, line: "雲層厚厚的，成長慢一點。" },
+  rain: { name: "小雨", icon: "rain", growth: 0.9, line: "下雨了，自動幫作物澆水、長得快一些。" },
 };
+
+// 天氣自動輪換：每隔 3～5 分鐘換一次，加權（晴常見、雨偶爾）
+const WEATHER_WEIGHTS = [["sun", 45], ["cloud", 35], ["rain", 20]];
+const WEATHER_MIN_MS = 180000;
+const WEATHER_MAX_MS = 300000;
 
 const UPGRADES = {
   windmill: {
@@ -102,6 +117,7 @@ const elements = {
 };
 
 let state = loadState();
+let shopQty = {};
 ensureOrders();
 hydrateIcons();
 bindStaticEvents();
@@ -115,10 +131,13 @@ function createDefaultState() {
     xp: 0,
     day: 1,
     weather: "sun",
+    weatherNextAt: 0,
+    gm: false,
     selectedTool: "seed",
     selectedSeed: "turnip",
     activeTab: "shop",
     inventory: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
+    seeds: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
     plots: Array.from({ length: PLOT_COUNT }, (_, index) => ({
       unlocked: index < 6,
       crop: null,
@@ -146,6 +165,7 @@ function loadState() {
       ...defaults,
       ...raw,
       inventory: { ...defaults.inventory, ...(raw.inventory || {}) },
+      seeds: { ...defaults.seeds, ...(raw.seeds || {}) },
       upgrades: { ...defaults.upgrades, ...(raw.upgrades || {}) },
       plots: defaults.plots.map((plot, index) => ({
         ...plot,
@@ -231,6 +251,7 @@ function importCode() {
     ...defaults,
     ...data,
     inventory: { ...defaults.inventory, ...(data.inventory || {}) },
+    seeds: { ...defaults.seeds, ...(data.seeds || {}) },
     upgrades: { ...defaults.upgrades, ...(data.upgrades || {}) },
     plots: defaults.plots.map((plot, index) => ({
       ...plot,
@@ -243,6 +264,263 @@ function importCode() {
   closeSaveBox();
   render();
   toast("已用備份碼還原進度。");
+}
+
+const GM_PASSWORD = "70629";
+
+function updateGmBadge() {
+  const badge = document.querySelector("#gmBadge");
+  if (badge) {
+    badge.hidden = !state.gm;
+  }
+  document.querySelector(".farm-app")?.classList.toggle("is-gm", !!state.gm);
+}
+
+function makeGmBadgeDraggable() {
+  const badge = document.querySelector("#gmBadge");
+  if (!badge || badge.dataset.dragReady) return;
+  badge.dataset.dragReady = "1";
+  try {
+    const pos = JSON.parse(localStorage.getItem("gm-badge-pos") || "null");
+    if (pos && typeof pos.left === "number") {
+      badge.style.left = pos.left + "px";
+      badge.style.top = pos.top + "px";
+      badge.style.right = "auto";
+    }
+  } catch {}
+  let dragging = false;
+  let sx = 0;
+  let sy = 0;
+  let ox = 0;
+  let oy = 0;
+  badge.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    const r = badge.getBoundingClientRect();
+    ox = r.left;
+    oy = r.top;
+    sx = e.clientX;
+    sy = e.clientY;
+    try { badge.setPointerCapture(e.pointerId); } catch {}
+    e.preventDefault();
+  });
+  badge.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    let nx = ox + (e.clientX - sx);
+    let ny = oy + (e.clientY - sy);
+    nx = Math.max(0, Math.min(window.innerWidth - badge.offsetWidth, nx));
+    ny = Math.max(0, Math.min(window.innerHeight - badge.offsetHeight, ny));
+    badge.style.left = nx + "px";
+    badge.style.top = ny + "px";
+    badge.style.right = "auto";
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    try { badge.releasePointerCapture(e.pointerId); } catch {}
+    try {
+      localStorage.setItem("gm-badge-pos", JSON.stringify({
+        left: parseInt(badge.style.left, 10) || 0,
+        top: parseInt(badge.style.top, 10) || 0,
+      }));
+    } catch {}
+  };
+  badge.addEventListener("pointerup", end);
+  badge.addEventListener("pointercancel", end);
+}
+
+function showGmBox(sel) {
+  const b = document.querySelector(sel);
+  if (b) b.hidden = false;
+}
+function hideGmBox(sel) {
+  const b = document.querySelector(sel);
+  if (b) b.hidden = true;
+}
+
+function openGM() {
+  if (!state.gm) {
+    const pw = window.prompt("輸入 GM 密碼：");
+    if (pw === null) {
+      return;
+    }
+    if (pw.trim() !== GM_PASSWORD) {
+      toast("密碼錯誤。");
+      return;
+    }
+    state.gm = true;
+    saveState();
+    updateGmBadge();
+    toast("已進入 GM 模式。");
+  }
+  showGmBox("#gmPanel");
+}
+
+function gmReset() {
+  if (!window.confirm("確定要把遊戲重置成初始狀態嗎？此動作無法復原。")) {
+    return;
+  }
+  const keepGm = state.gm;
+  state = createDefaultState();
+  state.gm = keepGm;
+  ensureOrders();
+  saveState();
+  hideGmBox("#gmEdit");
+  hideGmBox("#gmPanel");
+  render();
+  toast("遊戲已重置為初始狀態。");
+}
+
+function gmExit() {
+  state.gm = false;
+  saveState();
+  hideGmBox("#gmEdit");
+  hideGmBox("#gmPanel");
+  updateGmBadge();
+  render();
+  toast("已關閉 GM 模式。");
+}
+
+function gmGet(key) {
+  return key === "coins" ? state.coins : key === "level" ? state.level : state.xp;
+}
+
+function gmSyncField(key) {
+  const num = document.querySelector(`[data-gm-num="${key}"]`);
+  const rng = document.querySelector(`[data-gm-range="${key}"]`);
+  const v = gmGet(key);
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+}
+
+function gmInitFields() {
+  Object.entries(GM_FIELDS).forEach(([key, f]) => {
+    const num = document.querySelector(`[data-gm-num="${key}"]`);
+    const rng = document.querySelector(`[data-gm-range="${key}"]`);
+    if (rng) { rng.min = f.min; rng.max = f.max; rng.step = f.step; }
+    if (num) { num.min = f.min; num.max = f.max; }
+    gmSyncField(key);
+  });
+}
+
+function gmSetVal(key, v) {
+  const f = GM_FIELDS[key];
+  if (Number.isNaN(v)) return;
+  v = Math.max(f.min, Math.min(f.max, Math.round(v)));
+  if (key === "coins") state.coins = v;
+  else if (key === "level") state.level = Math.max(1, v);
+  else state.xp = v;
+  gmSyncField(key);
+  saveState();
+  render();
+}
+
+function openGmEdit() {
+  gmEditSnap = gmCaptureEdit();
+  gmInitFields();
+  hideGmBox("#gmPanel");
+  showGmBox("#gmEdit");
+}
+
+function gmCaptureEdit() {
+  return { coins: state.coins, level: state.level, xp: state.xp, weather: state.weather, weatherNextAt: state.weatherNextAt, orders: JSON.parse(JSON.stringify(state.orders || [])) };
+}
+function gmApplyEdit(s) {
+  state.coins = s.coins;
+  state.level = s.level;
+  state.xp = s.xp;
+  state.weather = s.weather;
+  state.weatherNextAt = s.weatherNextAt;
+  state.orders = JSON.parse(JSON.stringify(s.orders || []));
+}
+function gmEditConfirm() {
+  gmEditSnap = gmCaptureEdit();
+  saveState();
+  toast("已套用修改。");
+}
+function gmEditRevert() {
+  if (gmEditSnap) gmApplyEdit(gmEditSnap);
+  saveState();
+  gmInitFields();
+  render();
+  toast("已回復未修改前的數值。");
+}
+function gmEditBack() {
+  if (gmEditSnap) gmApplyEdit(gmEditSnap);
+  saveState();
+  gmInitFields();
+  render();
+  hideGmBox("#gmEdit");
+  showGmBox("#gmPanel");
+}
+function gmEditDismiss() {
+  if (gmEditSnap) gmApplyEdit(gmEditSnap);
+  saveState();
+  gmInitFields();
+  render();
+  hideGmBox("#gmEdit");
+}
+
+function gmCaptureInv() {
+  return JSON.parse(JSON.stringify(state.inventory));
+}
+function gmApplyInv(s) {
+  state.inventory = JSON.parse(JSON.stringify(s));
+}
+function gmInvConfirm() {
+  gmInvSnap = gmCaptureInv();
+  saveState();
+  toast("已套用庫存。");
+}
+function gmInvRevert() {
+  if (gmInvSnap) gmApplyInv(gmInvSnap);
+  saveState();
+  render();
+  buildGmInvList();
+  toast("已回復庫存。");
+}
+function gmInvBack() {
+  if (gmInvSnap) gmApplyInv(gmInvSnap);
+  saveState();
+  render();
+  hideGmBox("#gmInvBox");
+  showGmBox("#gmEdit");
+}
+function gmInvDismiss() {
+  if (gmInvSnap) gmApplyInv(gmInvSnap);
+  saveState();
+  render();
+  hideGmBox("#gmInvBox");
+}
+
+function buildGmInvList() {
+  const list = document.querySelector("#gmInvList");
+  if (!list) return;
+  list.innerHTML = Object.entries(CROPS).map(([id, c]) => `
+    <div class="gm-inv-row">
+      <span class="gm-inv-name">${c.name}</span>
+      <div class="gm-ctrl">
+        <button class="gm-step" data-gm-inv-dec="${id}" type="button">−</button>
+        <input class="gm-num" data-gm-inv-num="${id}" type="number" min="0" max="999" value="${state.inventory[id] || 0}" />
+        <button class="gm-step" data-gm-inv-inc="${id}" type="button">＋</button>
+      </div>
+      <input class="gm-slider" data-gm-inv-range="${id}" type="range" min="0" max="999" step="1" value="${state.inventory[id] || 0}" />
+    </div>
+  `).join("");
+  list.querySelectorAll("[data-gm-inv-dec]").forEach((b) => b.addEventListener("click", () => gmSetInv(b.dataset.gmInvDec, (state.inventory[b.dataset.gmInvDec] || 0) - 1)));
+  list.querySelectorAll("[data-gm-inv-inc]").forEach((b) => b.addEventListener("click", () => gmSetInv(b.dataset.gmInvInc, (state.inventory[b.dataset.gmInvInc] || 0) + 1)));
+  list.querySelectorAll("[data-gm-inv-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetInv(n.dataset.gmInvNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-inv-range]").forEach((r) => r.addEventListener("input", () => gmSetInv(r.dataset.gmInvRange, parseInt(r.value, 10))));
+}
+
+function gmSetInv(id, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  state.inventory[id] = v;
+  const num = document.querySelector(`[data-gm-inv-num="${id}"]`);
+  const rng = document.querySelector(`[data-gm-inv-range="${id}"]`);
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+  render();
 }
 
 function bindStaticEvents() {
@@ -272,6 +550,9 @@ function bindStaticEvents() {
 
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.dataset.action === "gm") {
+        openGM();
+      }
       if (button.dataset.action === "rest") {
         restOneDay();
       }
@@ -311,6 +592,39 @@ function bindStaticEvents() {
       if (event.target === saveBox) closeSaveBox();
     });
   }
+
+  const gmPanel = document.querySelector("#gmPanel");
+  const gmEdit = document.querySelector("#gmEdit");
+  document.querySelector("#gmEditBtn")?.addEventListener("click", openGmEdit);
+  document.querySelector("#gmResetBtn")?.addEventListener("click", gmReset);
+  document.querySelector("#gmExitBtn")?.addEventListener("click", gmExit);
+  document.querySelector("#gmTodoBtn")?.addEventListener("click", () => toast("功能準備中。"));
+  document.querySelector("#gmPanelClose")?.addEventListener("click", () => hideGmBox("#gmPanel"));
+  if (gmPanel) gmPanel.addEventListener("click", (e) => { if (e.target === gmPanel) hideGmBox("#gmPanel"); });
+  document.querySelector("#gmEditConfirm")?.addEventListener("click", gmEditConfirm);
+  document.querySelector("#gmEditRevert")?.addEventListener("click", gmEditRevert);
+  document.querySelector("#gmEditBack")?.addEventListener("click", gmEditBack);
+  if (gmEdit) gmEdit.addEventListener("click", (e) => { if (e.target === gmEdit) gmEditDismiss(); });
+  Object.keys(GM_FIELDS).forEach((key) => {
+    const f = GM_FIELDS[key];
+    document.querySelector(`[data-gm-dec="${key}"]`)?.addEventListener("click", () => gmSetVal(key, gmGet(key) - f.step));
+    document.querySelector(`[data-gm-inc="${key}"]`)?.addEventListener("click", () => gmSetVal(key, gmGet(key) + f.step));
+    document.querySelector(`[data-gm-num="${key}"]`)?.addEventListener("input", (e) => { if (e.target.value !== "") gmSetVal(key, parseFloat(e.target.value)); });
+    document.querySelector(`[data-gm-range="${key}"]`)?.addEventListener("input", (e) => gmSetVal(key, parseFloat(e.target.value)));
+  });
+  document.querySelectorAll("[data-gm-weather]").forEach((b) => b.addEventListener("click", () => {
+    state.weather = b.dataset.gmWeather; state.weatherNextAt = Date.now() + weatherInterval(); saveState(); render(); toast("天氣已切換。");
+  }));
+  document.querySelector("#gmInvOpen")?.addEventListener("click", () => { gmInvSnap = gmCaptureInv(); buildGmInvList(); hideGmBox("#gmEdit"); showGmBox("#gmInvBox"); });
+  document.querySelector("#gmInvConfirm")?.addEventListener("click", gmInvConfirm);
+  document.querySelector("#gmInvRevert")?.addEventListener("click", gmInvRevert);
+  document.querySelector("#gmInvBack")?.addEventListener("click", gmInvBack);
+  const gmInvBox = document.querySelector("#gmInvBox");
+  if (gmInvBox) gmInvBox.addEventListener("click", (e) => { if (e.target === gmInvBox) gmInvDismiss(); });
+  document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
+    state.orders = []; ensureOrders(); saveState(); render(); toast("訂單已刷新。");
+  });
+  makeGmBadgeDraggable();
 
   document.querySelectorAll("[data-panel-target]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -385,11 +699,13 @@ function render() {
   renderTabs();
   renderTabContent();
   hydrateIcons();
+  updateGmBadge();
 }
 
 // 每秒的輕量更新：只就地更新成長倒數與進度，不重建 DOM，避免畫面閃爍
 function tick() {
   applyWeatherPassive();
+  rotateWeather();
   updateFarmTimers();
 }
 
@@ -429,7 +745,7 @@ function updateFarmTimers() {
       const suffix = `${plot.crop}-${stage}.png`;
       const cur = img.getAttribute("src") || "";
       if (!cur.endsWith(suffix)) {
-        img.setAttribute("src", `./assets/crops/field/${suffix}`);
+        img.setAttribute("src", `./assets/crops/field/${suffix}?v=20260615-claude-016`);
         img.className = `crop-stage-image crop-${plot.crop} crop-stage-${stage}`;
       }
     }
@@ -447,11 +763,7 @@ function renderHeader() {
   if (elements.weatherValue) {
     elements.weatherValue.textContent = WEATHERS[state.weather].name;
   }
-  if (elements.dayValue) {
-    elements.dayValue.textContent = `第 ${state.day} 天`;
-  }
   elements.sceneWeatherValue.textContent = WEATHERS[state.weather].name;
-  elements.sceneDayValue.textContent = `第 ${state.day} 天`;
 
   const seed = CROPS[state.selectedSeed];
   if (state.selectedTool === "seed") {
@@ -590,15 +902,24 @@ function renderShop() {
           <span class="mini-crop" aria-hidden="true">${cropCardVisual(id)}</span>
           <span class="seed-details">
             <span class="seed-title">
-              <strong>${crop.name}</strong>
-              <span>${locked ? `Lv.${crop.unlock}` : `${crop.cost} 金幣`}</span>
+              <span class="seed-name-wrap">
+                <strong>${crop.name}</strong>
+                <span class="seed-grow-pill">⏱ ${formatMinutes(crop.grow)}</span>
+              </span>
+              <span class="seed-price">${locked ? `Lv.${crop.unlock}` : `${crop.cost} 金幣`}</span>
             </span>
-            <span class="seed-meta">成長 ${crop.grow} 秒 · 售價 ${sellPrice(id)} · 經驗 ${crop.xp}</span>
+            <span class="seed-meta">單價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp}</span>
+            <span class="seed-bag-line">種子背包 <strong>${state.seeds[id] || 0}</strong> · 倉庫 ${state.inventory[id] || 0}</span>
+            <span class="seed-buy">
+              <button class="seed-step" type="button" data-seed-dec="${id}" ${locked ? "disabled" : ""}>−</button>
+              <input class="seed-qty" type="number" inputmode="numeric" min="1" data-seed-qty="${id}" value="${shopQty[id] || 1}" ${locked ? "disabled" : ""} />
+              <button class="seed-step" type="button" data-seed-inc="${id}" ${locked ? "disabled" : ""}>＋</button>
+              <button class="seed-buy-btn" type="button" data-seed-buy="${id}" ${locked ? "disabled" : ""}>購買</button>
+            </span>
             <span class="seed-actions">
-              <span class="seed-meta">倉庫 ${state.inventory[id] || 0}</span>
               <button class="seed-button ${selected ? "is-active" : ""}" type="button" data-seed-choice="${id}" ${locked ? "disabled" : ""}>
                 <span class="button-icon" aria-hidden="true" data-icon="${selected ? "check" : "seed"}"></span>
-                ${selected ? "已選" : "選取"}
+                ${selected ? "種這個" : "選來種"}
               </button>
             </span>
           </span>
@@ -615,6 +936,44 @@ function renderShop() {
       render();
     });
   });
+  elements.tabContent.querySelectorAll("[data-seed-buy]").forEach((button) => {
+    button.addEventListener("click", () => buySeed(button.dataset.seedBuy));
+  });
+  elements.tabContent.querySelectorAll("[data-seed-inc]").forEach((button) => {
+    button.addEventListener("click", () => setShopQty(button.dataset.seedInc, (shopQty[button.dataset.seedInc] || 1) + 1));
+  });
+  elements.tabContent.querySelectorAll("[data-seed-dec]").forEach((button) => {
+    button.addEventListener("click", () => setShopQty(button.dataset.seedDec, (shopQty[button.dataset.seedDec] || 1) - 1));
+  });
+  elements.tabContent.querySelectorAll("[data-seed-qty]").forEach((input) => {
+    input.addEventListener("change", () => setShopQty(input.dataset.seedQty, Math.floor(Number(input.value) || 1)));
+  });
+}
+
+function setShopQty(id, value) {
+  shopQty[id] = Math.max(1, Math.floor(value) || 1);
+  const input = elements.tabContent.querySelector(`[data-seed-qty="${id}"]`);
+  if (input) input.value = shopQty[id];
+}
+
+function buySeed(id) {
+  const crop = CROPS[id];
+  if (!crop) return;
+  if (crop.unlock > state.level) {
+    toast("這包種子還沒解鎖。");
+    return;
+  }
+  const qty = Math.max(1, Math.floor(shopQty[id] || 1));
+  const cost = crop.cost * qty;
+  if (state.coins < cost) {
+    toast(`金幣不夠，購買 ${qty} 包要 ${cost} 金幣。`);
+    return;
+  }
+  state.coins -= cost;
+  state.seeds[id] = (state.seeds[id] || 0) + qty;
+  toast(`購買 ${crop.name} 種子 ×${qty}，花了 ${cost} 金幣。`);
+  saveState();
+  render();
 }
 
 function renderOrders() {
@@ -752,12 +1111,12 @@ function plantPlot(index) {
     return;
   }
 
-  if (state.coins < crop.cost) {
-    toast("金幣不夠，先出售倉庫作物或完成訂單。");
+  if ((state.seeds[state.selectedSeed] || 0) < 1) {
+    toast(`背包沒有${crop.name}種子，先到商店購買。`);
     return;
   }
 
-  state.coins -= crop.cost;
+  state.seeds[state.selectedSeed] -= 1;
   state.plots[index] = {
     ...state.plots[index],
     crop: state.selectedSeed,
@@ -808,7 +1167,7 @@ function harvestPlot(index) {
 
   const crop = CROPS[plot.crop];
   const bonus = plot.watered && Math.random() < 0.24 ? 1 : 0;
-  const amount = 1 + bonus;
+  const amount = (crop.yieldCount || 1) + bonus;
   state.inventory[plot.crop] = (state.inventory[plot.crop] || 0) + amount;
   addXp(crop.xp);
   const season = plot.season || 0;
@@ -969,13 +1328,13 @@ function addXp(amount) {
   while (state.xp >= xpToNextLevel()) {
     state.xp -= xpToNextLevel();
     state.level += 1;
-    state.coins += 25 + state.level * 5;
+    state.coins += (25 + state.level * 5) * 2;
     toast(`升到 Lv.${state.level}，解鎖新作物更近了。`);
   }
 }
 
 function xpToNextLevel() {
-  return state.level * 200;
+  return state.level * 800;
 }
 
 function getPlotDuration(plot) {
@@ -984,11 +1343,11 @@ function getPlotDuration(plot) {
     return 0;
   }
 
-  const baseHours = plot.season && plot.season > 0 && crop.regrow ? crop.regrow : crop.grow;
+  const baseMinutes = plot.season && plot.season > 0 && crop.regrow ? crop.regrow : crop.grow;
   const windmill = 1 - (state.upgrades.windmill || 0) * 0.06;
   const weather = WEATHERS[state.weather].growth;
   const water = plot.watered ? 2 / 3 : 1;
-  return baseHours * 3600 * 1000 * Math.max(0.48, windmill * weather * water);
+  return baseMinutes * 60 * 1000 * Math.max(0.48, windmill * weather * water);
 }
 
 function getPlotProgress(plot) {
@@ -1007,6 +1366,38 @@ function getPlotStage(plot, progress) {
     return "leaf";
   }
   return "sprout";
+}
+
+function weatherInterval() {
+  return WEATHER_MIN_MS + Math.random() * (WEATHER_MAX_MS - WEATHER_MIN_MS);
+}
+
+function pickWeather() {
+  const total = WEATHER_WEIGHTS.reduce((sum, w) => sum + w[1], 0);
+  let r = Math.random() * total;
+  for (const [id, w] of WEATHER_WEIGHTS) {
+    r -= w;
+    if (r < 0) return id;
+  }
+  return "sun";
+}
+
+function rotateWeather() {
+  const now = Date.now();
+  if (!state.weatherNextAt) {
+    state.weatherNextAt = now + weatherInterval();
+    return;
+  }
+  if (now >= state.weatherNextAt) {
+    let next = pickWeather();
+    if (next === state.weather) {
+      next = pickWeather();
+    }
+    state.weather = next;
+    state.weatherNextAt = now + weatherInterval();
+    saveState();
+    render();
+  }
 }
 
 function applyWeatherPassive() {
@@ -1038,6 +1429,19 @@ function inventoryValue() {
 function nextPlotInfo() {
   const unlocked = state.plots.filter((plot) => plot.unlocked).length;
   return PLOT_UNLOCKS[unlocked - 6] || null;
+}
+
+function formatMinutes(min) {
+  const total = Math.round(min * 60);
+  const m = Math.floor(total / 60);
+  const sec = total % 60;
+  if (m > 0 && sec > 0) {
+    return `${m} 分 ${sec} 秒`;
+  }
+  if (m > 0) {
+    return `${m} 分`;
+  }
+  return `${sec} 秒`;
 }
 
 function formatTime(ms) {
@@ -1085,7 +1489,7 @@ function cropVisual(id, stage) {
 
   // 所有作物都已有田間 PNG（含 GPT 補的 12 種），一律用圖片
   const validStage = stage === "leaf" || stage === "ripe" ? stage : "sprout";
-  return `<img class="crop-stage-image crop-${id} crop-stage-${validStage}" src="./assets/crops/field/${id}-${validStage}.png" alt="" />`;
+  return `<img class="crop-stage-image crop-${id} crop-stage-${validStage}" src="./assets/crops/field/${id}-${validStage}.png?v=20260615-claude-016" alt="" />`;
 }
 
 function sproutCropSvg(leaf) {

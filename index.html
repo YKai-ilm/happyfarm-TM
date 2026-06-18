@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="開心農場" />
     <meta name="theme-color" content="#cf4b3f" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260615-claude-011" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-claude-029" />
   </head>
   <body>
     <div class="farm-app">
@@ -57,9 +57,8 @@
           </button>
         </div>
 
-        <div class="topbar-status" aria-label="天氣與農場日">
-          <span class="topbar-stat">今日天氣 <strong id="weatherValue">晴朗</strong></span>
-          <span class="topbar-stat">農場日 <strong id="dayValue">第 1 天</strong></span>
+        <div class="topbar-status" aria-label="目前天氣">
+          <span class="topbar-stat">目前天氣 <strong id="weatherValue">晴朗</strong></span>
         </div>
       </header>
 
@@ -78,7 +77,7 @@
         <section class="farm-stage" aria-label="農場場景">
           <div class="scene-toolbar scene-toolbar-top" role="toolbar" aria-label="圖例功能">
             <div class="scene-status-strip" aria-label="農場狀態">
-              <span class="scene-stat">今日天氣 <strong id="sceneWeatherValue">晴朗</strong></span>
+              <span class="scene-stat">目前天氣 <strong id="sceneWeatherValue">晴朗</strong></span>
               <span class="scene-stat">農場日 <strong id="sceneDayValue">第 1 天</strong></span>
             </div>
             <div class="scene-brand" aria-label="目前農場">
@@ -122,9 +121,9 @@
               <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
               升級
             </button>
-            <button class="scene-action" type="button" data-action="rest">
+            <button class="scene-action" type="button" data-action="gm">
               <span class="button-icon" aria-hidden="true" data-icon="sun"></span>
-              休息
+              特殊
             </button>
           </div>
 
@@ -185,7 +184,75 @@
       </div>
     </div>
 
-    <script src="./game.js?v=20260615-claude-011"></script>
+    <div id="gmBadge" class="gm-badge" hidden>🛠️ GM 模式</div>
+
+    <div id="gmPanel" class="gm-box" hidden>
+      <div class="gm-card" role="dialog" aria-modal="true" aria-label="GM 模式">
+        <h2>🛠️ GM 模式</h2>
+        <div class="gm-actions">
+          <button id="gmEditBtn" type="button" class="gm-primary">修改數據</button>
+          <button id="gmResetBtn" type="button" class="gm-secondary">重置遊戲</button>
+          <button id="gmTodoBtn" type="button" class="gm-secondary" disabled>待新增</button>
+          <button id="gmExitBtn" type="button" class="gm-danger">關閉 GM 模式</button>
+        </div>
+        <button id="gmPanelClose" type="button" class="gm-close">關閉視窗（保留 GM）</button>
+      </div>
+    </div>
+
+    <div id="gmEdit" class="gm-box" hidden>
+      <div class="gm-card gm-edit-card" role="dialog" aria-modal="true" aria-label="修改數據">
+        <h2>修改數據</h2>
+        <div class="gm-field">
+          <label>金幣</label>
+          <div class="gm-ctrl">
+            <button class="gm-step" data-gm-dec="coins" type="button">−</button>
+            <input class="gm-num" data-gm-num="coins" type="number" inputmode="numeric" />
+            <button class="gm-step" data-gm-inc="coins" type="button">＋</button>
+          </div>
+          <input class="gm-slider" data-gm-range="coins" type="range" />
+        </div>
+        <div class="gm-field">
+          <label>等級</label>
+          <div class="gm-ctrl">
+            <button class="gm-step" data-gm-dec="level" type="button">−</button>
+            <input class="gm-num" data-gm-num="level" type="number" inputmode="numeric" />
+            <button class="gm-step" data-gm-inc="level" type="button">＋</button>
+          </div>
+          <input class="gm-slider" data-gm-range="level" type="range" />
+        </div>
+        <div class="gm-field">
+          <label>經驗</label>
+          <div class="gm-ctrl">
+            <button class="gm-step" data-gm-dec="xp" type="button">−</button>
+            <input class="gm-num" data-gm-num="xp" type="number" inputmode="numeric" />
+            <button class="gm-step" data-gm-inc="xp" type="button">＋</button>
+          </div>
+          <input class="gm-slider" data-gm-range="xp" type="range" />
+        </div>
+        <div class="gm-row"><label>天氣</label><span class="gm-weather"><button data-gm-weather="sun" type="button">晴朗</button><button data-gm-weather="cloud" type="button">多雲</button><button data-gm-weather="rain" type="button">小雨</button></span></div>
+        <div class="gm-row"><label>庫存</label><button id="gmInvOpen" type="button">編輯庫存…</button></div>
+        <div class="gm-row"><label>訂單</label><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
+        <div class="gm-foot">
+          <button id="gmEditConfirm" type="button" class="gm-foot-ok">確定</button>
+          <button id="gmEditRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmEditBack" type="button" class="gm-foot-back">返回</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="gmInvBox" class="gm-box" hidden>
+      <div class="gm-card gm-edit-card" role="dialog" aria-modal="true" aria-label="庫存">
+        <h2>庫存</h2>
+        <div id="gmInvList" class="gm-inv-list"></div>
+        <div class="gm-foot">
+          <button id="gmInvConfirm" type="button" class="gm-foot-ok">確定</button>
+          <button id="gmInvRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmInvBack" type="button" class="gm-foot-back">返回</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./game.js?v=20260615-claude-029"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

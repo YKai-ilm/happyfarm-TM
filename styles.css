@@ -861,7 +861,7 @@ button:disabled {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 20;
+  z-index: 99999;
   display: grid;
   gap: 8px;
   width: min(320px, calc(100vw - 32px));
@@ -2351,4 +2351,196 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ===== GM / 金手指模式 ===== */
+.gm-box {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(18, 28, 18, 0.62);
+}
+.gm-box[hidden] { display: none; }
+.gm-card {
+  width: min(420px, 94vw); background: #20302a; color: #eef3ee;
+  border: 2px solid #e8b94a; border-radius: 16px; padding: 20px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+.gm-card h2 { margin: 0 0 14px; font-size: 19px; color: #f0c64a; }
+.gm-actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.gm-actions button, .gm-row button, .gm-close {
+  font: inherit; cursor: pointer; border-radius: 9px; padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.gm-primary { background: #e8b94a; color: #2a2113; font-weight: bold; }
+.gm-secondary { background: #3a4a3c; color: #eef3ee; }
+.gm-secondary[disabled] { opacity: 0.45; cursor: not-allowed; }
+.gm-danger { background: #b3463b; color: #fff; font-weight: bold; }
+.gm-close { width: 100%; margin-top: 4px; background: #2b3a2e; color: #d8efe0; }
+.gm-edit-card { width: min(470px, 96vw); }
+.gm-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.gm-row label { width: 48px; flex: 0 0 auto; font-size: 14px; color: #cfe6d6; }
+.gm-row input {
+  flex: 1 1 90px; min-width: 70px; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22); background: #11180f; color: #eef3ee; font: inherit;
+}
+.gm-row button { background: #3a4a3c; color: #eef3ee; padding: 8px 12px; }
+.gm-weather { display: flex; gap: 6px; flex: 1 1 auto; }
+.gm-weather button { flex: 1; }
+.gm-badge {
+  position: fixed; top: 8px; left: 8px; z-index: 65;
+  background: #e8b94a; color: #2a2113; font-weight: bold; font-size: 12px;
+  padding: 4px 10px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.gm-badge[hidden] { display: none; }
+
+/* ===== GM 修改數據：步進＋滑桿控制 ===== */
+.gm-field { margin-bottom: 14px; }
+.gm-field > label { display: block; font-size: 14px; color: #cfe6d6; margin-bottom: 5px; }
+.gm-ctrl { display: flex; align-items: center; gap: 6px; }
+.gm-step {
+  flex: 0 0 auto; width: 38px; height: 38px; font-size: 20px; line-height: 1;
+  background: #3a4a3c; color: #eef3ee; border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 9px; cursor: pointer;
+}
+.gm-num {
+  flex: 1 1 auto; min-width: 60px; height: 38px; text-align: center;
+  padding: 6px 8px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.25);
+  background: #11180f; color: #eef3ee; font: inherit; font-size: 15px;
+}
+.gm-slider { width: 100%; margin-top: 8px; accent-color: #e8b94a; cursor: pointer; height: 22px; }
+
+/* 庫存清單 */
+.gm-inv-list { max-height: 56vh; overflow-y: auto; padding-right: 4px; margin-bottom: 12px; }
+.gm-inv-row { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.gm-inv-name { display: block; font-size: 14px; color: #eef3ee; margin-bottom: 5px; }
+
+/* ===== GM 視窗：壓縮高度、適配手機橫向（覆寫） ===== */
+.gm-box { padding: 12px; }
+.gm-card { max-height: 92vh; overflow-y: auto; padding: 16px; }
+.gm-card h2 { margin: 0 0 10px; font-size: 17px; }
+.gm-actions { gap: 8px; margin-bottom: 10px; }
+.gm-field {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 8px; margin-bottom: 8px;
+}
+.gm-field > label { width: 40px; flex: 0 0 auto; margin: 0; font-size: 13px; }
+.gm-ctrl { flex: 0 0 auto; gap: 5px; }
+.gm-step { width: 34px; height: 34px; font-size: 18px; }
+.gm-num { width: 92px; min-width: 0; flex: 0 0 auto; height: 34px; font-size: 14px; }
+.gm-slider { flex: 1 1 150px; min-width: 110px; margin-top: 0; height: 20px; }
+.gm-row { margin-bottom: 8px; }
+.gm-row label { width: 40px; }
+.gm-inv-list { max-height: 58vh; }
+.gm-inv-row { padding: 6px 0; }
+
+/* GM 徽章：預設移到雲朵區、可拖曳 */
+.gm-badge {
+  top: 120px; left: 14px;
+  cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none;
+}
+.gm-badge:active { cursor: grabbing; }
+
+/* GM 庫存清單：橫向單列（標籤＋步進＋滑桿同列） */
+.gm-inv-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+.gm-inv-name { display: inline-block; width: 52px; flex: 0 0 auto; margin: 0; font-size: 13px; color: #eef3ee; }
+.gm-inv-row .gm-ctrl { flex: 0 0 auto; }
+.gm-inv-row .gm-num { width: 72px; }
+.gm-inv-row .gm-slider { flex: 1 1 130px; min-width: 90px; margin-top: 0; }
+
+/* GM 數字框：隱藏上下箭頭、置中 */
+.gm-num { text-align: center; appearance: textfield; -moz-appearance: textfield; }
+.gm-num::-webkit-inner-spin-button,
+.gm-num::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+
+/* GM 視窗底部三鍵：確定 / 回復 / 返回 */
+.gm-foot { display: flex; gap: 8px; margin-top: 8px; }
+.gm-foot button {
+  flex: 1; font: inherit; cursor: pointer; border-radius: 9px;
+  padding: 11px 4px; border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.gm-foot-ok { background: #e8b94a; color: #2a2113; font-weight: bold; }
+.gm-foot-undo { background: #6b5a2e; color: #fff; }
+.gm-foot-back { background: #2b3a2e; color: #d8efe0; }
+
+
+/* 商店：成長時間做成 GM 風格膠囊，放作物名右邊（-028） */
+.seed-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.seed-title .seed-grow-pill {
+  flex: none;
+  background: #e8b94a;
+  color: #2a2113;
+  font-weight: 700;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+
+/* 商店：種子背包數 + 購買數量步進列 */
+.seed-bag-line {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.seed-bag-line strong {
+  color: #3f7d3a;
+  font-weight: 800;
+}
+.seed-buy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.seed-step {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid #c8dbb5;
+  border-radius: 8px;
+  background: #e7f0dc;
+  color: #2f5d2a;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.seed-step:disabled,
+.seed-buy-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.seed-qty {
+  width: 54px;
+  height: 30px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  -moz-appearance: textfield;
+}
+.seed-qty::-webkit-outer-spin-button,
+.seed-qty::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.seed-buy-btn {
+  flex: 1;
+  min-width: 60px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: #e8b94a;
+  color: #2a2113;
+  font-weight: 800;
+  cursor: pointer;
 }
