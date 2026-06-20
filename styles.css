@@ -2544,3 +2544,335 @@ body {
   font-weight: 800;
   cursor: pointer;
 }
+
+
+/* 新手禮包面板 */
+.gift-box {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 30, 20, 0.5);
+}
+.gift-box[hidden] { display: none; }
+.gift-card {
+  width: min(420px, 100%);
+  max-height: 90vh;
+  overflow-y: scroll;
+  background: #fffdf5;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+.gift-card h2 { margin: 0 0 4px; }
+.gift-card > p { margin: 0 0 12px; color: var(--muted); font-size: 0.82rem; }
+.gift-list { display: grid; gap: 10px; }
+.gift-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f3e6;
+}
+.gift-row.is-claimable { border-color: #e8b94a; background: #fff6e0; }
+.gift-row.is-claimed { opacity: 0.55; }
+.gift-row-main { display: grid; gap: 3px; min-width: 0; }
+.gift-row-main strong { font-size: 0.95rem; }
+.gift-contents { color: #6a5a32; font-size: 0.8rem; }
+.gift-claim {
+  flex: none;
+  min-width: 84px;
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: #e8b94a;
+  color: #2a2113;
+  font-weight: 800;
+  cursor: pointer;
+}
+.gift-claim:disabled { background: #d9d2c0; color: #8a8472; cursor: default; }
+.gift-close {
+  margin-top: 14px;
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #ece6d6;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 禮包按鈕可領取紅點 */
+.scene-action { position: relative; }
+.scene-action.has-gift::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e23b3b;
+  box-shadow: 0 0 0 2px #fffdf5;
+}
+
+
+/* 開場轉盤 */
+.spin-box {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 30, 20, 0.55);
+}
+.spin-box[hidden] { display: none; }
+.spin-card {
+  width: min(360px, 100%);
+  background: #fffdf5;
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+.spin-card h2 { margin: 0 0 8px; }
+.wheel-wrap {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 4px auto 12px;
+}
+.wheel-pointer {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 13px solid transparent;
+  border-right: 13px solid transparent;
+  border-top: 22px solid #e23b3b;
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+.wheel-rotor {
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  transition: transform 4.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 0 6px #e8b94a, 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.wheel-rotor svg { width: 100%; height: 100%; display: block; border-radius: 50%; }
+.spin-result {
+  min-height: 1.4em;
+  margin: 0 0 10px;
+  font-weight: 800;
+  color: #9a3b1e;
+}
+.spin-go, .spin-close {
+  width: 100%;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.spin-go { background: #e8b94a; color: #2a2113; }
+.spin-go:disabled { opacity: 0.6; cursor: default; }
+.spin-close { background: #7bbf5a; color: #10331a; margin-top: 8px; }
+
+/* 天氣兌換卡：天氣選擇 */
+.weather-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.weather-pick button {
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #eef3e3;
+  font-weight: 700;
+  cursor: pointer;
+}
+.item-empty { margin: 8px 0 0; color: var(--muted); font-size: 0.8rem; }
+
+.item-buy {
+  margin-top: 12px;
+  width: 100%;
+  height: 42px;
+  border: 1px dashed #c8a24a;
+  border-radius: 9px;
+  background: #fff6e0;
+  color: #6a4d12;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 禮包分類（下拉手風琴） */
+.gift-section {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fffdf5;
+}
+.gift-sec-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  background: #f3ecd9;
+  border: 0;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #5a4a22;
+  text-align: left;
+}
+.gift-sec-title { flex: 0 0 auto; }
+.gift-sec-note { flex: 1; color: #3f7d3a; font-size: 0.76rem; font-weight: 700; }
+.gift-sec-caret { margin-left: auto; color: #9a8a5a; }
+.gift-sec-body {
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+.gift-sec-body[hidden] { display: none; }
+.gift-sec-empty {
+  margin: 0;
+  padding: 4px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* 天氣田地狀態：浸水(雷雨) / 凍傷(下雪) */
+.soak-badge, .frost-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 8px;
+  z-index: 2;
+  line-height: 1.5;
+}
+.soak-badge { background: #3a7ca8; }
+.frost-badge { background: #6f8fb0; }
+.plot.soaked { box-shadow: inset 0 0 0 2px rgba(58, 124, 168, 0.55); }
+.plot.frosted { box-shadow: inset 0 0 0 2px rgba(150, 180, 210, 0.7); }
+
+/* 倉庫面板：左災損 + 右倉庫 雙欄 */
+.inventory-panel { width: min(600px, 94vw); }
+.inv-split { display: flex; gap: 10px; align-items: flex-start; }
+.inv-col { flex: 1 1 0; min-width: 0; }
+.damaged-col { border-right: 1px solid var(--line); padding-right: 10px; }
+.damaged-row .frost-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #4a6b8c;
+}
+.damaged-actions { display: flex; gap: 4px; }
+.mini-thaw {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #c8dbb5;
+  border-radius: 8px;
+  background: #eef3e3;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.mini-thaw.card { background: #e6e0f2; border-color: #c9bfe2; }
+.mini-thaw:disabled { opacity: 0.45; cursor: default; }
+
+@media (max-width: 640px) {
+  .inventory-panel { width: min(360px, 92vw); }
+  .inv-split { flex-direction: column; }
+  .damaged-col {
+    border-right: 0;
+    padding-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+}
+
+/* 農民市集道具 icon */
+.market-icon { font-size: 24px; }
+
+/* 標桿 / 損壞農地 / 颱風標記 */
+.plot-stake {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  font-size: 0.9rem;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+.plot.broken {
+  background: repeating-linear-gradient(45deg, #d9cdbb, #d9cdbb 8px, #cdbfa8 8px, #cdbfa8 16px);
+  color: #6a5640;
+}
+.plot.broken .plot-label { font-weight: 800; color: #8a4a36; }
+.typhoon-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+  background: #7a5aa0;
+  padding: 1px 5px;
+  border-radius: 8px;
+  z-index: 2;
+  line-height: 1.5;
+}
+.plot.typhoon-hit { box-shadow: inset 0 0 0 2px rgba(122, 90, 160, 0.55); }
+
+/* 好友清單 / 好友農場 */
+.friends-list { display: grid; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.friend-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf5;
+}
+.friend-ava { font-size: 1.4rem; }
+.friend-name { flex: 1; font-weight: 700; min-width: 0; }
+.friend-visit {
+  flex: none; height: 32px; padding: 0 14px; border: 0; border-radius: 8px;
+  background: #e8b94a; color: #2a2113; font-weight: 800; cursor: pointer;
+}
+.friend-add { display: flex; gap: 8px; margin-top: 10px; }
+.friend-add input {
+  flex: 1; height: 38px; border: 1px solid var(--line); border-radius: 9px;
+  padding: 0 10px; font-size: 0.9rem; background: #fff;
+}
+.friend-add button {
+  flex: none; height: 38px; padding: 0 16px; border: 0; border-radius: 9px;
+  background: #7bbf5a; color: #10331a; font-weight: 800; cursor: pointer;
+}
+.ff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ff-plot {
+  display: grid; gap: 3px; justify-items: center;
+  padding: 8px 4px; border: 1px solid var(--line); border-radius: 10px;
+  background: #f3ecd9; min-height: 96px; align-content: center;
+}
+.ff-crop { width: 40px; height: 40px; display: grid; place-items: center; }
+.ff-crop img { width: 38px; height: 38px; object-fit: contain; }
+.ff-cropname { font-size: 0.78rem; font-weight: 700; color: #5a4a22; }
+.ff-state { font-size: 0.72rem; color: var(--muted); }
+.ff-btn { margin-top: 2px; height: 28px; padding: 0 12px; border: 0; border-radius: 7px; font-weight: 800; cursor: pointer; font-size: 0.8rem; }
+.ff-btn.steal { background: #e07a4a; color: #fff; }
+.ff-btn.help { background: #6aa9d8; color: #fff; }

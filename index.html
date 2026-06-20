@@ -18,9 +18,10 @@
           <button class="nav-button is-active" type="button" data-menu-action="profile">角色設定</button>
           <button class="nav-button" type="button" data-menu-action="farm">農場設定</button>
           <button class="nav-button" type="button" data-menu-action="invite">邀請好友</button>
-          <button class="nav-button" type="button" data-tab="orders">農民市集</button>
+          <button class="nav-button" type="button" data-tab="market">農民市集</button>
           <button class="nav-button" type="button" data-menu-action="save">存檔備份</button>
           <button class="nav-button" type="button" data-menu-action="notice">常見問題</button>
+          <button class="nav-button" type="button" data-menu-action="redeem">兌換碼</button>
         </nav>
 
         <div class="brand">
@@ -64,14 +65,22 @@
 
       <main class="game-layout">
         <section class="panel inventory-panel" aria-label="倉庫">
-          <div class="panel-head">
-            <h2>倉庫</h2>
-            <button class="compact-button" id="sellAllButton" type="button">
-              <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
-              全部出售
-            </button>
+          <div class="inv-split">
+            <div class="inv-col damaged-col">
+              <div class="panel-head"><h2>災損作物</h2></div>
+              <div id="damagedList" class="inventory-list"></div>
+            </div>
+            <div class="inv-col stock-col">
+              <div class="panel-head">
+                <h2>倉庫</h2>
+                <button class="compact-button" id="sellAllButton" type="button">
+                  <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
+                  全部出售
+                </button>
+              </div>
+              <div id="inventoryList" class="inventory-list"></div>
+            </div>
           </div>
-          <div id="inventoryList" class="inventory-list"></div>
         </section>
 
         <section class="farm-stage" aria-label="農場場景">
@@ -105,6 +114,14 @@
                 <span class="scene-xp-track" aria-hidden="true"><span id="sceneXpFill"></span></span>
               </span>
             </div>
+            <button class="scene-action" type="button" data-action="gift">
+              <span class="button-icon" aria-hidden="true" data-icon="gift"></span>
+              禮包
+            </button>
+            <button class="scene-action" type="button" data-action="item">
+              <span class="button-icon" aria-hidden="true" data-icon="item"></span>
+              道具
+            </button>
             <button class="scene-action" type="button" data-panel-target="inventory">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               倉庫
@@ -120,6 +137,10 @@
             <button class="scene-action" type="button" data-tab="upgrades">
               <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
               升級
+            </button>
+            <button class="scene-action" type="button" data-action="friends">
+              <span class="button-icon" aria-hidden="true" data-icon="star"></span>
+              好友
             </button>
             <button class="scene-action" type="button" data-action="gm">
               <span class="button-icon" aria-hidden="true" data-icon="sun"></span>
@@ -162,6 +183,7 @@
           </div>
           <div class="tabs" role="tablist" aria-label="管理分頁">
             <button class="tab is-active" data-tab="shop" type="button">種子</button>
+            <button class="tab" data-tab="market" type="button">市集</button>
             <button class="tab" data-tab="orders" type="button">訂單</button>
             <button class="tab" data-tab="upgrades" type="button">升級</button>
           </div>
@@ -181,6 +203,58 @@
           <button id="importCodeBtn" type="button" class="save-secondary">貼備份碼還原</button>
         </div>
         <button id="saveBoxClose" type="button" class="save-close">關閉</button>
+      </div>
+    </div>
+
+    <div id="giftBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="禮包">
+        <h2>🎁 禮包</h2>
+        <p>點各分類展開領取，已領取的會自動移除。</p>
+        <div id="giftList" class="gift-list"></div>
+        <button id="giftClose" type="button" class="gift-close">關閉</button>
+      </div>
+    </div>
+
+    <div id="spinBox" class="spin-box" hidden>
+      <div class="spin-card" role="dialog" aria-modal="true" aria-label="開場轉盤">
+        <h2>🎡 開場轉盤</h2>
+        <div class="wheel-wrap">
+          <div class="wheel-pointer" aria-hidden="true"></div>
+          <div id="wheelRotor" class="wheel-rotor"></div>
+        </div>
+        <p id="spinResult" class="spin-result" aria-live="polite"></p>
+        <button id="spinGo" type="button" class="spin-go">轉動！</button>
+        <button id="spinClose" type="button" class="spin-close" hidden>收下獎勵</button>
+      </div>
+    </div>
+
+    <div id="itemBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="道具">
+        <h2>🧪 道具</h2>
+        <p>抽轉盤或活動取得的道具會放在這裡。</p>
+        <div id="itemList" class="gift-list"></div>
+        <button id="itemClose" type="button" class="gift-close">關閉</button>
+      </div>
+    </div>
+
+    <div id="friendsBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="好友">
+        <h2>🧑‍🌾 好友</h2>
+        <p>拜訪好友農場，可以偷菜、幫忙賺獎勵。</p>
+        <div id="friendsList" class="friends-list"></div>
+        <div class="friend-add">
+          <input id="friendNameInput" type="text" maxlength="12" placeholder="輸入名稱新增好友" />
+          <button id="friendAddBtn" type="button">新增</button>
+        </div>
+        <button id="friendsClose" type="button" class="gift-close">關閉</button>
+      </div>
+    </div>
+
+    <div id="friendFarmBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="好友農場">
+        <h2 id="friendFarmTitle">好友的農場</h2>
+        <div id="friendFarmGrid" class="ff-grid"></div>
+        <button id="friendFarmBack" type="button" class="gift-close">返回</button>
       </div>
     </div>
 
@@ -229,7 +303,7 @@
           </div>
           <input class="gm-slider" data-gm-range="xp" type="range" />
         </div>
-        <div class="gm-row"><label>天氣</label><span class="gm-weather"><button data-gm-weather="sun" type="button">晴朗</button><button data-gm-weather="cloud" type="button">多雲</button><button data-gm-weather="rain" type="button">小雨</button></span></div>
+        <div class="gm-row"><label>天氣</label><span class="gm-weather"><button data-gm-weather="sun" type="button">晴朗</button><button data-gm-weather="breeze" type="button">微風</button><button data-gm-weather="cloud" type="button">多雲</button><button data-gm-weather="rain" type="button">小雨</button><button data-gm-weather="scorch" type="button">烈日</button><button data-gm-weather="storm" type="button">雷雨</button><button data-gm-weather="fog" type="button">起霧</button><button data-gm-weather="snow" type="button">下雪</button><button data-gm-weather="typhoon" type="button">颱風</button></span></div>
         <div class="gm-row"><label>庫存</label><button id="gmInvOpen" type="button">編輯庫存…</button></div>
         <div class="gm-row"><label>訂單</label><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
         <div class="gm-foot">
