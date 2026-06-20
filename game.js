@@ -1,7 +1,9 @@
-const SAVE_KEY = "happy-farm-browser-game-v1";
+const SAVE_KEY = "happy-farm-browser-game-v2";
 const PLOT_COUNT = 16;
 // 原版開墾：最初 6 格，之後依序解鎖（金幣 / 需求等級）
 const PLOT_UNLOCKS = [
+  { cost: 2000, level: 2 },
+  { cost: 5000, level: 3 },
   { cost: 10000, level: 5 },
   { cost: 20000, level: 7 },
   { cost: 30000, level: 9 },
@@ -13,6 +15,73 @@ const PLOT_UNLOCKS = [
   { cost: 180000, level: 21 },
   { cost: 230000, level: 23 },
 ];
+
+// 各田標桿位置（GM 校正匯出；% 為標桿中心相對該田）
+const STAKE_POS = {
+  0: [17.2, 69.4], 1: [18.7, 69.4], 2: [20.0, 69.4], 3: [21.3, 69.4],
+  4: [15.3, 57.4], 5: [16.3, 57.4], 6: [16.4, 57.4], 7: [15.3, 57.4],
+  8: [17.0, 48.7], 9: [17.8, 44.9], 10: [14.4, 47.3], 11: [13.1, 47.3],
+  12: [19.1, 44.4], 13: [7.5, 41.6], 14: [13.0, 42.5], 15: [11.2, 35.5],
+};
+
+const CLOUD_POS = { 0: [50.9, 1.8], 1: [35.8, 1.7] };
+
+function applyClouds() {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  if (!Object.keys(gmCloudPos).length) {
+    try { gmCloudPos = JSON.parse(localStorage.getItem("gm-cloud-pos") || "{}") || {}; } catch (e) { gmCloudPos = {}; }
+  }
+  fx.querySelectorAll(".wfx-cloud-img").forEach((img) => {
+    const k = img.dataset.cloud;
+    const pos = gmCloudPos[k] || CLOUD_POS[k];
+    if (pos) { img.style.left = pos[0] + "%"; img.style.top = pos[1] + "%"; }
+    img.style.pointerEvents = state.gm ? "auto" : "none";
+    img.style.cursor = state.gm ? "grab" : "default";
+  });
+}
+
+function setupCloudDrag() {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  fx.querySelectorAll(".wfx-cloud-img").forEach((img) => {
+    if (img.dataset.dragReady) return;
+    img.dataset.dragReady = "1";
+    const key = img.dataset.cloud;
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    img.addEventListener("pointerdown", (e) => {
+      if (!state.gm) return;
+      dragging = true;
+      const r = fx.getBoundingClientRect(), ir = img.getBoundingClientRect();
+      ox = ir.left - r.left; oy = ir.top - r.top; sx = e.clientX; sy = e.clientY;
+      e.preventDefault();
+      try { img.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    img.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const r = fx.getBoundingClientRect();
+      let x = Math.max(0, Math.min(100, (ox + (e.clientX - sx)) / r.width * 100));
+      let y = Math.max(0, Math.min(100, (oy + (e.clientY - sy)) / r.height * 100));
+      img.style.left = x.toFixed(1) + "%"; img.style.top = y.toFixed(1) + "%";
+      gmCloudPos[key] = [Number(x.toFixed(1)), Number(y.toFixed(1))];
+      const readout = document.querySelector("#gmStakeReadout");
+      if (readout) readout.textContent = `雲#${Number(key) + 1}｜left ${x.toFixed(1)}%　top ${y.toFixed(1)}%`;
+    });
+    const end = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      try { img.releasePointerCapture(e.pointerId); } catch (err) {}
+      try { localStorage.setItem("gm-cloud-pos", JSON.stringify(gmCloudPos)); } catch (err) {}
+    };
+    img.addEventListener("pointerup", end);
+    img.addEventListener("pointercancel", end);
+  });
+}
+
+function stakeStyle(i) {
+  const p = STAKE_POS[i];
+  return p ? ` style="left:${p[0]}%;top:${p[1]}%;transform:translate(-50%,-50%)"` : "";
+}
 
 // GM 修改數據欄位設定（min/max/step）
 const GM_FIELDS = {
@@ -27,7 +96,7 @@ let gmInvSnap = null;
 // grow/regrow 單位「分鐘」；sell=每顆售價(原版)；yieldCount=每次收成顆數(原版產量)；img:true 有田間 PNG
 const CROPS = {
   turnip:      { name: "白蘿蔔", cost: 125,   sell: 17, yieldCount: 16, grow: 2.5,  regrow: 0,    seasons: 1, xp: 15, unlock: 0,  img: true, colors: ["#f8f3ee", "#d94c75", "#67a84f"] },
-  carrot:      { name: "胡蘿蔔", cost: 163,   sell: 21, yieldCount: 17, grow: 3.25, regrow: 0,    seasons: 1, xp: 18, unlock: 0,  img: true, colors: ["#f08a2d", "#ca5c24", "#5fa84d"] },
+  carrot:      { name: "胡蘿蔔", cost: 163,   sell: 21, yieldCount: 17, grow: 3.25, regrow: 0,    seasons: 1, xp: 18, unlock: 2,  img: true, colors: ["#f08a2d", "#ca5c24", "#5fa84d"] },
   corn:        { name: "玉米",   cost: 175,   sell: 23, yieldCount: 17, grow: 3.5,  regrow: 0,    seasons: 1, xp: 19, unlock: 3,  img: true, colors: ["#f7d64c", "#e2a73a", "#4d8a43"] },
   potato:      { name: "土豆",   cost: 188,   sell: 24, yieldCount: 18, grow: 3.75, regrow: 0,    seasons: 1, xp: 20, unlock: 4,  colors: ["#d9a86a", "#a9783f", "#6a9a4c"] },
   eggplant:    { name: "茄子",   cost: 237,   sell: 25, yieldCount: 20, grow: 4,    regrow: 0,    seasons: 1, xp: 21, unlock: 5,  colors: ["#7b4ea3", "#4f2f70", "#5a9a4c"] },
@@ -148,7 +217,10 @@ const SPIN_PRIZES = [
   { type: "weatherCard", amount: 2, weight: 3, short: "🌤×2", label: "天氣兌換卡 ×2" },
 ];
 
-const FRIEND_PLOT_COUNT = 6;
+const FRIEND_PLOT_COUNT = 2;
+const FRIEND_PLOT_MAX = 8;
+const FRIEND_PLOT_GROW_MS = 900000;
+const FRIEND_LEVEL_MS = 360000;
 const FRIEND_REGROW_MS = 300000;
 const FRIEND_PRESETS = [
   { name: "小明", avatar: "👦" }, { name: "阿華", avatar: "🧑‍🌾" }, { name: "美玲", avatar: "👩" },
@@ -156,6 +228,8 @@ const FRIEND_PRESETS = [
   { name: "淑芬", avatar: "👩‍🌾" }, { name: "建宏", avatar: "👨‍🌾" }, { name: "怡君", avatar: "👩‍🦰" },
   { name: "俊傑", avatar: "🧔" },
 ];
+const FRIEND_STEAL_WINDOW = 600000;
+const FRIEND_STEAL_MAX = 5;
 const FRIEND_CROP_POOL = ["turnip", "carrot", "corn", "potato", "eggplant", "tomato", "pea", "pepper"];
 
 function newFriendPlots() {
@@ -166,7 +240,16 @@ function makeBuiltinFriends() {
   return FRIEND_PRESETS.map((f, i) => ({ id: "f" + i, name: f.name, avatar: f.avatar, builtin: true, plots: newFriendPlots() }));
 }
 
+function makeBuiltinCandidates() {
+  return FRIEND_PRESETS.map((f, i) => ({ id: "c" + i, name: f.name, avatar: f.avatar }));
+}
+
 let currentFriendId = null;
+let pendingInviteId = null;
+let audioOn = true;
+let audioReady = false;
+let gmStakePos = {};
+let gmCloudPos = {};
 
 let state = loadState();
 let shopQty = {};
@@ -174,11 +257,15 @@ let spinning = false;
 let pendingWeatherCard = false;
 let pendingFertilize = false;
 let lastTickTime = Date.now();
+let lastFriendSteal = Date.now();
 let giftSectionOpen = { newbie: true, event: false, friend: false };
 ensureOrders();
 hydrateIcons();
 bindStaticEvents();
+bindBgm();
 render();
+makeBgmDraggable();
+setupCloudDrag();
 window.setInterval(tick, 1000);
 
 function createDefaultState() {
@@ -199,9 +286,10 @@ function createDefaultState() {
     openingSpinDone: false,
     items: { weatherCard: 0, fertilizer: 0, thawCard: 0 },
     damaged: {},
-    friends: makeBuiltinFriends(),
+    friends: [],
+    candidates: makeBuiltinCandidates(),
     plots: Array.from({ length: PLOT_COUNT }, (_, index) => ({
-      unlocked: index < 6,
+      unlocked: index < 4,
       crop: null,
       plantedAt: 0,
       season: 0,
@@ -232,7 +320,8 @@ function loadState() {
       openingSpinDone: !!raw.openingSpinDone,
       items: { ...defaults.items, ...(raw.items || {}) },
       damaged: (raw.damaged && typeof raw.damaged === "object") ? { ...raw.damaged } : {},
-      friends: (Array.isArray(raw.friends) && raw.friends.length) ? raw.friends : defaults.friends,
+      friends: Array.isArray(raw.friends) ? raw.friends : [],
+      candidates: Array.isArray(raw.candidates) ? raw.candidates : defaults.candidates.filter((c) => !(raw.friends || []).some((f) => f.name === c.name)),
       upgrades: { ...defaults.upgrades, ...(raw.upgrades || {}) },
       plots: defaults.plots.map((plot, index) => ({
         ...plot,
@@ -323,7 +412,8 @@ function importCode() {
     openingSpinDone: !!data.openingSpinDone,
     items: { ...defaults.items, ...(data.items || {}) },
     damaged: (data.damaged && typeof data.damaged === "object") ? { ...data.damaged } : {},
-    friends: (Array.isArray(data.friends) && data.friends.length) ? data.friends : defaults.friends,
+    friends: Array.isArray(data.friends) ? data.friends : [],
+    candidates: Array.isArray(data.candidates) ? data.candidates : defaults.candidates.filter((c) => !(data.friends || []).some((f) => f.name === c.name)),
     upgrades: { ...defaults.upgrades, ...(data.upgrades || {}) },
     plots: defaults.plots.map((plot, index) => ({
       ...plot,
@@ -338,7 +428,7 @@ function importCode() {
   toast("已用備份碼還原進度。");
 }
 
-const GM_PASSWORD = "70629";
+const GM_PASSWORDS = ["70629", "ykai"];
 
 function updateGmBadge() {
   const badge = document.querySelector("#gmBadge");
@@ -346,6 +436,60 @@ function updateGmBadge() {
     badge.hidden = !state.gm;
   }
   document.querySelector(".farm-app")?.classList.toggle("is-gm", !!state.gm);
+}
+
+function makeBgmDraggable() {
+  const btn = document.querySelector("#bgmToggle");
+  if (!btn || btn.dataset.dragReady) return;
+  btn.dataset.dragReady = "1";
+  let applied = false;
+  try {
+    const pos = JSON.parse(localStorage.getItem("bgm-btn-pos") || "null");
+    if (pos && typeof pos.left === "number") {
+      btn.style.left = pos.left + "px";
+      btn.style.top = pos.top + "px";
+      btn.style.right = "auto";
+      applied = true;
+    }
+  } catch {}
+  if (!applied) {
+    const seed = document.querySelector('[data-tool="seed"]');
+    if (seed) {
+      const r = seed.getBoundingClientRect();
+      btn.style.left = Math.max(0, r.left + r.width / 2 - btn.offsetWidth / 2) + "px";
+      btn.style.top = Math.max(0, r.top - btn.offsetHeight - 8) + "px";
+      btn.style.right = "auto";
+    }
+  }
+  let dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  btn.addEventListener("pointerdown", (e) => {
+    dragging = true; moved = false;
+    const r = btn.getBoundingClientRect();
+    ox = r.left; oy = r.top; sx = e.clientX; sy = e.clientY;
+    try { btn.setPointerCapture(e.pointerId); } catch {}
+  });
+  btn.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+    const nx = Math.max(0, Math.min(window.innerWidth - btn.offsetWidth, ox + dx));
+    const ny = Math.max(0, Math.min(window.innerHeight - btn.offsetHeight, oy + dy));
+    btn.style.left = nx + "px"; btn.style.top = ny + "px"; btn.style.right = "auto";
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    try { btn.releasePointerCapture(e.pointerId); } catch {}
+    if (moved) {
+      btn.dataset.dragged = "1";
+      localStorage.setItem("bgm-btn-pos", JSON.stringify({
+        left: parseInt(btn.style.left, 10) || 0,
+        top: parseInt(btn.style.top, 10) || 0,
+      }));
+    }
+  };
+  btn.addEventListener("pointerup", end);
+  btn.addEventListener("pointercancel", end);
 }
 
 function makeGmBadgeDraggable() {
@@ -415,7 +559,7 @@ function openGM() {
     if (pw === null) {
       return;
     }
-    if (pw.trim() !== GM_PASSWORD) {
+    if (!GM_PASSWORDS.includes(pw.trim().toLowerCase())) {
       toast("密碼錯誤。");
       return;
     }
@@ -595,10 +739,43 @@ function gmSetInv(id, v) {
   render();
 }
 
+function bindBgm() {
+  const bgm = document.querySelector("#bgm");
+  const btn = document.querySelector("#bgmToggle");
+  if (!bgm || !btn) return;
+  const thunder = document.querySelector("#thunder");
+  bgm.volume = 0.45;
+  if (thunder) thunder.volume = 0.6;
+  audioOn = localStorage.getItem("bgm-on") !== "0";
+  audioReady = true;
+  btn.addEventListener("click", () => {
+    if (btn.dataset.dragged) { btn.dataset.dragged = ""; return; }
+    audioOn = !audioOn;
+    localStorage.setItem("bgm-on", audioOn ? "1" : "0");
+    applyAudio();
+  });
+  applyAudio();
+  window.addEventListener("pointerdown", applyAudio, { once: true });
+}
+
+function playSafe(el) { if (el && typeof el.play === "function") el.play().catch(() => {}); }
+function pauseSafe(el) { if (el && typeof el.pause === "function") el.pause(); }
+
+function applyAudio() {
+  if (!audioReady) return;
+  const btn = document.querySelector("#bgmToggle");
+  const bgm = document.querySelector("#bgm");
+  const thunder = document.querySelector("#thunder");
+  if (btn) btn.textContent = audioOn ? "🎵" : "🔇";
+  if (audioOn) playSafe(bgm); else pauseSafe(bgm);
+  // 雷雨時雷聲與背景音樂同時播放
+  if (audioOn && (state.weather === "storm" || state.weather === "typhoon")) playSafe(thunder); else pauseSafe(thunder);
+}
+
 function bindStaticEvents() {
   document.querySelectorAll("[data-tool]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.selectedTool = button.dataset.tool;
+      state.selectedTool = (state.selectedTool === button.dataset.tool) ? "" : button.dataset.tool;
       saveState();
       render();
     });
@@ -650,7 +827,7 @@ function bindStaticEvents() {
         return;
       }
       if (button.dataset.menuAction === "invite") {
-        openFriends();
+        openInvite();
         return;
       }
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
@@ -710,10 +887,14 @@ function bindStaticEvents() {
 
   const friendsBox = document.querySelector("#friendsBox");
   const friendsClose = document.querySelector("#friendsClose");
-  const friendAdd = document.querySelector("#friendAddBtn");
   if (friendsClose) friendsClose.addEventListener("click", closeFriends);
-  if (friendAdd) friendAdd.addEventListener("click", addFriend);
   if (friendsBox) friendsBox.addEventListener("click", (e) => { if (e.target === friendsBox) closeFriends(); });
+  const inviteBox = document.querySelector("#inviteBox");
+  const inviteClose = document.querySelector("#inviteClose");
+  const inviteAdd = document.querySelector("#inviteAddBtn");
+  if (inviteClose) inviteClose.addEventListener("click", closeInvite);
+  if (inviteAdd) inviteAdd.addEventListener("click", inviteCustom);
+  if (inviteBox) inviteBox.addEventListener("click", (e) => { if (e.target === inviteBox) closeInvite(); });
   const friendFarmBox = document.querySelector("#friendFarmBox");
   const friendFarmBack = document.querySelector("#friendFarmBack");
   if (friendFarmBack) friendFarmBack.addEventListener("click", closeFriendFarm);
@@ -724,7 +905,7 @@ function bindStaticEvents() {
   document.querySelector("#gmEditBtn")?.addEventListener("click", openGmEdit);
   document.querySelector("#gmResetBtn")?.addEventListener("click", gmReset);
   document.querySelector("#gmExitBtn")?.addEventListener("click", gmExit);
-  document.querySelector("#gmTodoBtn")?.addEventListener("click", () => toast("功能準備中。"));
+  document.querySelector("#gmTodoBtn")?.addEventListener("click", exportStakePos);
   document.querySelector("#gmPanelClose")?.addEventListener("click", () => hideGmBox("#gmPanel"));
   if (gmPanel) gmPanel.addEventListener("click", (e) => { if (e.target === gmPanel) hideGmBox("#gmPanel"); });
   document.querySelector("#gmEditConfirm")?.addEventListener("click", gmEditConfirm);
@@ -1268,6 +1449,11 @@ function applyWeatherCard(w) {
   renderItemList();
 }
 
+function friendLevel(friend) {
+  const min = (Date.now() - (friend.startedAt || Date.now())) / 60000;
+  return Math.max(1, Math.min(30, 1 + Math.floor(Math.log2(min / 5 + 1))));
+}
+
 function friendProgress(p) {
   if (!p.crop || !CROPS[p.crop]) return 0;
   return Math.min(1, (Date.now() - p.plantedAt) / (CROPS[p.crop].grow * 60000));
@@ -1275,12 +1461,17 @@ function friendProgress(p) {
 
 function refreshFriendFarm(friend) {
   const now = Date.now();
-  if (!Array.isArray(friend.plots)) friend.plots = newFriendPlots();
-  while (friend.plots.length < FRIEND_PLOT_COUNT) friend.plots.push({ crop: null, plantedAt: 0, stolenAt: 0, hazard: null });
+  if (!friend.startedAt) friend.startedAt = now;
+  const lvl = friendLevel(friend);
+  const target = Math.min(FRIEND_PLOT_MAX, 2 + PLOT_UNLOCKS.filter((u) => u.level <= lvl).length);
+  if (!Array.isArray(friend.plots)) friend.plots = [];
+  if (friend.plots.length > target) friend.plots.length = target;
+  while (friend.plots.length < target) friend.plots.push({ crop: null, plantedAt: 0, stolenAt: 0, hazard: null });
+  const pool = Object.keys(CROPS).filter((id) => CROPS[id].unlock <= lvl);
   friend.plots.forEach((p) => {
     const needNew = !p.crop || (p.stolenAt && now - p.stolenAt > FRIEND_REGROW_MS);
     if (needNew) {
-      const id = FRIEND_CROP_POOL[Math.floor(Math.random() * FRIEND_CROP_POOL.length)];
+      const id = pool[Math.floor(Math.random() * pool.length)];
       const growMs = CROPS[id].grow * 60000;
       p.crop = id;
       p.plantedAt = now - Math.floor(Math.random() * growMs * 1.4);
@@ -1310,25 +1501,93 @@ function closeFriendFarm() {
 function renderFriendsList() {
   const list = document.querySelector("#friendsList");
   if (!list) return;
+  if (!state.friends.length) {
+    list.innerHTML = '<p class="item-empty">還沒有好友，到「邀請好友」邀請吧。</p>';
+    return;
+  }
   list.innerHTML = state.friends.map((f) => `
     <div class="friend-row">
       <span class="friend-ava" aria-hidden="true">${f.avatar}</span>
-      <span class="friend-name">${f.name}</span>
+      <span class="friend-name">${f.name} <small>Lv.${friendLevel(f)}</small></span>
       <button class="friend-visit" type="button" data-visit="${f.id}">拜訪</button>
     </div>`).join("");
   list.querySelectorAll("[data-visit]").forEach((b) => b.addEventListener("click", () => visitFriend(b.dataset.visit)));
 }
 
-function addFriend() {
-  const input = document.querySelector("#friendNameInput");
-  const name = (input && input.value || "").trim();
-  if (!name) { toast("請輸入好友名稱。"); return; }
-  const avatars = ["🧑‍🌾", "👩‍🌾", "👨‍🌾", "👧", "🧒", "🧔", "👩‍🦰", "🧑"];
-  state.friends.push({ id: "f" + Date.now(), name, avatar: avatars[Math.floor(Math.random() * avatars.length)], builtin: false, plots: newFriendPlots() });
-  if (input) input.value = "";
+function inviteCost() {
+  const n = state.friends.length + 1;
+  return 25 * (n * n + 3 * n + 4);
+}
+
+function openInvite() {
+  pendingInviteId = null;
+  renderInviteList();
+  const box = document.querySelector("#inviteBox");
+  if (box) box.hidden = false;
+}
+
+function closeInvite() {
+  pendingInviteId = null;
+  const box = document.querySelector("#inviteBox");
+  if (box) box.hidden = true;
+}
+
+function renderInviteList() {
+  const cost = inviteCost();
+  const note = document.querySelector("#inviteCostNote");
+  if (note) note.textContent = `邀請下一位好友：${cost} 金幣（每多一位越貴）`;
+  const list = document.querySelector("#inviteList");
+  if (!list) return;
+  if (!state.candidates.length) {
+    list.innerHTML = '<p class="item-empty">內建好友都邀請過了，可在下方自訂名稱邀請。</p>';
+  } else {
+    list.innerHTML = state.candidates.map((c) => {
+      const right = pendingInviteId === c.id
+        ? `<span class="invite-confirm"><button class="friend-visit ok" type="button" data-invite-ok="${c.id}">確定 ${cost}</button><button class="friend-visit cancel" type="button" data-invite-cancel="1">取消</button></span>`
+        : `<button class="friend-visit" type="button" data-invite="${c.id}">邀請</button>`;
+      return `
+        <div class="friend-row">
+          <span class="friend-ava" aria-hidden="true">${c.avatar}</span>
+          <span class="friend-name">${c.name}</span>
+          ${right}
+        </div>`;
+    }).join("");
+  }
+  list.querySelectorAll("[data-invite]").forEach((b) => b.addEventListener("click", () => { pendingInviteId = b.dataset.invite; renderInviteList(); }));
+  list.querySelectorAll("[data-invite-ok]").forEach((b) => b.addEventListener("click", () => inviteFriend(b.dataset.inviteOk)));
+  list.querySelectorAll("[data-invite-cancel]").forEach((b) => b.addEventListener("click", () => { pendingInviteId = null; renderInviteList(); }));
+}
+
+function inviteFriend(candidateId) {
+  const idx = state.candidates.findIndex((c) => c.id === candidateId);
+  if (idx < 0) return;
+  const cost = inviteCost();
+  if (state.coins < cost) { toast(`金幣不夠，邀請需要 ${cost} 金幣。`); return; }
+  const c = state.candidates[idx];
+  state.coins -= cost;
+  state.friends.push({ id: "f" + Date.now(), name: c.name, avatar: c.avatar, builtin: true, startedAt: Date.now(), plots: newFriendPlots() });
+  state.candidates.splice(idx, 1);
+  pendingInviteId = null;
+  toast(`花 ${cost} 金幣，邀請 ${c.name} 成為好友！`);
   saveState();
-  renderFriendsList();
-  toast(`新增好友 ${name}。`);
+  renderInviteList();
+  render();
+}
+
+function inviteCustom() {
+  const input = document.querySelector("#inviteNameInput");
+  const name = (input && input.value || "").trim();
+  if (!name) { toast("請輸入要邀請的名稱。"); return; }
+  const cost = inviteCost();
+  if (state.coins < cost) { toast(`金幣不夠，邀請需要 ${cost} 金幣。`); return; }
+  const avatars = ["🧑‍🌾", "👩‍🌾", "👨‍🌾", "👧", "🧒", "🧔", "👩‍🦰", "🧑"];
+  state.coins -= cost;
+  state.friends.push({ id: "f" + Date.now(), name, avatar: avatars[Math.floor(Math.random() * avatars.length)], builtin: false, startedAt: Date.now(), plots: newFriendPlots() });
+  if (input) input.value = "";
+  toast(`花 ${cost} 金幣，邀請 ${name} 成為好友！`);
+  saveState();
+  renderInviteList();
+  render();
 }
 
 function visitFriend(id) {
@@ -1348,6 +1607,8 @@ function renderFriendFarm(id) {
   if (!friend || !box) return;
   const title = box.querySelector("#friendFarmTitle");
   if (title) title.textContent = `${friend.avatar} ${friend.name} 的農場`;
+  const info = box.querySelector("#friendFarmInfo");
+  if (info) info.textContent = `🌾 農場等級 Lv.${friendLevel(friend)}　·　${friend.plots.length} 塊田`;
   const grid = box.querySelector("#friendFarmGrid");
   grid.innerHTML = friend.plots.map((p, i) => {
     if (!p.crop) return `<div class="ff-plot"><span class="ff-state">空地</span></div>`;
@@ -1382,12 +1643,20 @@ function stealCrop(friendId, idx) {
   if (!friend) return;
   const p = friend.plots[idx];
   if (!p || !p.crop) return;
-  if (p.stolenAt) { toast("這格剛被偷過，等它重新長。"); return; }
   if (friendProgress(p) < 1) { toast("還沒成熟，不能偷。"); return; }
+  const now = Date.now();
+  if (!Array.isArray(friend.steals)) friend.steals = [];
+  friend.steals = friend.steals.filter((t) => now - t < FRIEND_STEAL_WINDOW);
+  if (friend.steals.length >= FRIEND_STEAL_MAX) {
+    const wait = Math.ceil((FRIEND_STEAL_WINDOW - (now - friend.steals[0])) / 60000);
+    toast(`${friend.name} 10 分鐘內只能偷 ${FRIEND_STEAL_MAX} 次，約 ${wait} 分後再來。`);
+    return;
+  }
   const amt = Math.max(1, Math.round((CROPS[p.crop].yieldCount || 1) * 0.4));
   state.inventory[p.crop] = (state.inventory[p.crop] || 0) + amt;
-  p.stolenAt = Date.now();
-  toast(`偷到 ${friend.name} 的 ${CROPS[p.crop].name} ${amt} 個！`);
+  friend.steals.push(now);
+  const left = FRIEND_STEAL_MAX - friend.steals.length;
+  toast(`偷到 ${friend.name} 的 ${CROPS[p.crop].name} ${amt} 個！（10 分鐘內還可偷 ${left} 次）`);
   saveState();
   renderFriendFarm(friendId);
   render();
@@ -1421,6 +1690,16 @@ function render() {
   hydrateIcons();
   updateGmBadge();
   updateGiftBadge();
+  updateWeatherFx();
+  applyAudio();
+}
+
+function updateWeatherFx() {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  const w = ["rain", "storm", "snow", "typhoon", "scorch", "breeze", "fog", "cloud"].includes(state.weather) ? state.weather : "";
+  fx.className = "wfx" + (w ? " " + w : "");
+  applyClouds();
 }
 
 // 每秒的輕量更新：只就地更新成長倒數與進度，不重建 DOM，避免畫面閃爍
@@ -1432,6 +1711,24 @@ function tick() {
   applyFieldWeather(delta);
   rotateWeather();
   updateFarmTimers();
+  friendStealTick(now);
+}
+
+function friendStealTick(now) {
+  if (!state.friends || !state.friends.length) return;
+  if (now - lastFriendSteal < 60000) return;
+  lastFriendSteal = now;
+  if (Math.random() > 0.45) return;
+  const ready = state.plots
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.crop && getPlotProgress(p) >= 1 && (p.stolenPct || 0) < 0.4);
+  if (!ready.length) return;
+  const pick = ready[Math.floor(Math.random() * ready.length)];
+  const friend = state.friends[Math.floor(Math.random() * state.friends.length)];
+  pick.p.stolenPct = Math.min(0.4, (pick.p.stolenPct || 0) + 0.2);
+  saveState();
+  toast(`🧑‍🌾 ${friend.name} 偷了你的 ${CROPS[pick.p.crop].name}！成熟了要早點收。`);
+  render();
 }
 
 function applyTyphoonDamage() {
@@ -1550,7 +1847,7 @@ function renderFarm() {
       if (!plot.unlocked) {
         return `
           <button class="plot locked" type="button" data-plot="${index}" data-slot="${index + 1}" title="未開墾">
-            <span class="plot-stake" aria-hidden="true">🚩</span>
+            <span class="plot-stake"${stakeStyle(index)} aria-hidden="true">🚩</span>
             ${ICONS.lock}
             <span class="plot-label">未開墾</span>
           </button>
@@ -1560,7 +1857,7 @@ function renderFarm() {
       if (plot.broken) {
         return `
           <button class="plot broken" type="button" data-plot="${index}" data-slot="${index + 1}" title="損壞農地">
-            <span class="plot-stake" aria-hidden="true">🚩</span>
+            <span class="plot-stake"${stakeStyle(index)} aria-hidden="true">🚩</span>
             <span class="plot-info">
               <span class="plot-label">損壞</span>
               <span class="plot-time">需修復</span>
@@ -1593,6 +1890,7 @@ function renderFarm() {
           ${state.weather === "storm" && !ready ? `<span class="soak-badge" aria-hidden="true">💧浸水</span>` : ""}
           ${state.weather === "snow" && !ready ? `<span class="frost-badge" aria-hidden="true">❄️凍傷</span>` : ""}
           ${plot.typhoonHalf && !ready ? `<span class="typhoon-badge" aria-hidden="true">🌀颱風</span>` : ""}
+          ${plot.stolenPct ? `<span class="stolen-badge" aria-hidden="true">🤏 -${Math.round(plot.stolenPct * 100)}%</span>` : ""}
           <span class="crop-visual">${cropVisual(plot.crop, stage)}</span>
           <span class="plot-info">
             <span class="plot-label">${crop.name}</span>
@@ -1606,6 +1904,93 @@ function renderFarm() {
 
   elements.farmGrid.querySelectorAll("[data-plot]").forEach((plotButton) => {
     plotButton.addEventListener("click", () => handlePlotClick(Number(plotButton.dataset.plot)));
+  });
+  setupGmStakes();
+}
+
+function exportStakePos() {
+  if (!elements.farmGrid) { toast("找不到農場。"); return; }
+  const out = [];
+  elements.farmGrid.querySelectorAll(".plot-stake").forEach((stake) => {
+    const plot = stake.closest(".plot");
+    if (!plot) return;
+    const pr = plot.getBoundingClientRect();
+    const sr = stake.getBoundingClientRect();
+    if (!pr.width || !pr.height) return;
+    const x = ((sr.left + sr.width / 2 - pr.left) / pr.width * 100).toFixed(1);
+    const y = ((sr.top + sr.height / 2 - pr.top) / pr.height * 100).toFixed(1);
+    out.push(`${plot.dataset.plot}:${x},${y}`);
+  });
+  if (!out.length) { toast("目前畫面沒有標桿可匯出（未開墾／損壞田才有）。"); return; }
+  const fx = document.querySelector("#weatherFx");
+  const cl = [];
+  if (fx) {
+    const r = fx.getBoundingClientRect();
+    fx.querySelectorAll(".wfx-cloud-img").forEach((img) => {
+      const ir = img.getBoundingClientRect();
+      if (ir.width <= 0) return;
+      const x = ((ir.left - r.left) / r.width * 100).toFixed(1);
+      const y = ((ir.top - r.top) / r.height * 100).toFixed(1);
+      cl.push(`雲${img.dataset.cloud}:${x},${y}`);
+    });
+  }
+  const text = out.join(" | ") + (cl.length ? "\n雲： " + cl.join(" | ") : "");
+  try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
+  try { console.log("STAKE_POS:", text); } catch (e) {}
+  try { window.prompt("已複製，貼到對話給 Claude 即可：", text); } catch (e) {}
+  toast("標桿座標已匯出（已複製到剪貼簿）。");
+}
+
+function setupGmStakes() {
+  const readout = document.querySelector("#gmStakeReadout");
+  if (readout) readout.hidden = !state.gm;
+  if (!state.gm || !elements.farmGrid) return;
+  if (!Object.keys(gmStakePos).length) {
+    try { gmStakePos = JSON.parse(localStorage.getItem("gm-stake-pos") || "{}") || {}; } catch (e) { gmStakePos = {}; }
+  }
+  if (readout && !readout.dataset.init) {
+    readout.dataset.init = "1";
+    readout.textContent = "GM：拖曳田裡的標桿來校正位置";
+  }
+  elements.farmGrid.querySelectorAll(".plot-stake").forEach((stake) => {
+    const plot = stake.closest(".plot");
+    if (!plot) return;
+    const idx = Number(plot.dataset.plot);
+    if (gmStakePos[idx]) {
+      stake.style.left = gmStakePos[idx].x + "%";
+      stake.style.top = gmStakePos[idx].y + "%";
+      stake.style.transform = "translate(-50%, -50%)";
+    }
+    stake.style.pointerEvents = "auto";
+    stake.style.cursor = "grab";
+    let dragging = false;
+    stake.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      e.stopPropagation();
+      e.preventDefault();
+      try { stake.setPointerCapture(e.pointerId); } catch {}
+    });
+    stake.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const r = plot.getBoundingClientRect();
+      let x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      let y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      const xp = (x * 100).toFixed(1), yp = (y * 100).toFixed(1);
+      stake.style.left = xp + "%";
+      stake.style.top = yp + "%";
+      stake.style.transform = "translate(-50%, -50%)";
+      gmStakePos[idx] = { x: xp, y: yp };
+      if (readout) readout.textContent = `格#${idx + 1}｜left ${xp}%　top ${yp}%`;
+    });
+    const end = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      e.stopPropagation();
+      try { stake.releasePointerCapture(e.pointerId); } catch {}
+      try { localStorage.setItem("gm-stake-pos", JSON.stringify(gmStakePos)); } catch (err) {}
+    };
+    stake.addEventListener("pointerup", end);
+    stake.addEventListener("pointercancel", end);
   });
 }
 
@@ -1654,7 +2039,7 @@ function renderTabs() {
   });
 
   if (elements.workPanelTitle) {
-    const titles = { shop: "種子", market: "農民市集", orders: "訂單", upgrades: "升級" };
+    const titles = { shop: "種子", market: "農民市集", orders: "訂單", upgrades: "開發" };
     elements.workPanelTitle.textContent = titles[state.activeTab] || "農場管理";
   }
 }
@@ -1918,14 +2303,14 @@ function handlePlotClick(index) {
   const plot = state.plots[index];
   if (!plot.unlocked) {
     state.activeTab = "upgrades";
-    toast("這格還沒開墾，去升級頁買一格田地。");
+    toast("這格還沒開墾，去開發頁買一格田地。");
     render();
     return;
   }
 
   if (plot.broken) {
     state.activeTab = "upgrades";
-    toast("這塊農地被颱風吹壞了，到「升級→損壞農地修復」修復。");
+    toast("這塊農地被颱風吹壞了，到「開發→損壞農地修復」修復。");
     render();
     return;
   }
@@ -1950,12 +2335,16 @@ function handlePlotClick(index) {
     return;
   }
 
-  if (!plot.crop) {
-    plantPlot(index);
+  if (state.selectedTool === "seed") {
+    if (!plot.crop) {
+      plantPlot(index);
+      return;
+    }
+    toast(plot.watered ? "它正在長大。" : "換成澆水工具可以加快成長。");
     return;
   }
 
-  toast(plot.watered ? "它正在長大。" : "換成澆水工具可以加快成長。");
+  toast("先點下方工具（種植／澆水／收成）再操作田地。");
 }
 
 function plantPlot(index) {
@@ -1980,6 +2369,7 @@ function plantPlot(index) {
     soakMs: 0,
     frostMs: 0,
     typhoonHalf: false,
+    stolenPct: 0,
     watered: state.weather === "rain",
   };
   toast(`${crop.name} 已播種。`);
@@ -2005,7 +2395,6 @@ function waterPlot(index) {
   }
 
   plot.watered = true;
-  state.selectedTool = "seed";
   toast("澆水完成，成長速度加快。");
   saveState();
   render();
@@ -2032,6 +2421,7 @@ function harvestPlot(index) {
   const frostLost = Math.round(afterSoak * frostPenalty);
   let amount = Math.max(1, Math.round(afterSoak) - frostLost);
   if (plot.typhoonHalf) amount = Math.max(1, Math.round(amount * 0.5));
+  if (plot.stolenPct) amount = Math.max(1, Math.round(amount * (1 - plot.stolenPct)));
   state.inventory[plot.crop] = (state.inventory[plot.crop] || 0) + amount;
   if (frostLost > 0) {
     if (!state.damaged) state.damaged = {};
@@ -2042,6 +2432,7 @@ function harvestPlot(index) {
   if (soakPenalty > 0) notes.push(`浸水 -${Math.round(soakPenalty * 100)}%`);
   if (frostLost > 0) notes.push(`凍傷 ${frostLost} 個入災損`);
   if (plot.typhoonHalf) notes.push("颱風 -50%");
+  if (plot.stolenPct) notes.push(`被偷 -${Math.round(plot.stolenPct * 100)}%`);
   const penaltyNote = notes.length ? `（${notes.join("、")}）` : "";
   const season = plot.season || 0;
   const seasons = crop.seasons || 1;
@@ -2049,7 +2440,7 @@ function harvestPlot(index) {
     state.plots[index] = { ...plot, plantedAt: Date.now(), season: season + 1, soakMs: 0, frostMs: 0, typhoonHalf: false, watered: false };
     toast(`${crop.name} 收成 ${amount} 個，還會再長第 ${season + 2} 季。${penaltyNote}`);
   } else {
-    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, watered: false };
+    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, watered: false };
     toast(`${crop.name} 收成 ${amount} 個。${penaltyNote}`);
   }
   saveState();
@@ -2302,7 +2693,7 @@ function inventoryValue() {
 
 function nextPlotInfo() {
   const unlocked = state.plots.filter((plot) => plot.unlocked).length;
-  return PLOT_UNLOCKS[unlocked - 6] || null;
+  return PLOT_UNLOCKS[unlocked - 4] || null;
 }
 
 function formatMinutes(min) {

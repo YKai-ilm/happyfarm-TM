@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="開心農場" />
     <meta name="theme-color" content="#cf4b3f" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260615-claude-029" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-claude-030" />
   </head>
   <body>
     <div class="farm-app">
@@ -136,7 +136,7 @@
             </button>
             <button class="scene-action" type="button" data-tab="upgrades">
               <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
-              升級
+              開發
             </button>
             <button class="scene-action" type="button" data-action="friends">
               <span class="button-icon" aria-hidden="true" data-icon="star"></span>
@@ -151,6 +151,20 @@
           <div class="field-frame">
             <button class="barn-hotspot" type="button" data-panel-target="inventory" aria-label="開啟倉庫" title="開啟倉庫"></button>
             <div id="farmGrid" class="farm-grid"></div>
+            <div id="weatherFx" class="wfx" aria-hidden="true">
+              <span class="wfx-clouds"></span>
+              <span class="wfx-puffs"><i></i><i></i><i></i><i></i><i></i></span>
+              <img class="wfx-cloud-img" data-cloud="0" src="./assets/decor/cloud.png" alt="" />
+              <img class="wfx-cloud-img" data-cloud="1" src="./assets/decor/cloud.png" alt="" />
+              <span class="wfx-rain-layer"></span>
+              <span class="wfx-rain-layer two"></span>
+              <span class="wfx-snow-layer"></span>
+              <span class="wfx-snow-layer two"></span>
+              <span class="wfx-flash"></span>
+              <span class="wfx-fog"></span>
+              <span class="wfx-glare"></span>
+              <span class="wfx-leaves"><i>🍃</i><i>🍂</i><i>🍃</i><i>🍂</i><i>🍃</i><i>🍂</i><i>🍃</i><i>🍂</i><i>🍃</i><i>🍂</i><i>🍃</i><i>🍂</i></span>
+            </div>
           </div>
 
           <div class="bottom-tool-row" role="toolbar" aria-label="農場操作">
@@ -185,13 +199,18 @@
             <button class="tab is-active" data-tab="shop" type="button">種子</button>
             <button class="tab" data-tab="market" type="button">市集</button>
             <button class="tab" data-tab="orders" type="button">訂單</button>
-            <button class="tab" data-tab="upgrades" type="button">升級</button>
+            <button class="tab" data-tab="upgrades" type="button">開發</button>
           </div>
           <div id="tabContent" class="tab-content"></div>
         </aside>
       </main>
 
       <div id="toastZone" class="toast-zone" aria-live="polite" aria-atomic="true"></div>
+
+      <audio id="bgm" loop preload="auto" src="./assets/audio/bgm-farm-1.mp3"></audio>
+      <audio id="thunder" loop preload="auto" src="./assets/audio/thunder-storm.mp3"></audio>
+      <button id="bgmToggle" class="bgm-toggle" type="button" title="背景音樂開關" aria-label="背景音樂開關">🎵</button>
+      <div id="gmStakeReadout" class="gm-stake-readout" hidden>GM：拖曳田裡的標桿來校正位置</div>
     </div>
 
     <div id="saveBox" class="save-box" hidden>
@@ -242,17 +261,27 @@
         <h2>🧑‍🌾 好友</h2>
         <p>拜訪好友農場，可以偷菜、幫忙賺獎勵。</p>
         <div id="friendsList" class="friends-list"></div>
-        <div class="friend-add">
-          <input id="friendNameInput" type="text" maxlength="12" placeholder="輸入名稱新增好友" />
-          <button id="friendAddBtn" type="button">新增</button>
-        </div>
         <button id="friendsClose" type="button" class="gift-close">關閉</button>
+      </div>
+    </div>
+
+    <div id="inviteBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="邀請好友">
+        <h2>📨 邀請好友</h2>
+        <p id="inviteCostNote">邀請下一位好友：500 金幣</p>
+        <div id="inviteList" class="friends-list"></div>
+        <div class="friend-add">
+          <input id="inviteNameInput" type="text" maxlength="12" placeholder="或自訂名稱邀請" />
+          <button id="inviteAddBtn" type="button">邀請</button>
+        </div>
+        <button id="inviteClose" type="button" class="gift-close">關閉</button>
       </div>
     </div>
 
     <div id="friendFarmBox" class="gift-box" hidden>
       <div class="gift-card" role="dialog" aria-modal="true" aria-label="好友農場">
         <h2 id="friendFarmTitle">好友的農場</h2>
+        <p id="friendFarmInfo" class="ff-info"></p>
         <div id="friendFarmGrid" class="ff-grid"></div>
         <button id="friendFarmBack" type="button" class="gift-close">返回</button>
       </div>
@@ -266,7 +295,7 @@
         <div class="gm-actions">
           <button id="gmEditBtn" type="button" class="gm-primary">修改數據</button>
           <button id="gmResetBtn" type="button" class="gm-secondary">重置遊戲</button>
-          <button id="gmTodoBtn" type="button" class="gm-secondary" disabled>待新增</button>
+          <button id="gmTodoBtn" type="button" class="gm-secondary">匯出座標</button>
           <button id="gmExitBtn" type="button" class="gm-danger">關閉 GM 模式</button>
         </div>
         <button id="gmPanelClose" type="button" class="gm-close">關閉視窗（保留 GM）</button>
@@ -326,7 +355,7 @@
       </div>
     </div>
 
-    <script src="./game.js?v=20260615-claude-029"></script>
+    <script src="./game.js?v=20260615-claude-030"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
