@@ -135,16 +135,20 @@ const UPGRADES = {
   windmill: {
     name: "風車",
     icon: "wind",
-    max: 5,
+    max: 10,
     description: "每級讓作物成長時間縮短 6%。",
-    cost: (level) => 110 + level * 70,
+    cost: (n) => 5000 + 2500 * n * (n + 1),
+    reqLevel: () => 5,
+    reqOrders: () => 0,
   },
   stand: {
     name: "小攤",
     icon: "cart",
-    max: 5,
-    description: "每級讓倉庫出售價格提高 7%。",
-    cost: (level) => 120 + level * 80,
+    max: 20,
+    description: "每級讓倉庫出售價格提高 2%。",
+    cost: (n) => 2500 * (n * n + 3 * n + 6),
+    reqLevel: (n) => n,
+    reqOrders: (n) => 5 * n * n + 55 * n - 10,
   },
 };
 
@@ -221,7 +225,7 @@ const FRIEND_PLOT_COUNT = 2;
 const FRIEND_PLOT_MAX = 8;
 const FRIEND_PLOT_GROW_MS = 900000;
 const FRIEND_LEVEL_MS = 360000;
-const FRIEND_REGROW_MS = 300000;
+const FRIEND_REGROW_MS = 180000;
 const FRIEND_PRESETS = [
   { name: "小明", avatar: "👦" }, { name: "阿華", avatar: "🧑‍🌾" }, { name: "美玲", avatar: "👩" },
   { name: "志強", avatar: "👨" }, { name: "雅婷", avatar: "👧" }, { name: "大雄", avatar: "🧒" },
@@ -251,6 +255,19 @@ let audioReady = false;
 let gmStakePos = {};
 let gmCloudPos = {};
 
+const WEATHER_AUDIO = {
+  sun: ["aud-sun"],
+  rain: ["aud-rain"],
+  storm: ["aud-thunder"],
+  typhoon: ["aud-typhoon", "aud-thunder2"],
+  breeze: ["aud-breeze"],
+  snow: ["aud-snow"],
+  fog: ["aud-fog"],
+  cloud: ["aud-cloud"],
+  scorch: ["aud-scorch"],
+};
+const ALL_AUDIO_IDS = ["aud-sun", "aud-rain", "aud-thunder", "aud-thunder2", "aud-typhoon", "aud-breeze", "aud-snow", "aud-fog", "aud-cloud", "aud-scorch"];
+
 let state = loadState();
 let shopQty = {};
 let spinning = false;
@@ -264,7 +281,6 @@ hydrateIcons();
 bindStaticEvents();
 bindBgm();
 render();
-makeBgmDraggable();
 setupCloudDrag();
 window.setInterval(tick, 1000);
 
@@ -300,6 +316,11 @@ function createDefaultState() {
       windmill: 0,
       stand: 0,
     },
+    ordersCompleted: 0,
+    nickname: "",
+    avatar: "👨‍🌾",
+    farmName: "",
+    stats: { planted: 0, harvested: 0, stolen: 0, weed: 0, bug: 0, water: 0 },
   };
 }
 
@@ -317,6 +338,7 @@ function loadState() {
       inventory: { ...defaults.inventory, ...(raw.inventory || {}) },
       seeds: { ...defaults.seeds, ...(raw.seeds || {}) },
       giftsClaimed: Array.isArray(raw.giftsClaimed) ? raw.giftsClaimed : [],
+      stats: { ...defaults.stats, ...(raw.stats || {}) },
       openingSpinDone: !!raw.openingSpinDone,
       items: { ...defaults.items, ...(raw.items || {}) },
       damaged: (raw.damaged && typeof raw.damaged === "object") ? { ...raw.damaged } : {},
@@ -409,6 +431,7 @@ function importCode() {
     inventory: { ...defaults.inventory, ...(data.inventory || {}) },
     seeds: { ...defaults.seeds, ...(data.seeds || {}) },
     giftsClaimed: Array.isArray(data.giftsClaimed) ? data.giftsClaimed : [],
+    stats: { ...defaults.stats, ...(data.stats || {}) },
     openingSpinDone: !!data.openingSpinDone,
     items: { ...defaults.items, ...(data.items || {}) },
     damaged: (data.damaged && typeof data.damaged === "object") ? { ...data.damaged } : {},
@@ -740,12 +763,12 @@ function gmSetInv(id, v) {
 }
 
 function bindBgm() {
-  const bgm = document.querySelector("#bgm");
   const btn = document.querySelector("#bgmToggle");
-  if (!bgm || !btn) return;
-  const thunder = document.querySelector("#thunder");
-  bgm.volume = 0.45;
-  if (thunder) thunder.volume = 0.6;
+  if (!btn) return;
+  ALL_AUDIO_IDS.forEach((id) => {
+    const el = document.querySelector("#" + id);
+    if (el) el.volume = id === "aud-thunder" ? 0.6 : 0.5;
+  });
   audioOn = localStorage.getItem("bgm-on") !== "0";
   audioReady = true;
   btn.addEventListener("click", () => {
@@ -764,12 +787,13 @@ function pauseSafe(el) { if (el && typeof el.pause === "function") el.pause(); }
 function applyAudio() {
   if (!audioReady) return;
   const btn = document.querySelector("#bgmToggle");
-  const bgm = document.querySelector("#bgm");
-  const thunder = document.querySelector("#thunder");
-  if (btn) btn.textContent = audioOn ? "🎵" : "🔇";
-  if (audioOn) playSafe(bgm); else pauseSafe(bgm);
-  // 雷雨時雷聲與背景音樂同時播放
-  if (audioOn && (state.weather === "storm" || state.weather === "typhoon")) playSafe(thunder); else pauseSafe(thunder);
+  if (btn) btn.textContent = audioOn ? "🎵 音樂" : "🔇 音樂";
+  const wanted = audioOn ? (WEATHER_AUDIO[state.weather] || []) : [];
+  ALL_AUDIO_IDS.forEach((id) => {
+    const el = document.querySelector("#" + id);
+    if (!el) return;
+    if (wanted.includes(id)) playSafe(el); else pauseSafe(el);
+  });
 }
 
 function bindStaticEvents() {
@@ -828,6 +852,14 @@ function bindStaticEvents() {
       }
       if (button.dataset.menuAction === "invite") {
         openInvite();
+        return;
+      }
+      if (button.dataset.menuAction === "profile") {
+        openProfile();
+        return;
+      }
+      if (button.dataset.menuAction === "farm") {
+        openFarmSettings();
         return;
       }
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
@@ -895,6 +927,19 @@ function bindStaticEvents() {
   if (inviteClose) inviteClose.addEventListener("click", closeInvite);
   if (inviteAdd) inviteAdd.addEventListener("click", inviteCustom);
   if (inviteBox) inviteBox.addEventListener("click", (e) => { if (e.target === inviteBox) closeInvite(); });
+
+  const profileName = document.querySelector("#profileName");
+  if (profileName) profileName.addEventListener("input", () => { state.nickname = profileName.value; saveState(); });
+  const profileClose = document.querySelector("#profileClose");
+  if (profileClose) profileClose.addEventListener("click", closeProfile);
+  const profileBox = document.querySelector("#profileBox");
+  if (profileBox) profileBox.addEventListener("click", (e) => { if (e.target === profileBox) closeProfile(); });
+  const farmNameInput = document.querySelector("#farmNameInput");
+  if (farmNameInput) farmNameInput.addEventListener("input", () => { state.farmName = farmNameInput.value; saveState(); });
+  const farmClose = document.querySelector("#farmClose");
+  if (farmClose) farmClose.addEventListener("click", closeFarmSettings);
+  const farmBox = document.querySelector("#farmBox");
+  if (farmBox) farmBox.addEventListener("click", (e) => { if (e.target === farmBox) closeFarmSettings(); });
   const friendFarmBox = document.querySelector("#friendFarmBox");
   const friendFarmBack = document.querySelector("#friendFarmBack");
   if (friendFarmBack) friendFarmBack.addEventListener("click", closeFriendFarm);
@@ -931,6 +976,7 @@ function bindStaticEvents() {
   document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
     state.orders = []; ensureOrders(); saveState(); render(); toast("訂單已刷新。");
   });
+  document.querySelector("#gmThief")?.addEventListener("click", gmSpawnThief);
   makeGmBadgeDraggable();
 
   document.querySelectorAll("[data-panel-target]").forEach((button) => {
@@ -1468,15 +1514,28 @@ function refreshFriendFarm(friend) {
   if (friend.plots.length > target) friend.plots.length = target;
   while (friend.plots.length < target) friend.plots.push({ crop: null, plantedAt: 0, stolenAt: 0, hazard: null });
   const pool = Object.keys(CROPS).filter((id) => CROPS[id].unlock <= lvl);
+  const pickHazard = () => (Math.random() < 0.3 ? ["weed", "bug", "dry"][Math.floor(Math.random() * 3)] : null);
   friend.plots.forEach((p) => {
-    const needNew = !p.crop || (p.stolenAt && now - p.stolenAt > FRIEND_REGROW_MS);
-    if (needNew) {
+    const hasCrop = p.crop && CROPS[p.crop];
+    const lingered = hasCrop && now > p.plantedAt + CROPS[p.crop].grow * 60000 + FRIEND_REGROW_MS;
+    if (!hasCrop) {
+      // 初次：給隨機進度（有些已成熟可偷）
       const id = pool[Math.floor(Math.random() * pool.length)];
-      const growMs = CROPS[id].grow * 60000;
       p.crop = id;
-      p.plantedAt = now - Math.floor(Math.random() * growMs * 1.4);
+      p.plantedAt = now - Math.floor(Math.random() * CROPS[id].grow * 60000 * 1.1);
       p.stolenAt = 0;
-      p.hazard = Math.random() < 0.3 ? ["weed", "bug", "dry"][Math.floor(Math.random() * 3)] : null;
+      p.yield = Math.round(CROPS[id].yieldCount * (0.8 + Math.random() * 0.6));
+      p.stolen = 0;
+      p.hazard = pickHazard();
+    } else if (lingered) {
+      // 成熟超過可偷窗口 → 好友自己收掉、重種一個新的（從現在開始長）
+      const id = pool[Math.floor(Math.random() * pool.length)];
+      p.crop = id;
+      p.plantedAt = now;
+      p.stolenAt = 0;
+      p.yield = Math.round(CROPS[id].yieldCount * (0.8 + Math.random() * 0.6));
+      p.stolen = 0;
+      p.hazard = pickHazard();
     }
   });
 }
@@ -1601,6 +1660,34 @@ function visitFriend(id) {
   if (box) box.hidden = false;
 }
 
+function friendCooldownMs(friend) {
+  const now = Date.now();
+  if (!Array.isArray(friend.steals)) return 0;
+  const recent = friend.steals.filter((t) => now - t < FRIEND_STEAL_WINDOW);
+  if (recent.length < FRIEND_STEAL_MAX) return 0;
+  return Math.max(0, FRIEND_STEAL_WINDOW - (now - recent[0]));
+}
+
+function fmtCooldown(ms) {
+  const s = Math.ceil(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function updateFriendCooldown() {
+  if (!currentFriendId) return;
+  const friend = state.friends.find((f) => f.id === currentFriendId);
+  if (!friend) return;
+  const cd = friendCooldownMs(friend);
+  const grid = document.querySelector("#friendFarmGrid");
+  const banner = document.querySelector("#friendFarmCooldown");
+  if (cd > 0) {
+    if (grid) grid.classList.add("is-cooldown");
+    if (banner) { banner.hidden = false; banner.textContent = `⛔ 目前不能偷菜 · 剩 ${fmtCooldown(cd)}`; }
+  } else if (grid && grid.classList.contains("is-cooldown")) {
+    renderFriendFarm(currentFriendId);
+  }
+}
+
 function renderFriendFarm(id) {
   const friend = state.friends.find((f) => f.id === id);
   const box = document.querySelector("#friendFarmBox");
@@ -1610,6 +1697,7 @@ function renderFriendFarm(id) {
   const info = box.querySelector("#friendFarmInfo");
   if (info) info.textContent = `🌾 農場等級 Lv.${friendLevel(friend)}　·　${friend.plots.length} 塊田`;
   const grid = box.querySelector("#friendFarmGrid");
+  const blocked = friendCooldownMs(friend) > 0;
   grid.innerHTML = friend.plots.map((p, i) => {
     if (!p.crop) return `<div class="ff-plot"><span class="ff-state">空地</span></div>`;
     const crop = CROPS[p.crop];
@@ -1621,8 +1709,14 @@ function renderFriendFarm(id) {
     } else if (p.stolenAt) {
       label = "已被偷，重長中";
     } else if (ready) {
-      label = "✅ 可偷";
-      action = `<button class="ff-btn steal" type="button" data-steal="${i}">偷菜</button>`;
+      const cap = Math.floor(((p.yield || crop.yieldCount || 1) * 0.4));
+      const remain = cap - (p.stolen || 0);
+      if (remain <= 0) {
+        label = "已偷滿";
+      } else {
+        label = `✅ 可偷（剩 ${remain}）`;
+        action = `<button class="ff-btn steal" type="button" data-steal="${i}" ${blocked ? "disabled" : ""}>偷菜</button>`;
+      }
     } else {
       label = `成長 ${Math.round(friendProgress(p) * 100)}%`;
     }
@@ -1636,6 +1730,12 @@ function renderFriendFarm(id) {
   }).join("");
   grid.querySelectorAll("[data-steal]").forEach((b) => b.addEventListener("click", () => stealCrop(id, Number(b.dataset.steal))));
   grid.querySelectorAll("[data-help]").forEach((b) => b.addEventListener("click", () => helpFriend(id, Number(b.dataset.help))));
+  grid.classList.toggle("is-cooldown", blocked);
+  const cdBanner = box.querySelector("#friendFarmCooldown");
+  if (cdBanner) {
+    cdBanner.hidden = !blocked;
+    if (blocked) cdBanner.textContent = `⛔ 目前不能偷菜 · 剩 ${fmtCooldown(friendCooldownMs(friend))}`;
+  }
 }
 
 function stealCrop(friendId, idx) {
@@ -1644,6 +1744,9 @@ function stealCrop(friendId, idx) {
   const p = friend.plots[idx];
   if (!p || !p.crop) return;
   if (friendProgress(p) < 1) { toast("還沒成熟，不能偷。"); return; }
+  const cap = Math.floor(((p.yield || CROPS[p.crop].yieldCount || 1) * 0.4));
+  const remaining = cap - (p.stolen || 0);
+  if (remaining <= 0) { toast(`${friend.name} 這塊田能偷的數量已偷滿。`); return; }
   const now = Date.now();
   if (!Array.isArray(friend.steals)) friend.steals = [];
   friend.steals = friend.steals.filter((t) => now - t < FRIEND_STEAL_WINDOW);
@@ -1652,11 +1755,13 @@ function stealCrop(friendId, idx) {
     toast(`${friend.name} 10 分鐘內只能偷 ${FRIEND_STEAL_MAX} 次，約 ${wait} 分後再來。`);
     return;
   }
-  const amt = Math.max(1, Math.round((CROPS[p.crop].yieldCount || 1) * 0.4));
+  const amt = Math.min(remaining, 1 + Math.floor(Math.random() * Math.max(1, Math.ceil(cap * 0.5))));
   state.inventory[p.crop] = (state.inventory[p.crop] || 0) + amt;
+  if (state.stats) state.stats.stolen = (state.stats.stolen || 0) + amt;
+  p.stolen = (p.stolen || 0) + amt;
   friend.steals.push(now);
-  const left = FRIEND_STEAL_MAX - friend.steals.length;
-  toast(`偷到 ${friend.name} 的 ${CROPS[p.crop].name} ${amt} 個！（10 分鐘內還可偷 ${left} 次）`);
+  const plotLeft = cap - p.stolen;
+  toast(`偷到 ${friend.name} 的 ${CROPS[p.crop].name} ${amt} 個！${plotLeft > 0 ? `（這塊還可偷 ${plotLeft}）` : "（這塊已偷滿）"}`);
   saveState();
   renderFriendFarm(friendId);
   render();
@@ -1669,6 +1774,8 @@ function helpFriend(friendId, idx) {
   if (!p || !p.hazard) { toast("這格不需要幫忙。"); return; }
   const labels = { weed: "除草", bug: "除蟲", dry: "澆水" };
   const did = labels[p.hazard];
+  const hk = { weed: "weed", bug: "bug", dry: "water" }[p.hazard];
+  if (hk && state.stats) state.stats[hk] = (state.stats[hk] || 0) + 1;
   p.hazard = null;
   const coin = 20 + state.level * 3;
   state.coins += coin;
@@ -1677,6 +1784,73 @@ function helpFriend(friendId, idx) {
   saveState();
   renderFriendFarm(friendId);
   render();
+}
+
+const AVATARS = ["👨‍🌾", "👩‍🌾", "🧑‍🌾", "👦", "👧", "🧒", "🧔", "👩‍🦰", "🧓", "👵", "👨", "👩"];
+
+function playerTitle() {
+  const lv = state.level;
+  if (lv >= 20) return "農場大師";
+  if (lv >= 15) return "資深農夫";
+  if (lv >= 10) return "老練農夫";
+  if (lv >= 5) return "見習農夫";
+  return "新手農夫";
+}
+
+function statLine(k, v) {
+  return `<div class="stat-line"><span>${k}</span><strong>${v}</strong></div>`;
+}
+
+function openProfile() { renderProfile(); const b = document.querySelector("#profileBox"); if (b) b.hidden = false; }
+function closeProfile() { const b = document.querySelector("#profileBox"); if (b) b.hidden = true; }
+
+function renderProfile() {
+  const nameInput = document.querySelector("#profileName");
+  if (nameInput) nameInput.value = state.nickname || "";
+  const titleEl = document.querySelector("#profileTitle");
+  if (titleEl) titleEl.textContent = playerTitle();
+  const av = document.querySelector("#profileAvatars");
+  if (av) {
+    av.innerHTML = AVATARS.map((e) => `<button type="button" class="avatar-btn ${state.avatar === e ? "is-on" : ""}" data-avatar="${e}">${e}</button>`).join("");
+    av.querySelectorAll("[data-avatar]").forEach((b) => b.addEventListener("click", () => { state.avatar = b.dataset.avatar; saveState(); renderProfile(); }));
+  }
+  const s = state.stats || {};
+  const help = (s.weed || 0) + (s.bug || 0) + (s.water || 0);
+  const list = document.querySelector("#profileStats");
+  if (list) list.innerHTML = [
+    statLine("等級", "Lv." + state.level),
+    statLine("金幣", state.coins),
+    statLine("完成訂單", state.ordersCompleted || 0),
+    statLine("好友數", (state.friends || []).length),
+    statLine("累計種植", s.planted || 0),
+    statLine("累計收成", s.harvested || 0),
+    statLine("偷菜", s.stolen || 0),
+    statLine("幫好友除草", s.weed || 0),
+    statLine("幫好友除蟲", s.bug || 0),
+    statLine("幫好友澆水", s.water || 0),
+    statLine("幫助合計", help),
+  ].join("");
+}
+
+function openFarmSettings() { renderFarmSettings(); const b = document.querySelector("#farmBox"); if (b) b.hidden = false; }
+function closeFarmSettings() { const b = document.querySelector("#farmBox"); if (b) b.hidden = true; }
+
+function renderFarmSettings() {
+  const nameInput = document.querySelector("#farmNameInput");
+  if (nameInput) nameInput.value = state.farmName || "";
+  const plots = state.plots || [];
+  const unlocked = plots.filter((p) => p.unlocked && !p.broken).length;
+  const growing = plots.filter((p) => p.crop && getPlotProgress(p) < 1).length;
+  const ready = plots.filter((p) => p.crop && getPlotProgress(p) >= 1).length;
+  const broken = plots.filter((p) => p.broken).length;
+  const list = document.querySelector("#farmStats");
+  if (list) list.innerHTML = [
+    statLine("已開墾田地", `${unlocked} / ${plots.length}`),
+    statLine("種植中", growing),
+    statLine("可收成", ready),
+    statLine("損壞田", broken),
+    statLine("農場等級", "Lv." + state.level),
+  ].join("");
 }
 
 function render() {
@@ -1712,6 +1886,47 @@ function tick() {
   rotateWeather();
   updateFarmTimers();
   friendStealTick(now);
+  resolveThieves(now);
+  const ffBox = document.querySelector("#friendFarmBox");
+  if (ffBox && !ffBox.hidden && currentFriendId) {
+    const f = state.friends.find((x) => x.id === currentFriendId);
+    if (f) { refreshFriendFarm(f); renderFriendFarm(currentFriendId); }
+  }
+}
+
+function gmSpawnThief() {
+  const cand = state.plots
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.crop && !p.thief && (p.stolenPct || 0) < 0.4);
+  if (!cand.length) { toast("先種一塊作物再測試好友偷菜。"); return; }
+  const ready = cand.filter(({ p }) => getPlotProgress(p) >= 1);
+  const pool = ready.length ? ready : cand;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  if (getPlotProgress(pick.p) < 1) {
+    pick.p.plantedAt = Date.now() - getPlotDuration(pick.p) - 1000;
+  }
+  const name = (state.friends && state.friends.length)
+    ? state.friends[Math.floor(Math.random() * state.friends.length)].name
+    : "小偷";
+  pick.p.thief = { name, expiresAt: Date.now() + 30000 };
+  saveState();
+  toast(`🦹 ${name} 來偷你的 ${CROPS[pick.p.crop].name}！點田地把他趕走（30 秒）。`);
+  render();
+}
+
+function resolveThieves(now) {
+  let changed = false;
+  state.plots.forEach((p) => {
+    if (p.thief && now >= p.thief.expiresAt) {
+      const name = p.thief.name;
+      const cropName = CROPS[p.crop] ? CROPS[p.crop].name : "作物";
+      p.stolenPct = Math.min(0.4, (p.stolenPct || 0) + 0.2);
+      p.thief = null;
+      changed = true;
+      toast(`${name} 偷走了你的${cropName}！`);
+    }
+  });
+  if (changed) { saveState(); render(); }
 }
 
 function friendStealTick(now) {
@@ -1721,13 +1936,13 @@ function friendStealTick(now) {
   if (Math.random() > 0.45) return;
   const ready = state.plots
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.crop && getPlotProgress(p) >= 1 && (p.stolenPct || 0) < 0.4);
+    .filter(({ p }) => p.crop && getPlotProgress(p) >= 1 && (p.stolenPct || 0) < 0.4 && !p.thief);
   if (!ready.length) return;
   const pick = ready[Math.floor(Math.random() * ready.length)];
   const friend = state.friends[Math.floor(Math.random() * state.friends.length)];
-  pick.p.stolenPct = Math.min(0.4, (pick.p.stolenPct || 0) + 0.2);
+  pick.p.thief = { name: friend.name, expiresAt: now + 30000 };
   saveState();
-  toast(`🧑‍🌾 ${friend.name} 偷了你的 ${CROPS[pick.p.crop].name}！成熟了要早點收。`);
+  toast(`🦹 ${friend.name} 來偷你的 ${CROPS[pick.p.crop].name}！點田地把他趕走（30 秒）。`);
   render();
 }
 
@@ -1794,6 +2009,11 @@ function updateFarmTimers() {
       if (timeEl.textContent !== text) {
         timeEl.textContent = text;
       }
+    }
+
+    const thiefEl = button.querySelector(".thief-label");
+    if (thiefEl && plot.thief) {
+      thiefEl.textContent = `趕走 ${Math.max(0, Math.ceil((plot.thief.expiresAt - Date.now()) / 1000))}s`;
     }
 
     const meter = button.querySelector(".plot-meter span");
@@ -1885,12 +2105,13 @@ function renderFarm() {
       const remaining = Math.max(0, getPlotDuration(plot) - (Date.now() - plot.plantedAt));
 
       return `
-        <button class="plot ${ready ? "ready" : "growing"} ${plot.watered ? "watered" : ""} ${state.weather === "storm" && !ready ? "soaked" : ""} ${state.weather === "snow" && !ready ? "frosted" : ""}" type="button" data-plot="${index}" data-slot="${index + 1}" title="${crop.name}">
+        <button class="plot ${ready ? "ready" : "growing"} ${plot.watered ? "watered" : ""} ${plot.soakMs > 0 ? "soaked" : ""} ${state.weather === "snow" && !ready ? "frosted" : ""} ${plot.thief ? "has-thief" : ""}" type="button" data-plot="${index}" data-slot="${index + 1}" title="${crop.name}">
           ${plot.watered ? `<span class="water-badge" aria-hidden="true">${ICONS.drop}</span>` : ""}
-          ${state.weather === "storm" && !ready ? `<span class="soak-badge" aria-hidden="true">💧浸水</span>` : ""}
+          ${plot.soakMs > 0 ? `<span class="soak-badge" aria-hidden="true">💧浸水</span>` : ""}
           ${state.weather === "snow" && !ready ? `<span class="frost-badge" aria-hidden="true">❄️凍傷</span>` : ""}
           ${plot.typhoonHalf && !ready ? `<span class="typhoon-badge" aria-hidden="true">🌀颱風</span>` : ""}
           ${plot.stolenPct ? `<span class="stolen-badge" aria-hidden="true">🤏 -${Math.round(plot.stolenPct * 100)}%</span>` : ""}
+          ${plot.thief ? `<span class="thief-wrap" aria-hidden="true"><span class="thief-label">趕走 ${Math.max(0, Math.ceil((plot.thief.expiresAt - Date.now()) / 1000))}s</span><span class="thief-person">🦹</span></span>` : ""}
           <span class="crop-visual">${cropVisual(plot.crop, stage)}</span>
           <span class="plot-info">
             <span class="plot-label">${crop.name}</span>
@@ -1995,22 +2216,26 @@ function setupGmStakes() {
 }
 
 function renderInventory() {
-  const visibleCrops = Object.entries(CROPS).filter(([, crop]) => crop.unlock <= state.level + 1);
-  elements.inventoryList.innerHTML = visibleCrops
+  const owned = Object.entries(CROPS).filter(([id]) => (state.inventory[id] || 0) > 0);
+  if (!owned.length) {
+    elements.inventoryList.innerHTML = '<p class="item-empty">目前沒有庫存物品。</p>';
+    elements.sellAllButton.disabled = true;
+    return;
+  }
+  elements.inventoryList.innerHTML = owned
     .map(([id, crop]) => {
       const count = state.inventory[id] || 0;
-      const locked = crop.unlock > state.level;
       return `
-        <div class="inventory-row ${locked ? "is-locked" : ""}">
+        <div class="inventory-row">
           <span class="mini-crop" aria-hidden="true">${cropCardVisual(id)}</span>
           <span>
             <span class="item-title">
               <strong>${crop.name}</strong>
-              <span>${locked ? `Lv.${crop.unlock}` : `${count} 個`}</span>
+              <span>${count} 個</span>
             </span>
-            <span class="item-meta">${locked ? "尚未解鎖" : `單價 ${sellPrice(id)} 金幣`}</span>
+            <span class="item-meta">單價 ${sellPrice(id)} 金幣</span>
           </span>
-          <button class="mini-sell" type="button" data-sell-item="${id}" title="出售${crop.name}" aria-label="出售${crop.name}" ${count <= 0 || locked ? "disabled" : ""}>
+          <button class="mini-sell" type="button" data-sell-item="${id}" title="出售${crop.name}" aria-label="出售${crop.name}" ${count <= 0 ? "disabled" : ""}>
             ${ICONS.cart}
           </button>
         </div>
@@ -2247,17 +2472,26 @@ function renderUpgrades() {
     .map(([id, upgrade]) => {
       const level = state.upgrades[id] || 0;
       const complete = level >= upgrade.max;
-      const cost = upgrade.cost(level);
+      const n = level + 1;
+      const cost = complete ? 0 : upgrade.cost(n);
+      const reqLv = complete ? 0 : upgrade.reqLevel(n);
+      const reqOrders = complete ? 0 : upgrade.reqOrders(n);
+      const done = state.ordersCompleted || 0;
+      const reqText = [];
+      if (!complete && reqLv > 1) reqText.push(`需農場 Lv.${reqLv}`);
+      if (!complete && reqOrders > 0) reqText.push(`完成訂單 ${done}/${reqOrders}`);
+      const meet = !complete && state.level >= reqLv && done >= reqOrders && state.coins >= cost;
+      const btnLabel = level === 0 ? "啟用" : "升級";
       return `
         <article class="upgrade-row">
           <span class="upgrade-title">
-            <strong>${upgrade.name} Lv.${level}</strong>
+            <strong>${upgrade.name} Lv.${level}/${upgrade.max}</strong>
             <span>${complete ? "滿級" : `${cost} 金幣`}</span>
           </span>
-          <span class="upgrade-meta">${upgrade.description}</span>
-          <button class="action-button" type="button" data-buy-upgrade="${id}" ${complete || state.coins < cost ? "disabled" : ""}>
+          <span class="upgrade-meta">${upgrade.description}${reqText.length ? `（${reqText.join("、")}）` : ""}</span>
+          <button class="action-button" type="button" data-buy-upgrade="${id}" ${complete || !meet ? "disabled" : ""}>
             <span class="button-icon" aria-hidden="true" data-icon="${upgrade.icon}"></span>
-            升級
+            ${complete ? "滿級" : btnLabel}
           </button>
         </article>
       `;
@@ -2315,6 +2549,15 @@ function handlePlotClick(index) {
     return;
   }
 
+  if (plot.thief) {
+    const name = plot.thief.name;
+    plot.thief = null;
+    toast(`趕走了 ${name}！作物保住了。`);
+    saveState();
+    render();
+    return;
+  }
+
   if (pendingFertilize) {
     applyFertilizer(index);
     return;
@@ -2360,6 +2603,7 @@ function plantPlot(index) {
   }
 
   state.seeds[state.selectedSeed] -= 1;
+  if (state.stats) state.stats.planted = (state.stats.planted || 0) + 1;
   state.plots[index] = {
     ...state.plots[index],
     crop: state.selectedSeed,
@@ -2370,6 +2614,7 @@ function plantPlot(index) {
     frostMs: 0,
     typhoonHalf: false,
     stolenPct: 0,
+    thief: null,
     watered: state.weather === "rain",
   };
   toast(`${crop.name} 已播種。`);
@@ -2386,6 +2631,11 @@ function waterPlot(index) {
 
   if (getPlotProgress(plot) >= 1) {
     toast("已經成熟了，直接收成吧。");
+    return;
+  }
+
+  if (plot.soakMs > 0) {
+    toast("田裡浸水中，水太多了，不能再澆水。");
     return;
   }
 
@@ -2423,6 +2673,7 @@ function harvestPlot(index) {
   if (plot.typhoonHalf) amount = Math.max(1, Math.round(amount * 0.5));
   if (plot.stolenPct) amount = Math.max(1, Math.round(amount * (1 - plot.stolenPct)));
   state.inventory[plot.crop] = (state.inventory[plot.crop] || 0) + amount;
+  if (state.stats) state.stats.harvested = (state.stats.harvested || 0) + amount;
   if (frostLost > 0) {
     if (!state.damaged) state.damaged = {};
     state.damaged[plot.crop] = (state.damaged[plot.crop] || 0) + frostLost;
@@ -2440,7 +2691,7 @@ function harvestPlot(index) {
     state.plots[index] = { ...plot, plantedAt: Date.now(), season: season + 1, soakMs: 0, frostMs: 0, typhoonHalf: false, watered: false };
     toast(`${crop.name} 收成 ${amount} 個，還會再長第 ${season + 2} 季。${penaltyNote}`);
   } else {
-    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, watered: false };
+    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, thief: null, watered: false };
     toast(`${crop.name} 收成 ${amount} 個。${penaltyNote}`);
   }
   saveState();
@@ -2505,6 +2756,7 @@ function completeOrder(orderId) {
   });
   state.coins += order.reward;
   addXp(order.xp);
+  state.ordersCompleted = (state.ordersCompleted || 0) + 1;
   state.orders = state.orders.map((item) => (item.id === orderId ? createOrder() : item));
   toast(`訂單完成，收到 ${order.reward} 金幣。`);
   saveState();
@@ -2545,16 +2797,26 @@ function buyUpgrade(id) {
   if (!upgrade || level >= upgrade.max) {
     return;
   }
-
-  const cost = upgrade.cost(level);
-  if (state.coins < cost) {
-    toast("金幣不夠升級。");
+  const n = level + 1;
+  const reqLv = upgrade.reqLevel(n);
+  if (state.level < reqLv) {
+    toast(`需要農場 Lv.${reqLv} 才能${level === 0 ? "啟用" : "升級"}${upgrade.name}。`);
     return;
   }
-
+  const reqOrders = upgrade.reqOrders(n);
+  const done = state.ordersCompleted || 0;
+  if (done < reqOrders) {
+    toast(`需完成 ${reqOrders} 次訂單（目前 ${done}）。`);
+    return;
+  }
+  const cost = upgrade.cost(n);
+  if (state.coins < cost) {
+    toast("金幣不夠。");
+    return;
+  }
   state.coins -= cost;
-  state.upgrades[id] = level + 1;
-  toast(`${upgrade.name} 升到 Lv.${state.upgrades[id]}。`);
+  state.upgrades[id] = n;
+  toast(`${upgrade.name} ${level === 0 ? "啟用" : `升到 Lv.${n}`}。`);
   saveState();
   render();
 }
@@ -2684,7 +2946,7 @@ function applyWeatherPassive() {
 }
 
 function sellPrice(id) {
-  return Math.round(CROPS[id].sell * (1 + (state.upgrades.stand || 0) * 0.07));
+  return Math.round(CROPS[id].sell * (1 + (state.upgrades.stand || 0) * 0.02));
 }
 
 function inventoryValue() {

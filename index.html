@@ -59,6 +59,7 @@
         </div>
 
         <div class="topbar-status" aria-label="目前天氣">
+          <button class="nav-button" id="bgmToggle" type="button" title="背景音樂開關">🎵 音樂</button>
           <span class="topbar-stat">目前天氣 <strong id="weatherValue">晴朗</strong></span>
         </div>
       </header>
@@ -207,9 +208,16 @@
 
       <div id="toastZone" class="toast-zone" aria-live="polite" aria-atomic="true"></div>
 
-      <audio id="bgm" loop preload="auto" src="./assets/audio/bgm-farm-1.mp3"></audio>
-      <audio id="thunder" loop preload="auto" src="./assets/audio/thunder-storm.mp3"></audio>
-      <button id="bgmToggle" class="bgm-toggle" type="button" title="背景音樂開關" aria-label="背景音樂開關">🎵</button>
+      <audio id="aud-sun" loop preload="auto" src="./assets/audio/weather-sun.mp3"></audio>
+      <audio id="aud-rain" loop preload="auto" src="./assets/audio/weather-rain.mp3"></audio>
+      <audio id="aud-thunder" loop preload="auto" src="./assets/audio/thunder-storm.mp3"></audio>
+      <audio id="aud-typhoon" loop preload="auto" src="./assets/audio/weather-typhoon.mp3"></audio>
+      <audio id="aud-breeze" loop preload="auto" src="./assets/audio/weather-breeze.mp3"></audio>
+      <audio id="aud-snow" loop preload="auto" src="./assets/audio/weather-snow.mp3"></audio>
+      <audio id="aud-thunder2" loop preload="auto" src="./assets/audio/weather-thunder2.mp3"></audio>
+      <audio id="aud-fog" loop preload="auto" src="./assets/audio/weather-fog.mp3"></audio>
+      <audio id="aud-cloud" loop preload="auto" src="./assets/audio/weather-cloud.mp3"></audio>
+      <audio id="aud-scorch" loop preload="auto" src="./assets/audio/weather-scorch.mp3"></audio>
       <div id="gmStakeReadout" class="gm-stake-readout" hidden>GM：拖曳田裡的標桿來校正位置</div>
     </div>
 
@@ -280,10 +288,35 @@
 
     <div id="friendFarmBox" class="gift-box" hidden>
       <div class="gift-card" role="dialog" aria-modal="true" aria-label="好友農場">
-        <h2 id="friendFarmTitle">好友的農場</h2>
-        <p id="friendFarmInfo" class="ff-info"></p>
+        <div class="ff-head">
+          <h2 id="friendFarmTitle">好友的農場</h2>
+          <span id="friendFarmInfo" class="ff-info"></span>
+        </div>
+        <p id="friendFarmCooldown" class="ff-cooldown" hidden></p>
         <div id="friendFarmGrid" class="ff-grid"></div>
         <button id="friendFarmBack" type="button" class="gift-close">返回</button>
+      </div>
+    </div>
+
+    <div id="profileBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="角色設定">
+        <h2>👤 角色設定</h2>
+        <div class="set-row"><label>暱稱</label><input id="profileName" type="text" maxlength="12" placeholder="輸入暱稱" /></div>
+        <div class="set-row set-row-top"><label>頭像</label><div id="profileAvatars" class="avatar-pick"></div></div>
+        <div class="set-row"><label>稱號</label><span id="profileTitle" class="set-val"></span></div>
+        <h3 class="set-sub">遊戲統計</h3>
+        <div id="profileStats" class="stat-list"></div>
+        <button id="profileClose" type="button" class="gift-close">關閉</button>
+      </div>
+    </div>
+
+    <div id="farmBox" class="gift-box" hidden>
+      <div class="gift-card" role="dialog" aria-modal="true" aria-label="農場設定">
+        <h2>🏡 農場設定</h2>
+        <div class="set-row"><label>農場名稱</label><input id="farmNameInput" type="text" maxlength="14" placeholder="輸入農場名稱" /></div>
+        <h3 class="set-sub">農場統計</h3>
+        <div id="farmStats" class="stat-list"></div>
+        <button id="farmClose" type="button" class="gift-close">關閉</button>
       </div>
     </div>
 
@@ -333,8 +366,7 @@
           <input class="gm-slider" data-gm-range="xp" type="range" />
         </div>
         <div class="gm-row"><label>天氣</label><span class="gm-weather"><button data-gm-weather="sun" type="button">晴朗</button><button data-gm-weather="breeze" type="button">微風</button><button data-gm-weather="cloud" type="button">多雲</button><button data-gm-weather="rain" type="button">小雨</button><button data-gm-weather="scorch" type="button">烈日</button><button data-gm-weather="storm" type="button">雷雨</button><button data-gm-weather="fog" type="button">起霧</button><button data-gm-weather="snow" type="button">下雪</button><button data-gm-weather="typhoon" type="button">颱風</button></span></div>
-        <div class="gm-row"><label>庫存</label><button id="gmInvOpen" type="button">編輯庫存…</button></div>
-        <div class="gm-row"><label>訂單</label><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
+        <div class="gm-row"><label>庫存</label><button id="gmInvOpen" type="button">編輯庫存…</button><button id="gmThief" type="button" class="gm-row-right">好友偷菜</button><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
         <div class="gm-foot">
           <button id="gmEditConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmEditRevert" type="button" class="gm-foot-undo">回復</button>

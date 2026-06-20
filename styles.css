@@ -2972,20 +2972,19 @@ body {
 
 /* 背景音樂開關 */
 .bgm-toggle {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  z-index: 80;
-  width: 38px;
-  height: 38px;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 250, 240, 0.92);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  font-size: 18px;
+  background: rgba(255, 250, 240, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
 }
+.scene-status-strip { align-items: center; }
 
 /* GM 標桿校正讀數 */
 .gm-stake-readout {
@@ -3129,9 +3128,89 @@ body {
 }
 
 /* 好友農場資訊列 */
-.ff-info {
-  margin: -4px 0 10px;
-  color: #6a5a32;
-  font-size: 0.84rem;
-  font-weight: 700;
+.ff-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
 }
+.ff-head h2 { margin: 0; }
+.ff-info {
+  margin: 0;
+  color: #6a5a32;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* 好友冷卻：不能偷菜 */
+.ff-cooldown {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: #f1e3df;
+  color: #b14a2e;
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.ff-grid.is-cooldown {
+  opacity: 0.5;
+  filter: grayscale(0.75);
+  pointer-events: none;
+}
+
+/* topbar 天氣區：音樂鈕＋天氣同列 (topbar-status-flex-added) */
+.topbar-status { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+
+/* GM 列：靠右的按鈕 */
+.gm-row-right { margin-left: auto; }
+
+/* 角色／農場設定 */
+.set-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.set-row-top { align-items: flex-start; }
+.set-row label { flex: 0 0 64px; font-weight: 700; color: #5a4a22; font-size: 0.88rem; }
+.set-row input { flex: 1; height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font-size: 0.9rem; background: #fff; }
+.set-val { font-weight: 800; color: #3f7d3a; }
+.avatar-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.avatar-btn { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+.avatar-btn.is-on { border-color: #e8b94a; background: #fff6e0; box-shadow: inset 0 0 0 2px #e8b94a; }
+.set-sub { margin: 12px 0 8px; font-size: 0.92rem; color: #5a4a22; }
+.stat-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.stat-line { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; background: #f7f3e6; border-radius: 8px; font-size: 0.82rem; }
+.stat-line span { color: var(--muted); }
+.stat-line strong { color: #5a4a22; }
+
+/* 偷菜小人 */
+.thief-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+  animation: thief-bob 0.8s ease-in-out infinite;
+}
+.thief-label {
+  background: #b03a2e;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.66rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.thief-person {
+  font-size: clamp(28px, 8vw, 46px);
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+@keyframes thief-bob { 0%, 100% { transform: translate(-50%, -100%); } 50% { transform: translate(-50%, -106%); } }
+.plot.has-thief { box-shadow: inset 0 0 0 2px rgba(176, 58, 46, 0.7); }
