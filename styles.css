@@ -3214,3 +3214,63 @@ body {
 }
 @keyframes thief-bob { 0%, 100% { transform: translate(-50%, -100%); } 50% { transform: translate(-50%, -106%); } }
 .plot.has-thief { box-shadow: inset 0 0 0 2px rgba(176, 58, 46, 0.7); }
+
+/* 直版提示轉橫向 */
+.rotate-hint { display: none; }
+@media (orientation: portrait) {
+  .rotate-hint {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: linear-gradient(160deg, #2c3d2a, #18241a);
+    color: #ffe6a8;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+  }
+}
+.rotate-inner { max-width: 320px; }
+.rotate-icon { font-size: 64px; margin-bottom: 14px; animation: rotate-wobble 1.6s ease-in-out infinite; }
+.rotate-hint p { font-size: 1.15rem; margin: 6px 0; }
+.rotate-hint strong { color: #ffd24a; }
+.rotate-sub { font-size: 0.85rem; opacity: 0.8; }
+@keyframes rotate-wobble { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-25deg); } }
+
+/* 場景建築（風車等） */
+.scene-decor {
+  position: absolute;
+  display: none;
+  width: 3.64%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  z-index: 0;
+}
+
+/* 訂單刷新／每日上限 + 已完成 */
+.order-head {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: #f3ecd9;
+  color: #5a4a22;
+  font-weight: 700;
+  font-size: 0.84rem;
+  text-align: center;
+}
+.order-card.is-done { opacity: 0.5; }
+
+/* 訂單大單標記 */
+.order-card.is-big { border-color: #e8b94a; box-shadow: 0 0 0 2px rgba(232, 185, 74, 0.45); }
+.order-big {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8b94a;
+  color: #2a2113;
+  font-weight: 800;
+  font-size: 0.74rem;
+}

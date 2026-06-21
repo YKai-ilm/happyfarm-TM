@@ -153,6 +153,7 @@
             <button class="barn-hotspot" type="button" data-panel-target="inventory" aria-label="開啟倉庫" title="開啟倉庫"></button>
             <div id="farmGrid" class="farm-grid"></div>
             <div id="weatherFx" class="wfx" aria-hidden="true">
+              <img id="bld-windmill" class="scene-decor" src="./assets/decor/windmill-anim.webp" alt="" />
               <span class="wfx-clouds"></span>
               <span class="wfx-puffs"><i></i><i></i><i></i><i></i><i></i></span>
               <img class="wfx-cloud-img" data-cloud="0" src="./assets/decor/cloud.png" alt="" />
@@ -207,6 +208,14 @@
       </main>
 
       <div id="toastZone" class="toast-zone" aria-live="polite" aria-atomic="true"></div>
+
+      <div id="rotateHint" class="rotate-hint" aria-hidden="true">
+        <div class="rotate-inner">
+          <div class="rotate-icon">🔄📱</div>
+          <p>請將裝置轉為<strong>橫向</strong>遊玩</p>
+          <p class="rotate-sub">開心農場是橫式畫面</p>
+        </div>
+      </div>
 
       <audio id="aud-sun" loop preload="auto" src="./assets/audio/weather-sun.mp3"></audio>
       <audio id="aud-rain" loop preload="auto" src="./assets/audio/weather-rain.mp3"></audio>

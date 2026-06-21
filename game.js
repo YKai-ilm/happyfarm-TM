@@ -18,13 +18,14 @@ const PLOT_UNLOCKS = [
 
 // 各田標桿位置（GM 校正匯出；% 為標桿中心相對該田）
 const STAKE_POS = {
-  0: [17.2, 69.4], 1: [18.7, 69.4], 2: [20.0, 69.4], 3: [21.3, 69.4],
-  4: [15.3, 57.4], 5: [16.3, 57.4], 6: [16.4, 57.4], 7: [15.3, 57.4],
-  8: [17.0, 48.7], 9: [17.8, 44.9], 10: [14.4, 47.3], 11: [13.1, 47.3],
-  12: [19.1, 44.4], 13: [7.5, 41.6], 14: [13.0, 42.5], 15: [11.2, 35.5],
+  0: [19.0, 64.8], 1: [20.6, 64.8], 2: [21.8, 64.8], 3: [22.9, 64.8],
+  4: [18.5, 55.2], 5: [19.3, 55.2], 6: [19.4, 55.2], 7: [18.2, 55.2],
+  8: [19.5, 49.0], 9: [20.3, 46.1], 10: [17.2, 47.8], 11: [15.6, 47.8],
+  12: [21.0, 45.4], 13: [10.5, 43.1], 14: [15.5, 44.0], 15: [13.7, 38.2],
 };
 
-const CLOUD_POS = { 0: [50.9, 1.8], 1: [35.8, 1.7] };
+const CLOUD_POS = { 0: [51.4, 6.3], 1: [35.1, 10.9] };
+const BUILDING_POS = { windmill: [54.7, 25.1] };
 
 function applyClouds() {
   const fx = document.querySelector("#weatherFx");
@@ -76,6 +77,58 @@ function setupCloudDrag() {
     img.addEventListener("pointerup", end);
     img.addEventListener("pointercancel", end);
   });
+}
+
+function applyBuildings() {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  if (!Object.keys(gmBuildingPos).length) {
+    try { gmBuildingPos = JSON.parse(localStorage.getItem("gm-building-pos") || "{}") || {}; } catch (e) { gmBuildingPos = {}; }
+  }
+  const wm = fx.querySelector("#bld-windmill");
+  if (wm) {
+    const active = (state.upgrades && state.upgrades.windmill || 0) >= 1;
+    wm.style.display = active ? "block" : "none";
+    const pos = gmBuildingPos.windmill || BUILDING_POS.windmill;
+    if (pos) { wm.style.left = pos[0] + "%"; wm.style.top = pos[1] + "%"; }
+    wm.style.pointerEvents = (state.gm && active) ? "auto" : "none";
+    wm.style.cursor = state.gm ? "grab" : "default";
+  }
+}
+
+function setupBuildingDrag() {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  const wm = fx.querySelector("#bld-windmill");
+  if (!wm || wm.dataset.dragReady) return;
+  wm.dataset.dragReady = "1";
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  wm.addEventListener("pointerdown", (e) => {
+    if (!state.gm) return;
+    dragging = true;
+    const r = fx.getBoundingClientRect(), ir = wm.getBoundingClientRect();
+    ox = ir.left - r.left; oy = ir.top - r.top; sx = e.clientX; sy = e.clientY;
+    e.preventDefault();
+    try { wm.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  wm.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const r = fx.getBoundingClientRect();
+    let x = Math.max(0, Math.min(100, (ox + (e.clientX - sx)) / r.width * 100));
+    let y = Math.max(0, Math.min(100, (oy + (e.clientY - sy)) / r.height * 100));
+    wm.style.left = x.toFixed(1) + "%"; wm.style.top = y.toFixed(1) + "%";
+    gmBuildingPos.windmill = [Number(x.toFixed(1)), Number(y.toFixed(1))];
+    const readout = document.querySelector("#gmStakeReadout");
+    if (readout) readout.textContent = `風車｜left ${x.toFixed(1)}%　top ${y.toFixed(1)}%`;
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    try { wm.releasePointerCapture(e.pointerId); } catch (err) {}
+    try { localStorage.setItem("gm-building-pos", JSON.stringify(gmBuildingPos)); } catch (err) {}
+  };
+  wm.addEventListener("pointerup", end);
+  wm.addEventListener("pointercancel", end);
 }
 
 function stakeStyle(i) {
@@ -136,9 +189,9 @@ const UPGRADES = {
     name: "風車",
     icon: "wind",
     max: 10,
-    description: "每級讓作物成長時間縮短 6%。",
+    description: "每級讓作物成長時間縮短 2%。",
     cost: (n) => 5000 + 2500 * n * (n + 1),
-    reqLevel: () => 5,
+    reqLevel: () => 1,
     reqOrders: () => 0,
   },
   stand: {
@@ -254,6 +307,7 @@ let audioOn = true;
 let audioReady = false;
 let gmStakePos = {};
 let gmCloudPos = {};
+let gmBuildingPos = {};
 
 const WEATHER_AUDIO = {
   sun: ["aud-sun"],
@@ -268,6 +322,18 @@ const WEATHER_AUDIO = {
 };
 const ALL_AUDIO_IDS = ["aud-sun", "aud-rain", "aud-thunder", "aud-thunder2", "aud-typhoon", "aud-breeze", "aud-snow", "aud-fog", "aud-cloud", "aud-scorch"];
 
+const ORDER_REFRESH_MS = 1800000;   // 30 分鐘刷新
+const ORDER_DAILY_CAP = 35;          // 每日最多解 35 張
+// 報酬調法：B（建議）＝需求×1、金幣×1、經驗×0.4；A＝需求×4、金幣×2、經驗×1
+const ORDER_DEMAND_MULT = 1;
+const ORDER_COIN_MULT = 1;
+const ORDER_XP_MULT = 0.4;
+// 大單：約 30% 機率，需求×4、金幣×2.5、經驗不動（滿經驗）
+const ORDER_BIG_CHANCE = 0.30;
+const ORDER_BIG_DEMAND = 4;
+const ORDER_BIG_COIN = 2.5;
+const ORDER_BIG_XP = 1;
+
 let state = loadState();
 let shopQty = {};
 let spinning = false;
@@ -276,12 +342,13 @@ let pendingFertilize = false;
 let lastTickTime = Date.now();
 let lastFriendSteal = Date.now();
 let giftSectionOpen = { newbie: true, event: false, friend: false };
-ensureOrders();
+maybeRefreshOrders();
 hydrateIcons();
 bindStaticEvents();
 bindBgm();
 render();
 setupCloudDrag();
+setupBuildingDrag();
 window.setInterval(tick, 1000);
 
 function createDefaultState() {
@@ -312,6 +379,9 @@ function createDefaultState() {
       watered: false,
     })),
     orders: [],
+    ordersRefreshAt: 0,
+    ordersToday: 0,
+    ordersDay: 0,
     upgrades: {
       windmill: 0,
       stand: 0,
@@ -444,7 +514,7 @@ function importCode() {
     })),
     orders: Array.isArray(data.orders) ? data.orders : [],
   };
-  ensureOrders();
+  maybeRefreshOrders();
   saveState();
   closeSaveBox();
   render();
@@ -601,7 +671,7 @@ function gmReset() {
   const keepGm = state.gm;
   state = createDefaultState();
   state.gm = keepGm;
-  ensureOrders();
+  maybeRefreshOrders();
   saveState();
   hideGmBox("#gmEdit");
   hideGmBox("#gmPanel");
@@ -974,7 +1044,10 @@ function bindStaticEvents() {
   const gmInvBox = document.querySelector("#gmInvBox");
   if (gmInvBox) gmInvBox.addEventListener("click", (e) => { if (e.target === gmInvBox) gmInvDismiss(); });
   document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
-    state.orders = []; ensureOrders(); saveState(); render(); toast("訂單已刷新。");
+    state.orders = generateOrders();
+    state.ordersRefreshAt = Date.now() + ORDER_REFRESH_MS;
+    if (gmEditSnap) gmEditSnap.orders = JSON.parse(JSON.stringify(state.orders));
+    saveState(); render(); toast("訂單已全部刷新。");
   });
   document.querySelector("#gmThief")?.addEventListener("click", gmSpawnThief);
   makeGmBadgeDraggable();
@@ -1874,6 +1947,7 @@ function updateWeatherFx() {
   const w = ["rain", "storm", "snow", "typhoon", "scorch", "breeze", "fog", "cloud"].includes(state.weather) ? state.weather : "";
   fx.className = "wfx" + (w ? " " + w : "");
   applyClouds();
+  applyBuildings();
 }
 
 // 每秒的輕量更新：只就地更新成長倒數與進度，不重建 DOM，避免畫面閃爍
@@ -1892,6 +1966,9 @@ function tick() {
     const f = state.friends.find((x) => x.id === currentFriendId);
     if (f) { refreshFriendFarm(f); renderFriendFarm(currentFriendId); }
   }
+  maybeRefreshOrders();
+  const wp = document.querySelector(".work-panel");
+  if (wp && wp.classList.contains("is-open") && state.activeTab === "orders") renderTabContent();
 }
 
 function gmSpawnThief() {
@@ -2155,7 +2232,20 @@ function exportStakePos() {
       cl.push(`雲${img.dataset.cloud}:${x},${y}`);
     });
   }
-  const text = out.join(" | ") + (cl.length ? "\n雲： " + cl.join(" | ") : "");
+  const bl = [];
+  if (fx) {
+    const r = fx.getBoundingClientRect();
+    const wm = fx.querySelector("#bld-windmill");
+    if (wm && wm.style.display !== "none") {
+      const ir = wm.getBoundingClientRect();
+      if (ir.width > 0) {
+        const x = ((ir.left - r.left) / r.width * 100).toFixed(1);
+        const y = ((ir.top - r.top) / r.height * 100).toFixed(1);
+        bl.push(`風車:${x},${y}`);
+      }
+    }
+  }
+  const text = out.join(" | ") + (cl.length ? "\n雲： " + cl.join(" | ") : "") + (bl.length ? "\n建築： " + bl.join(" | ") : "");
   try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
   try { console.log("STAKE_POS:", text); } catch (e) {}
   try { window.prompt("已複製，貼到對話給 Claude 即可：", text); } catch (e) {}
@@ -2406,12 +2496,21 @@ function renderMarket() {
 }
 
 function renderOrders() {
-  ensureOrders();
-  elements.tabContent.innerHTML = state.orders
+  maybeRefreshOrders();
+  const now = Date.now();
+  const remain = Math.max(0, (state.ordersRefreshAt || now) - now);
+  const mm = Math.floor(remain / 60000);
+  const ss = String(Math.floor(remain / 1000) % 60).padStart(2, "0");
+  const today = state.ordersToday || 0;
+  const capped = today >= ORDER_DAILY_CAP;
+  const head = `<div class="order-head">下次刷新 ${mm}:${ss}　·　今日 ${today}/${ORDER_DAILY_CAP}${capped ? "（已額滿）" : ""}</div>`;
+  elements.tabContent.innerHTML = head + state.orders
     .map((order) => {
       const canFill = canCompleteOrder(order);
+      const done = !!order.done;
       return `
-        <article class="order-card">
+        <article class="order-card ${done ? "is-done" : ""} ${order.big ? "is-big" : ""}">
+          ${order.big ? `<span class="order-big">⭐ 大單・量大報酬高・滿經驗</span>` : ""}
           <div class="order-items">
             ${order.items
               .map((item) => {
@@ -2431,9 +2530,9 @@ function renderOrders() {
             <span class="reward-pill reward-coin">${ICONS.coin}<strong>${order.reward}</strong></span>
             <span class="reward-pill reward-xp">${ICONS.star}<strong>${order.xp}</strong> XP</span>
           </div>
-          <button class="action-button" type="button" data-complete-order="${order.id}" ${canFill ? "" : "disabled"}>
+          <button class="action-button" type="button" data-complete-order="${order.id}" ${done || !canFill || capped ? "disabled" : ""}>
             <span class="button-icon" aria-hidden="true" data-icon="check"></span>
-            完成訂單
+            ${done ? "已完成" : "完成訂單"}
           </button>
         </article>
       `;
@@ -2746,18 +2845,23 @@ function sellAllInventory() {
 
 function completeOrder(orderId) {
   const order = state.orders.find((item) => item.id === orderId);
-  if (!order || !canCompleteOrder(order)) {
+  if (!order || order.done) return;
+  if ((state.ordersToday || 0) >= ORDER_DAILY_CAP) {
+    toast(`今天訂單已達上限（${ORDER_DAILY_CAP} 張），明天再來。`);
+    return;
+  }
+  if (!canCompleteOrder(order)) {
     toast("訂單材料還不夠。");
     return;
   }
-
   order.items.forEach((item) => {
     state.inventory[item.crop] -= item.count;
   });
   state.coins += order.reward;
   addXp(order.xp);
   state.ordersCompleted = (state.ordersCompleted || 0) + 1;
-  state.orders = state.orders.map((item) => (item.id === orderId ? createOrder() : item));
+  state.ordersToday = (state.ordersToday || 0) + 1;
+  order.done = true;
   toast(`訂單完成，收到 ${order.reward} 金幣。`);
   saveState();
   render();
@@ -2825,28 +2929,63 @@ function canCompleteOrder(order) {
   return order.items.every((item) => (state.inventory[item.crop] || 0) >= item.count);
 }
 
-function ensureOrders() {
-  while (state.orders.length < 3) {
-    state.orders.push(createOrder());
-  }
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
 
-function createOrder() {
-  const available = Object.keys(CROPS).filter((id) => CROPS[id].unlock <= state.level);
-  const itemCount = Math.min(available.length, Math.random() < 0.62 ? 1 : 2);
-  const shuffled = [...available].sort(() => Math.random() - 0.5).slice(0, itemCount);
-  const items = shuffled.map((cropId) => {
-    const base = 2 + Math.floor(Math.random() * (2 + state.level));
-    const count = cropId === "turnip" ? base + 1 : Math.max(1, base - 1);
-    return { crop: cropId, count };
+function makeOrder(cropPool, big) {
+  const pool = (cropPool && cropPool.length) ? cropPool : Object.keys(CROPS).filter((id) => CROPS[id].unlock <= state.level);
+  const itemCount = Math.min(pool.length, Math.random() < 0.62 ? 1 : 2);
+  const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, itemCount);
+  const base = shuffled.map((cropId) => {
+    const b = 2 + Math.floor(Math.random() * (2 + state.level));
+    const c = cropId === "turnip" ? b + 1 : Math.max(1, b - 1);
+    return { crop: cropId, count: c };
   });
-  const cropValue = items.reduce((sum, item) => sum + sellPrice(item.crop) * item.count, 0);
+  const cropValue = base.reduce((sum, it) => sum + sellPrice(it.crop) * it.count, 0);
+  const baseReward = Math.round(cropValue * 1.28 + 8 + state.level * 5);
+  const baseXp = 8 + base.reduce((sum, it) => sum + CROPS[it.crop].xp * it.count, 0);
+  const dM = big ? ORDER_BIG_DEMAND : ORDER_DEMAND_MULT;
+  const cM = big ? ORDER_BIG_COIN : ORDER_COIN_MULT;
+  const xM = big ? ORDER_BIG_XP : ORDER_XP_MULT;
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    items,
-    reward: Math.round(cropValue * 1.28 + 8 + state.level * 5),
-    xp: 8 + items.reduce((sum, item) => sum + CROPS[item.crop].xp * item.count, 0),
+    items: base.map((it) => ({ crop: it.crop, count: it.count * dM })),
+    reward: Math.round(baseReward * cM),
+    xp: Math.max(1, Math.round(baseXp * xM)),
+    big: !!big,
+    done: false,
   };
+}
+
+function generateOrders() {
+  const level = state.level;
+  const unlocked = Object.keys(CROPS).filter((id) => CROPS[id].unlock <= level);
+  let current = unlocked.filter((id) => CROPS[id].unlock >= level - 1);
+  if (!current.length) current = unlocked.slice(-2);
+  let below = unlocked.filter((id) => CROPS[id].unlock < level - 1);
+  if (!below.length) below = unlocked;
+  const bigIndex = Math.random() < ORDER_BIG_CHANCE ? Math.floor(Math.random() * 5) : -1;
+  const orders = [];
+  for (let i = 0; i < 5; i++) {
+    const pool = i < 2 ? current : below;        // 前 2 張當級作物、後 3 張低階作物
+    orders.push(makeOrder(pool, i === bigIndex));
+  }
+  return orders;
+}
+
+function maybeRefreshOrders() {
+  const now = Date.now();
+  let changed = false;
+  const dk = todayKey();
+  if (state.ordersDay !== dk) { state.ordersDay = dk; state.ordersToday = 0; changed = true; }
+  if (!state.ordersRefreshAt || now >= state.ordersRefreshAt || !Array.isArray(state.orders) || state.orders.length < 5) {
+    state.orders = generateOrders();
+    state.ordersRefreshAt = now + ORDER_REFRESH_MS;
+    changed = true;
+  }
+  if (changed) saveState();
 }
 
 function addXp(amount) {
@@ -2870,7 +3009,7 @@ function getPlotDuration(plot) {
   }
 
   const baseMinutes = plot.season && plot.season > 0 && crop.regrow ? crop.regrow : crop.grow;
-  const windmill = 1 - (state.upgrades.windmill || 0) * 0.06;
+  const windmill = 1 - (state.upgrades.windmill || 0) * 0.02;
   const weather = WEATHERS[state.weather].growth;
   const water = plot.watered ? 2 / 3 : 1;
   return baseMinutes * 60 * 1000 * Math.max(0.48, windmill * weather * water);
