@@ -7,7 +7,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="開心農場" />
-    <meta name="theme-color" content="#cf4b3f" />
+    <meta name="theme-color" content="#557a44" />
+    <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
     <link rel="stylesheet" href="./styles.css?v=20260615-claude-030" />
   </head>
@@ -73,13 +74,23 @@
             </div>
             <div class="inv-col stock-col">
               <div class="panel-head">
-                <h2>倉庫</h2>
+                <h2>農場</h2>
                 <button class="compact-button" id="sellAllButton" type="button">
                   <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
                   全部出售
                 </button>
               </div>
               <div id="inventoryList" class="inventory-list"></div>
+            </div>
+            <div class="inv-col ranch-col">
+              <div class="panel-head">
+                <h2>牧場</h2>
+                <button class="compact-button" id="sellAllRanchButton" type="button">
+                  <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
+                  全部出售
+                </button>
+              </div>
+              <div id="ranchProductList" class="inventory-list"></div>
             </div>
           </div>
         </section>
@@ -195,11 +206,11 @@
               回農場
             </button>
             <button class="tool-button ranch-tool" data-action="ranch-feed" type="button" title="餵飼料">
-              <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
+              <span class="button-icon" aria-hidden="true" data-icon="feed"></span>
               餵飼料
             </button>
             <button class="tool-button ranch-tool" data-action="ranch-wash" type="button" title="洗澡">
-              <span class="button-icon" aria-hidden="true" data-icon="watering"></span>
+              <span class="button-icon" aria-hidden="true" data-icon="bath"></span>
               洗澡
             </button>
             <button class="tool-button ranch-tool" data-action="ranch-harvest" type="button" title="收成">
@@ -210,9 +221,9 @@
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               買動物
             </button>
-            <button class="tool-button ranch-tool" data-action="ranch-todo2" type="button" title="待新增2">
-              <span class="button-icon" aria-hidden="true" data-icon="gift"></span>
-              待新增2
+            <button class="tool-button ranch-tool" data-action="ranch-sell" type="button" title="賣動物">
+              <span class="button-icon" aria-hidden="true" data-icon="coin"></span>
+              賣動物
             </button>
           </div>
         </section>

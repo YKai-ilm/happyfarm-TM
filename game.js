@@ -224,6 +224,8 @@ const ICONS = {
   star: `<svg viewBox="0 0 24 24"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z" fill="#f0c64a" stroke="#9a6b1e" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
   gift: `<svg viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="1" fill="#d96b6b" stroke="#8a3b3b" stroke-width="1.4"/><rect x="3.5" y="7" width="17" height="3.4" rx="1" fill="#e88a8a" stroke="#8a3b3b" stroke-width="1.3"/><path d="M12 7v13" stroke="#ffd98a" stroke-width="1.8"/><path d="M12 7C9.5 7 8 4 9.6 3.3 11.2 2.6 12 5.4 12 7zm0 0c2.5 0 4-3 2.4-3.7C12.8 2.6 12 5.4 12 7z" fill="#ffd98a" stroke="#8a3b3b" stroke-width="0.9" stroke-linejoin="round"/></svg>`,
   item: `<svg viewBox="0 0 24 24"><path d="M10 3.2h4v4.3l3.4 8.2a2 2 0 0 1-1.85 2.8H8.45a2 2 0 0 1-1.85-2.8L10 7.5z" fill="#8fc6e0" stroke="#37657d" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 3.2h6" stroke="#37657d" stroke-width="1.7" stroke-linecap="round"/><path d="M7.6 14.5h8.8" stroke="#37657d" stroke-width="1.2"/><circle cx="11" cy="16.5" r="1" fill="#fff"/><circle cx="13.6" cy="17.6" r="0.8" fill="#fff"/></svg>`,
+  feed: `<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5" fill="#f0c44a"/><circle cx="12.6" cy="4.8" r="1.5" fill="#e8b23a"/><circle cx="15.6" cy="6.3" r="1.4" fill="#f0c44a"/><path d="M5 8.2h14l-1.6 11.2a1 1 0 0 1-1 .86H7.6a1 1 0 0 1-1-.86z" fill="#c79a5b" stroke="#7a5a2e" stroke-width="1.4" stroke-linejoin="round"/><path d="M4.4 8.2h15.2" stroke="#7a5a2e" stroke-width="1.7" stroke-linecap="round"/></svg>`,
+  bath: `<svg viewBox="0 0 24 24"><path d="M12 3.5c3.2 4.2 5.2 6.8 5.2 9.4a5.2 5.2 0 0 1-10.4 0c0-2.6 2-5.2 5.2-9.4z" fill="#7fc7e8" stroke="#3a7fa0" stroke-width="1.3" stroke-linejoin="round"/><path d="M10 12.5c0 1.6 0.9 2.7 2.2 3" fill="none" stroke="#eaf6fc" stroke-width="1.3" stroke-linecap="round"/><circle cx="17.6" cy="6.6" r="1.7" fill="#cdeafa" stroke="#3a7fa0" stroke-width="0.9"/><circle cx="6.6" cy="9" r="1.2" fill="#cdeafa" stroke="#3a7fa0" stroke-width="0.8"/></svg>`,
 };
 
 const elements = {
@@ -334,6 +336,14 @@ const ORDER_BIG_DEMAND = 4;
 const ORDER_BIG_COIN = 2.5;
 const ORDER_BIG_XP = 1;
 
+/* 動物設定需在 init/render 前定義，避免 TDZ */
+const RANCH_ANIMALS = {
+  chicken: { name: "雞", emoji: "🐔", img: "./assets/ranch/animal-chicken.png", price: 200,  product: "蛋",   productEmoji: "🥚", value: 60,  growMs: 300000 },
+  sheep:   { name: "羊", emoji: "🐑", price: 600,  product: "羊毛", productEmoji: "🧶", value: 180, growMs: 720000 },
+  pig:     { name: "豬", emoji: "🐖", img: "./assets/ranch/animal-pig.png", price: 900,  product: "豬肉", productEmoji: "🥓", value: 300, growMs: 1080000 },
+  cow:     { name: "牛", emoji: "🐄", price: 1500, product: "牛奶", productEmoji: "🥛", value: 500, growMs: 1500000 },
+};
+
 let state = loadState();
 let shopQty = {};
 let spinning = false;
@@ -393,6 +403,8 @@ function createDefaultState() {
     avatar: "👨‍🌾",
     customAvatars: [],
     ranchAnimals: [],
+    ranchProducts: {},
+    ranchTool: "",
     farmName: "",
     stats: { planted: 0, harvested: 0, stolen: 0, weed: 0, bug: 0, water: 0 },
   };
@@ -425,6 +437,7 @@ function loadState() {
       })),
       orders: Array.isArray(raw.orders) ? raw.orders : [],
       ranchAnimals: Array.isArray(raw.ranchAnimals) ? raw.ranchAnimals : [],
+      ranchProducts: (raw.ranchProducts && typeof raw.ranchProducts === "object") ? { ...raw.ranchProducts } : {},
     };
   } catch {
     return defaults;
@@ -924,19 +937,19 @@ function bindStaticEvents() {
         exitRanch();
       }
       if (button.dataset.action === "ranch-feed") {
-        feedRanchAnimals();
+        state.ranchTool = state.ranchTool === "feed" ? "" : "feed"; saveState(); render();
       }
       if (button.dataset.action === "ranch-wash") {
-        washRanchAnimals();
+        state.ranchTool = state.ranchTool === "wash" ? "" : "wash"; saveState(); render();
       }
       if (button.dataset.action === "ranch-harvest") {
-        harvestRanchAnimals();
+        state.ranchTool = state.ranchTool === "harvest" ? "" : "harvest"; saveState(); render();
       }
       if (button.dataset.action === "ranch-shop") {
         openAnimalShop();
       }
-      if (button.dataset.action === "ranch-todo2") {
-        toast("功能開發中，敬請期待。");
+      if (button.dataset.action === "ranch-sell") {
+        openSellAnimal();
       }
     });
   });
@@ -1092,10 +1105,12 @@ function bindStaticEvents() {
     const t = event.target;
     if (t.closest && (t.closest(".work-panel, .inventory-panel") || t.closest("[data-tab], [data-panel-target]"))) return;
     openPanel("");
+    render();
   });
 
   elements.restButton.addEventListener("click", restOneDay);
   elements.sellAllButton.addEventListener("click", sellAllInventory);
+  document.querySelector("#sellAllRanchButton")?.addEventListener("click", sellAllRanchProducts);
 }
 
 function applyFarmTitle() {
@@ -2062,6 +2077,7 @@ function render() {
   renderFarm();
   renderInventory();
   renderDamaged();
+  renderRanchProducts();
   renderTabs();
   renderTabContent();
   hydrateIcons();
@@ -2458,7 +2474,7 @@ function renderInventory() {
                 <input class="qty-num" type="number" inputmode="numeric" data-qty="${id}" value="1" min="1" max="${count}" />
                 <button class="qty-btn" type="button" data-qty-inc="${id}" aria-label="增加">＋</button>
               </span>
-              <span>${count} 個</span>
+              <span class="count-max" data-max-for="${id}" title="點我填入最大數量">${count} 個</span>
             </span>
             <span class="item-meta">單價 ${sellPrice(id)} 金幣</span>
           </span>
@@ -2491,6 +2507,11 @@ function renderInventory() {
   elements.inventoryList.querySelectorAll("[data-sell-item]").forEach((button) => {
     button.addEventListener("click", () => sellItem(button.dataset.sellItem, clampQty(button.dataset.sellItem)));
   });
+  elements.inventoryList.querySelectorAll("[data-max-for]").forEach((el) => el.addEventListener("click", () => {
+    const id = el.dataset.maxFor;
+    const inp = elements.inventoryList.querySelector('[data-qty="' + id + '"]');
+    if (inp) { inp.value = state.inventory[id] || 0; clampQty(id); }
+  }));
 
   elements.sellAllButton.disabled = inventoryValue() <= 0;
 }
@@ -2502,6 +2523,10 @@ function renderTabs() {
 
   document.querySelectorAll("[data-tool]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.tool === state.selectedTool);
+  });
+  [["feed", "ranch-feed"], ["wash", "ranch-wash"], ["harvest", "ranch-harvest"]].forEach(([t, act]) => {
+    const rb = document.querySelector('[data-action="' + act + '"]');
+    if (rb) rb.classList.toggle("is-active", (state.ranchTool || "") === t);
   });
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
@@ -2549,7 +2574,7 @@ function renderShop() {
               </span>
               <span class="seed-price">${crop.cost} 金幣</span>
             </span>
-            <span class="seed-meta">收成售價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp} · 背包 <strong class="bag-num">${state.seeds[id] || 0}</strong></span>
+            <span class="seed-meta">收成價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp} · 背包 <strong class="bag-num">${state.seeds[id] || 0}</strong></span>
             <span class="seed-buy">
               <button class="seed-step" type="button" data-seed-dec="${id}" ${locked ? "disabled" : ""}>−</button>
               <input class="seed-qty" type="number" inputmode="numeric" min="1" data-seed-qty="${id}" value="${shopQty[id] || 1}" ${locked ? "disabled" : ""} />
@@ -2666,24 +2691,25 @@ function renderOrders() {
       return `
         <article class="order-card ${done ? "is-done" : ""} ${order.big ? "is-big" : ""}">
           ${order.big ? `<span class="order-big">⭐ 大單・量大報酬高・滿經驗</span>` : ""}
-          <div class="order-items">
-            ${order.items
-              .map((item) => {
-                const have = state.inventory[item.crop] || 0;
-                const ready = have >= item.count;
-                return `
-                  <span class="order-item ${ready ? "is-ready" : "is-short"}">
-                    <span>${CROPS[item.crop].name}</span>
-                    <strong>${have}/${item.count}</strong>
-                  </span>
-                `;
-              })
-              .join("")}
-          </div>
-          <div class="order-reward">
-            <span class="order-reward-label">報酬</span>
-            <span class="reward-pill reward-coin">${ICONS.coin}<strong>${order.reward}</strong></span>
-            <span class="reward-pill reward-xp">${ICONS.star}<strong>${order.xp}</strong> XP</span>
+          <div class="order-row">
+            <div class="order-items">
+              ${order.items
+                .map((item) => {
+                  const have = state.inventory[item.crop] || 0;
+                  const ready = have >= item.count;
+                  return `
+                    <span class="order-item ${ready ? "is-ready" : "is-short"}">
+                      <span>${CROPS[item.crop].name}</span>
+                      <strong>${have}/${item.count}</strong>
+                    </span>
+                  `;
+                })
+                .join("")}
+            </div>
+            <div class="order-reward">
+              <span class="reward-pill reward-coin">${ICONS.coin}<strong>${order.reward}</strong></span>
+              <span class="reward-pill reward-xp">${ICONS.star}<strong>${order.xp}</strong> XP</span>
+            </div>
           </div>
           <button class="action-button" type="button" data-complete-order="${order.id}" ${done || !canFill || capped ? "disabled" : ""}>
             <span class="button-icon" aria-hidden="true" data-icon="check"></span>
@@ -3551,12 +3577,6 @@ function exportRanchOpenings() {
 
 
 /* ===== 牧場動物系統 ===== */
-const RANCH_ANIMALS = {
-  chicken: { name: "雞", emoji: "🐔", price: 200,  product: "蛋",   productEmoji: "🥚", value: 60,  growMs: 300000 },
-  sheep:   { name: "羊", emoji: "🐑", price: 600,  product: "羊毛", productEmoji: "🧶", value: 180, growMs: 720000 },
-  pig:     { name: "豬", emoji: "🐖", price: 900,  product: "豬肉", productEmoji: "🥓", value: 300, growMs: 1080000 },
-  cow:     { name: "牛", emoji: "🐄", price: 1500, product: "牛奶", productEmoji: "🥛", value: 500, growMs: 1500000 },
-};
 // 格柵內可漫步範圍（%）
 function randPaddock() {
   const x = 31 + Math.random() * 36;  // 31~67
@@ -3585,7 +3605,8 @@ function renderRanchAnimals() {
       el.dataset.id = a.id;
       const p = randPaddock();
       el.style.left = p[0] + "%"; el.style.top = p[1] + "%";
-      el.innerHTML = '<span class="animal-badge"></span><span class="animal-emoji">' + cfg.emoji + '</span>';
+      el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
+      el.addEventListener("click", () => onRanchAnimalClick(a.id));
       box.appendChild(el);
     }
     const ready = a.fedAt && (now - a.fedAt >= cfg.growMs);
@@ -3609,8 +3630,8 @@ function wanderRanchAnimals() {
     const cur = parseFloat(el.style.left) || 50;
     const t = randPaddock();
     el.style.left = t[0] + "%"; el.style.top = t[1] + "%";
-    const emoji = el.querySelector(".animal-emoji");
-    if (emoji) emoji.style.transform = (t[0] < cur) ? "scaleX(-1)" : "scaleX(1)";
+    const face = el.querySelector(".animal-emoji, .animal-img");
+    if (face) face.style.transform = (t[0] < cur) ? "scaleX(-1)" : "scaleX(1)";
   });
 }
 
@@ -3647,15 +3668,16 @@ function harvestRanchAnimals() {
     const cfg = RANCH_ANIMALS[a.type];
     if (!cfg) return;
     if (a.fedAt && now - a.fedAt >= cfg.growMs) {
-      coins += cfg.value; n++;
+      state.ranchProducts = state.ranchProducts || {};
+      state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + 1;
+      a.produced = (a.produced || 0) + 1;
+      n++;
       a.fedAt = 0; a.dirty = true;
     }
   });
   if (!n) { toast("還沒有可收成的產物。"); return; }
-  state.coins += coins;
-  state.stats = state.stats || {};
   saveState(); render();
-  toast(`收成 ${n} 份產物，+${coins} 金幣！記得幫動物洗澡。`);
+  toast(`收成 ${n} 份產物，已放進牧場倉。記得幫動物洗澡。`);
 }
 
 function openAnimalShop() {
@@ -3663,7 +3685,7 @@ function openAnimalShop() {
   if (old) old.remove();
   const m = document.createElement("div");
   m.id = "animalShop"; m.className = "gm-box";
-  const cards = Object.entries(RANCH_ANIMALS).map(([k, c]) =>
+  const cards = [["chicken", RANCH_ANIMALS.chicken], ["pig", RANCH_ANIMALS.pig]].map(([k, c]) =>
     `<button type="button" class="animal-buy" data-buy="${k}"><span class="ab-emoji">${c.emoji}</span><span class="ab-name">${c.name}</span><span class="ab-info">產${c.product}・${c.value}金</span><span class="ab-price">🪙 ${c.price}</span></button>`
   ).join("");
   m.innerHTML = `<div class="animal-shop-card"><h2>🐄 買動物</h2><div class="animal-shop-grid">${cards}</div><p class="animal-shop-hint">買來會放進格柵內。流程：餵飼料 → 等產出 → 收成 → 洗澡 → 再餵。</p><button type="button" class="gm-close" id="animalShopClose">關閉</button></div>`;
@@ -3676,13 +3698,173 @@ function openAnimalShop() {
 function buyAnimal(type) {
   const cfg = RANCH_ANIMALS[type];
   if (!cfg) return;
+  state.ranchAnimals = state.ranchAnimals || [];
+  if (state.ranchAnimals.length >= 4) { toast("小牧場最多養 4 隻動物。"); return; }
   if (state.coins < cfg.price) { toast("金幣不足。"); return; }
   state.coins -= cfg.price;
-  state.ranchAnimals = state.ranchAnimals || [];
-  state.ranchAnimals.push({ id: "a" + Date.now(), type: type, fedAt: 0, dirty: false });
+  state.ranchAnimals.push({ id: "a" + Date.now(), type: type, fedAt: 0, dirty: false, produced: 0 });
   saveState();
   const shop = document.querySelector("#animalShop");
   if (shop) shop.remove();
   render();
   toast(`買了一隻${cfg.name}！已放進牧場。`);
+}
+
+
+/* ===== 牧場產物倉（顯示在倉庫面板「牧場」欄，售出介面同農場）===== */
+function renderRanchProducts() {
+  const list = document.querySelector("#ranchProductList");
+  if (!list) return;
+  const entries = Object.entries(state.ranchProducts || {}).filter(([, n]) => n > 0);
+  const sellAllBtn = document.querySelector("#sellAllRanchButton");
+  if (sellAllBtn) sellAllBtn.disabled = !entries.length;
+  if (!entries.length) { list.innerHTML = '<p class="item-empty">目前沒有牧場產物。</p>'; return; }
+  list.innerHTML = entries.map(([type, n]) => {
+    const cfg = RANCH_ANIMALS[type];
+    if (!cfg) return "";
+    return `
+      <div class="inventory-row">
+        <span class="mini-crop ranch-prod-emoji" aria-hidden="true">${cfg.productEmoji}</span>
+        <span>
+          <span class="item-title">
+            <strong>${cfg.product}</strong>
+            <span class="sell-stepper">
+              <button class="qty-btn" type="button" data-rp-dec="${type}" aria-label="減少">−</button>
+              <input class="qty-num" type="number" inputmode="numeric" data-rp-qty="${type}" value="1" min="1" max="${n}" />
+              <button class="qty-btn" type="button" data-rp-inc="${type}" aria-label="增加">＋</button>
+            </span>
+            <span class="count-max" data-rp-max-for="${type}" title="點我填入最大數量">${n} 個</span>
+          </span>
+          <span class="item-meta">售價 ${cfg.value} 金幣</span>
+        </span>
+        <button class="mini-sell" type="button" data-rp-sell="${type}" title="出售${cfg.product}" aria-label="出售${cfg.product}">${ICONS.cart}</button>
+      </div>`;
+  }).join("");
+  const clamp = (type) => {
+    const inp = list.querySelector('[data-rp-qty="' + type + '"]');
+    if (!inp) return 0;
+    const max = (state.ranchProducts || {})[type] || 0;
+    let v = Math.max(1, Math.min(max, Math.floor(Number(inp.value) || 0)));
+    inp.value = v;
+    return v;
+  };
+  list.querySelectorAll("[data-rp-dec]").forEach((b) => b.addEventListener("click", () => {
+    const inp = list.querySelector('[data-rp-qty="' + b.dataset.rpDec + '"]');
+    if (inp) { inp.value = (Number(inp.value) || 1) - 1; clamp(b.dataset.rpDec); }
+  }));
+  list.querySelectorAll("[data-rp-inc]").forEach((b) => b.addEventListener("click", () => {
+    const inp = list.querySelector('[data-rp-qty="' + b.dataset.rpInc + '"]');
+    if (inp) { inp.value = (Number(inp.value) || 0) + 1; clamp(b.dataset.rpInc); }
+  }));
+  list.querySelectorAll("[data-rp-qty]").forEach((inp) => inp.addEventListener("change", () => clamp(inp.dataset.rpQty)));
+  list.querySelectorAll("[data-rp-sell]").forEach((b) => b.addEventListener("click", () => sellRanchProduct(b.dataset.rpSell, clamp(b.dataset.rpSell))));
+  list.querySelectorAll("[data-rp-max-for]").forEach((el) => el.addEventListener("click", () => {
+    const type = el.dataset.rpMaxFor;
+    const inp = list.querySelector('[data-rp-qty="' + type + '"]');
+    if (inp) { inp.value = (state.ranchProducts || {})[type] || 0; clamp(type); }
+  }));
+}
+
+function sellRanchProduct(type, qty) {
+  const cfg = RANCH_ANIMALS[type];
+  if (!cfg) return;
+  const have = (state.ranchProducts && state.ranchProducts[type]) || 0;
+  if (have <= 0) return;
+  let n = Math.max(1, Math.min(have, Math.floor(Number(qty) || have)));
+  const earned = n * cfg.value;
+  state.ranchProducts[type] = have - n;
+  state.coins += earned;
+  saveState(); render();
+  toast(`${cfg.product} 售出 ${n} 個，獲得 ${earned} 金幣。`);
+}
+
+function sellAllRanchProducts() {
+  const prods = state.ranchProducts || {};
+  let coins = 0;
+  Object.entries(prods).forEach(([type, n]) => {
+    const cfg = RANCH_ANIMALS[type];
+    if (cfg && n > 0) coins += n * cfg.value;
+  });
+  if (coins <= 0) { toast("牧場目前沒有產物。"); return; }
+  state.ranchProducts = {};
+  state.coins += coins;
+  saveState(); render();
+  toast(`牧場產物全部售出，獲得 ${coins} 金幣。`);
+}
+
+
+/* ===== 賣動物（小牧場：生產滿 30 次才能賣）===== */
+const RANCH_SELL_THRESHOLD = 30;
+function openSellAnimal() {
+  const old = document.querySelector("#animalSell");
+  if (old) old.remove();
+  const list = state.ranchAnimals || [];
+  const m = document.createElement("div");
+  m.id = "animalSell"; m.className = "gm-box";
+  let body;
+  if (!list.length) {
+    body = '<p class="animal-shop-hint">牧場裡還沒有動物。</p>';
+  } else {
+    body = '<div class="animal-shop-grid">' + list.map((a) => {
+      const cfg = RANCH_ANIMALS[a.type];
+      if (!cfg) return "";
+      const p = a.produced || 0;
+      const can = p >= RANCH_SELL_THRESHOLD;
+      return `<button type="button" class="animal-buy" data-sell-animal="${a.id}" ${can ? "" : "disabled"}><span class="ab-emoji">${cfg.emoji}</span><span class="ab-name">${cfg.name}</span><span class="ab-info">生產 ${p}/${RANCH_SELL_THRESHOLD}</span><span class="ab-price">${can ? "🪙 " + cfg.price : "未達標"}</span></button>`;
+    }).join("") + '</div>';
+  }
+  m.innerHTML = `<div class="animal-shop-card"><h2>🪙 賣動物</h2>${body}<p class="animal-shop-hint">動物生產滿 ${RANCH_SELL_THRESHOLD} 次後才能賣掉，賣出可拿回購買金額。</p><button type="button" class="gm-close" id="animalSellClose">關閉</button></div>`;
+  document.body.appendChild(m);
+  m.querySelectorAll("[data-sell-animal]").forEach((b) => b.addEventListener("click", () => sellAnimal(b.dataset.sellAnimal)));
+  m.querySelector("#animalSellClose").addEventListener("click", () => m.remove());
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+}
+
+function sellAnimal(id) {
+  const list = state.ranchAnimals || [];
+  const a = list.find((x) => x.id === id);
+  if (!a) return;
+  const cfg = RANCH_ANIMALS[a.type];
+  if (!cfg) return;
+  if ((a.produced || 0) < RANCH_SELL_THRESHOLD) { toast(`要生產滿 ${RANCH_SELL_THRESHOLD} 次才能賣。`); return; }
+  state.ranchAnimals = list.filter((x) => x.id !== id);
+  state.coins += cfg.price;
+  const m = document.querySelector("#animalSell");
+  if (m) m.remove();
+  saveState(); render();
+  toast(`賣出一隻${cfg.name}，獲得 ${cfg.price} 金幣。`);
+}
+
+
+/* ===== 點個別動物施作（餵飼料/洗澡/收成）===== */
+function onRanchAnimalClick(id) {
+  const a = (state.ranchAnimals || []).find((x) => x.id === id);
+  if (!a) return;
+  const cfg = RANCH_ANIMALS[a.type];
+  if (!cfg) return;
+  if (state.gm) {
+    state.ranchAnimals = (state.ranchAnimals || []).filter((x) => x.id !== id);
+    saveState(); renderRanchAnimals();
+    toast("（GM）已移除一隻" + cfg.name + "。");
+    return;
+  }
+  const tool = state.ranchTool;
+  if (!tool) { toast("先選下方的餵飼料／洗澡／收成，再點動物。"); return; }
+  const now = Date.now();
+  const ready = a.fedAt && (now - a.fedAt >= cfg.growMs);
+  if (tool === "feed") {
+    if (a.dirty) { toast(cfg.name + "髒了，要先洗澡。"); return; }
+    if (a.fedAt) { toast(ready ? (cfg.name + " 有產物可收成。") : (cfg.name + " 生產中…")); return; }
+    a.fedAt = now; saveState(); renderRanchAnimals(); toast("餵了" + cfg.name + "，等產出。");
+  } else if (tool === "wash") {
+    if (!a.dirty) { toast(cfg.name + " 不需要洗澡。"); return; }
+    a.dirty = false; saveState(); renderRanchAnimals(); toast("幫" + cfg.name + "洗好澡了。");
+  } else if (tool === "harvest") {
+    if (!ready) { toast(a.fedAt ? (cfg.name + " 還沒生產完。") : (cfg.name + " 還沒餵飼料。")); return; }
+    state.ranchProducts = state.ranchProducts || {};
+    state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + 1;
+    a.produced = (a.produced || 0) + 1;
+    a.fedAt = 0; a.dirty = true;
+    saveState(); render(); toast("收成 1 份" + cfg.product + "，放進牧場倉。");
+  }
 }
