@@ -379,7 +379,9 @@ function createDefaultState() {
     seeds: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
     giftsClaimed: [],
     openingSpinDone: false,
-    items: { weatherCard: 0, fertilizer: 0, thawCard: 0 },
+    items: { weatherCard: 0, fertilizer: 0, thawCard: 0, guardCard: 0, coinCard500: 0, expSpinPack: 0 },
+    guardUntil: 0,
+    redeemed: [],
     damaged: {},
     friends: [],
     candidates: makeBuiltinCandidates(),
@@ -427,6 +429,7 @@ function loadState() {
       stats: { ...defaults.stats, ...(raw.stats || {}) },
       openingSpinDone: !!raw.openingSpinDone,
       items: { ...defaults.items, ...(raw.items || {}) },
+      redeemed: Array.isArray(raw.redeemed) ? raw.redeemed : [],
       damaged: (raw.damaged && typeof raw.damaged === "object") ? { ...raw.damaged } : {},
       friends: Array.isArray(raw.friends) ? raw.friends : [],
       candidates: Array.isArray(raw.candidates) ? raw.candidates : defaults.candidates.filter((c) => !(raw.friends || []).some((f) => f.name === c.name)),
@@ -972,6 +975,10 @@ function bindStaticEvents() {
         openFarmSettings();
         return;
       }
+      if (button.dataset.menuAction === "redeem") {
+        openRedeem();
+        return;
+      }
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
       button.classList.add("is-active");
       const labels = {
@@ -1507,12 +1514,48 @@ function renderItemList() {
       </div>
     </div>`;
   }
+  const guard = (state.items && state.items.guardCard) || 0;
+  const coinC = (state.items && state.items.coinCard500) || 0;
+  const expP = (state.items && state.items.expSpinPack) || 0;
+  if (guard > 0) {
+    rows += `
+    <div class="gift-row is-claimable">
+      <div class="gift-row-main">
+        <strong>🛡️ 防盜卡 ×${guard}</strong>
+        <span class="gift-contents">使用後 2 小時內不會被好友偷菜（可累加時間）</span>
+      </div>
+      <button class="gift-claim" type="button" id="useGuard">使用</button>
+    </div>`;
+  }
+  if (coinC > 0) {
+    rows += `
+    <div class="gift-row is-claimable">
+      <div class="gift-row-main">
+        <strong>🪙 金幣500兌換卡 ×${coinC}</strong>
+        <span class="gift-contents">點擊使用後立即獲得 500 金幣</span>
+      </div>
+      <button class="gift-claim" type="button" id="useCoinCard">使用</button>
+    </div>`;
+  }
+  if (expP > 0) {
+    rows += `
+    <div class="gift-row is-claimable">
+      <div class="gift-row-main">
+        <strong>🎰 抽獎經驗卡池包 ×${expP}</strong>
+        <span class="gift-contents">使用抽一次，隨機獲得 50~350 經驗</span>
+      </div>
+      <button class="gift-claim" type="button" id="useExpPack">使用</button>
+    </div>`;
+  }
   if (!rows) rows = '<p class="item-empty">目前沒有道具。</p>';
   list.innerHTML = rows;
   const useFert = document.querySelector("#useFert");
   if (useFert) useFert.addEventListener("click", startFertilize);
   const useW = document.querySelector("#useWcard");
   if (useW) useW.addEventListener("click", () => { pendingWeatherCard = true; renderItemList(); });
+  document.querySelector("#useGuard")?.addEventListener("click", useGuard);
+  document.querySelector("#useCoinCard")?.addEventListener("click", useCoinCard);
+  document.querySelector("#useExpPack")?.addEventListener("click", useExpPack);
 }
 
 function thawCost(id, n) {
@@ -2120,6 +2163,7 @@ function tick() {
 }
 
 function gmSpawnThief() {
+  if (isGuarded()) { toast("🛡️ 防盜卡生效中，目前不會被偷菜。"); return; }
   const cand = state.plots
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.crop && !p.thief && (p.stolenPct || 0) < 0.4);
@@ -3867,4 +3911,67 @@ function onRanchAnimalClick(id) {
     a.fedAt = 0; a.dirty = true;
     saveState(); render(); toast("收成 1 份" + cfg.product + "，放進牧場倉。");
   }
+}
+
+
+/* ===== 防盜卡 / 金幣卡 / 經驗卡池 使用 ===== */
+function isGuarded() { return (state.guardUntil || 0) > Date.now(); }
+
+function useGuard() {
+  if (((state.items && state.items.guardCard) || 0) < 1) return;
+  state.items.guardCard -= 1;
+  const base = Math.max(Date.now(), state.guardUntil || 0);
+  state.guardUntil = base + 2 * 60 * 60 * 1000;
+  saveState(); renderItemList(); render();
+  toast("🛡️ 防盜卡啟用：2 小時內不會被偷菜。");
+}
+
+function useCoinCard() {
+  if (((state.items && state.items.coinCard500) || 0) < 1) return;
+  state.items.coinCard500 -= 1;
+  state.coins += 500;
+  saveState(); renderItemList(); render();
+  toast("🪙 使用金幣兌換卡，+500 金幣。");
+}
+
+const EXP_WHEEL = [50, 50, 80, 80, 100, 100, 120, 150, 150, 180, 200, 200, 250, 300, 350];
+function useExpPack() {
+  if (((state.items && state.items.expSpinPack) || 0) < 1) return;
+  state.items.expSpinPack -= 1;
+  const exp = EXP_WHEEL[Math.floor(Math.random() * EXP_WHEEL.length)];
+  addXp(exp);
+  saveState(); renderItemList(); render();
+  toast("🎰 經驗轉盤抽中 " + exp + " 點經驗！");
+}
+
+/* ===== 兌換碼 ===== */
+const REDEEM_ITEM_NAMES = { weatherCard: "天氣兌換卡", guardCard: "防盜卡", coinCard500: "金幣500兌換卡", expSpinPack: "抽獎經驗卡池包", fertilizer: "肥料", thawCard: "解凍卡" };
+const REDEEM_CODES = {
+  "csccltd": { coins: 1500, items: { weatherCard: 3, guardCard: 2 } },
+  "happyfarmer666": { coins: 500, xp: 100, seeds: { turnip: 20 } },
+  "happyfarmer777": { coins: 700, xp: 50, inventory: { carrot: 40 } },
+  "happyfarmer888": { coins: 1300, xp: 150, items: { weatherCard: 1 } },
+  "happyfarmer999": { items: { coinCard500: 3, expSpinPack: 2, weatherCard: 1 } },
+};
+function openRedeem() {
+  const input = window.prompt("輸入兌換碼：");
+  if (input === null) return;
+  redeemCode(input);
+}
+function redeemCode(input) {
+  const code = String(input).trim().toLowerCase();
+  if (!code) return;
+  const reward = REDEEM_CODES[code];
+  if (!reward) { toast("兌換碼無效。"); return; }
+  state.redeemed = state.redeemed || [];
+  if (state.redeemed.includes(code)) { toast("這組兌換碼已經用過了。"); return; }
+  const parts = [];
+  if (reward.coins) { state.coins += reward.coins; parts.push(reward.coins + " 金幣"); }
+  if (reward.xp) { addXp(reward.xp); parts.push(reward.xp + " 經驗"); }
+  if (reward.seeds) { state.seeds = state.seeds || {}; Object.entries(reward.seeds).forEach(([k, v]) => { state.seeds[k] = (state.seeds[k] || 0) + v; parts.push((CROPS[k] ? CROPS[k].name : k) + "種子×" + v); }); }
+  if (reward.inventory) { state.inventory = state.inventory || {}; Object.entries(reward.inventory).forEach(([k, v]) => { state.inventory[k] = (state.inventory[k] || 0) + v; parts.push((CROPS[k] ? CROPS[k].name : k) + "×" + v); }); }
+  if (reward.items) { state.items = state.items || {}; Object.entries(reward.items).forEach(([k, v]) => { state.items[k] = (state.items[k] || 0) + v; parts.push((REDEEM_ITEM_NAMES[k] || k) + "×" + v); }); }
+  state.redeemed.push(code);
+  saveState(); render();
+  toast("兌換成功：" + parts.join("、") + "。");
 }
