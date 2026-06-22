@@ -87,7 +87,7 @@ function applyBuildings() {
   }
   const wm = fx.querySelector("#bld-windmill");
   if (wm) {
-    const active = (state.upgrades && state.upgrades.windmill || 0) >= 1;
+    const active = (state.upgrades && state.upgrades.windmill || 0) >= 1 && state.scene !== "ranch";
     wm.style.display = active ? "block" : "none";
     const pos = gmBuildingPos.windmill || BUILDING_POS.windmill;
     if (pos) { wm.style.left = pos[0] + "%"; wm.style.top = pos[1] + "%"; }
@@ -350,6 +350,7 @@ render();
 setupCloudDrag();
 setupBuildingDrag();
 window.setInterval(tick, 1000);
+window.setInterval(wanderRanchAnimals, 3000);
 
 function createDefaultState() {
   return {
@@ -360,6 +361,7 @@ function createDefaultState() {
     weather: "sun",
     weatherNextAt: 0,
     gm: false,
+    scene: "farm",
     selectedTool: "seed",
     selectedSeed: "turnip",
     activeTab: "shop",
@@ -389,6 +391,8 @@ function createDefaultState() {
     ordersCompleted: 0,
     nickname: "",
     avatar: "👨‍🌾",
+    customAvatars: [],
+    ranchAnimals: [],
     farmName: "",
     stats: { planted: 0, harvested: 0, stolen: 0, weed: 0, bug: 0, water: 0 },
   };
@@ -420,6 +424,7 @@ function loadState() {
         ...((raw.plots && raw.plots[index]) || {}),
       })),
       orders: Array.isArray(raw.orders) ? raw.orders : [],
+      ranchAnimals: Array.isArray(raw.ranchAnimals) ? raw.ranchAnimals : [],
     };
   } catch {
     return defaults;
@@ -529,6 +534,7 @@ function updateGmBadge() {
     badge.hidden = !state.gm;
   }
   document.querySelector(".farm-app")?.classList.toggle("is-gm", !!state.gm);
+  if (typeof updateRanchEditor === "function") updateRanchEditor();
 }
 
 function makeBgmDraggable() {
@@ -911,6 +917,27 @@ function bindStaticEvents() {
       if (button.dataset.action === "friends") {
         openFriends();
       }
+      if (button.dataset.action === "ranch-enter") {
+        enterRanch();
+      }
+      if (button.dataset.action === "ranch-exit") {
+        exitRanch();
+      }
+      if (button.dataset.action === "ranch-feed") {
+        feedRanchAnimals();
+      }
+      if (button.dataset.action === "ranch-wash") {
+        washRanchAnimals();
+      }
+      if (button.dataset.action === "ranch-harvest") {
+        harvestRanchAnimals();
+      }
+      if (button.dataset.action === "ranch-shop") {
+        openAnimalShop();
+      }
+      if (button.dataset.action === "ranch-todo2") {
+        toast("功能開發中，敬請期待。");
+      }
     });
   });
 
@@ -936,7 +963,7 @@ function bindStaticEvents() {
       button.classList.add("is-active");
       const labels = {
         profile: "角色設定會放頭像、稱號和玩家資料。",
-        farm: "農場設定會放農場名稱、佈景和公開狀態。",
+        farm: "莊園設定會放莊園名稱、佈景和公開狀態。",
         invite: "邀請好友會放好友碼和拜訪連結。",
         notice: "常見問題會放操作說明和版本資訊。",
         redeem: "兌換碼之後可輸入序號領取獎勵，功能開發中。",
@@ -1005,7 +1032,7 @@ function bindStaticEvents() {
   const profileBox = document.querySelector("#profileBox");
   if (profileBox) profileBox.addEventListener("click", (e) => { if (e.target === profileBox) closeProfile(); });
   const farmNameInput = document.querySelector("#farmNameInput");
-  if (farmNameInput) farmNameInput.addEventListener("input", () => { state.farmName = farmNameInput.value; saveState(); });
+  if (farmNameInput) farmNameInput.addEventListener("input", () => { state.farmName = farmNameInput.value; saveState(); applyFarmTitle(); });
   const farmClose = document.querySelector("#farmClose");
   if (farmClose) farmClose.addEventListener("click", closeFarmSettings);
   const farmBox = document.querySelector("#farmBox");
@@ -1058,8 +1085,57 @@ function bindStaticEvents() {
     });
   });
 
+  // 點擊面板與觸發鈕以外的地方，自動關閉倉庫/種子/訂單/開發面板
+  document.addEventListener("click", (event) => {
+    const hasOpen = document.querySelector(".work-panel.is-open, .inventory-panel.is-open");
+    if (!hasOpen) return;
+    const t = event.target;
+    if (t.closest && (t.closest(".work-panel, .inventory-panel") || t.closest("[data-tab], [data-panel-target]"))) return;
+    openPanel("");
+  });
+
   elements.restButton.addEventListener("click", restOneDay);
   elements.sellAllButton.addEventListener("click", sellAllInventory);
+}
+
+function applyFarmTitle() {
+  const name = (state.farmName || "").trim();
+  const title = name ? name + "莊園" : "開心農場";
+  document.querySelectorAll(".js-farm-title").forEach((el) => { el.textContent = title; });
+}
+
+function applyScene() {
+  document.body.classList.toggle("is-ranch", state.scene === "ranch");
+  updateRanchEditor();
+  applyRanchBg();
+}
+
+function applyRanchBg() {
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  if (state.scene === "ranch" && ["rain", "storm", "typhoon"].includes(state.weather)) {
+    frame.style.setProperty("--scene-image", 'url("./assets/ranch/ranch-s-bad.png")');
+  } else {
+    frame.style.removeProperty("--scene-image");
+  }
+}
+
+function enterRanch() {
+  state.scene = "ranch";
+  if (typeof Image === "function") {
+    ["./assets/ranch/ranch-s-feed-grass.png", "./assets/ranch/ranch-s-bad.png"].forEach((u) => { const im = new Image(); im.src = u; });
+  }
+  openPanel("");
+  applyScene();
+  saveState();
+  render();
+}
+
+function exitRanch() {
+  state.scene = "farm";
+  applyScene();
+  saveState();
+  render();
 }
 
 function openPanel(target, anchor) {
@@ -1859,7 +1935,7 @@ function helpFriend(friendId, idx) {
   render();
 }
 
-const AVATARS = ["👨‍🌾", "👩‍🌾", "🧑‍🌾", "👦", "👧", "🧒", "🧔", "👩‍🦰", "🧓", "👵", "👨", "👩"];
+const AVATARS = ["👨‍🌾", "👩‍🌾", "🧑‍🌾", "🧔", "👩‍🦰", "🧒"];
 
 function playerTitle() {
   const lv = state.level;
@@ -1874,6 +1950,50 @@ function statLine(k, v) {
   return `<div class="stat-line"><span>${k}</span><strong>${v}</strong></div>`;
 }
 
+function addCustomAvatar() {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "image/*";
+  inp.addEventListener("change", () => {
+    const file = inp.files && inp.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const size = 256;
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        let url;
+        try { url = canvas.toDataURL("image/jpeg", 0.92); } catch (e) { url = reader.result; }
+        state.customAvatars = state.customAvatars || [];
+        if (state.customAvatars.length >= 6) state.customAvatars.shift();
+        state.customAvatars.push(url);
+        state.avatar = url;
+        saveState();
+        renderProfile();
+        toast("已新增頭像。");
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  inp.click();
+}
+
+function removeCustomAvatar(url) {
+  state.customAvatars = (state.customAvatars || []).filter((u) => u !== url);
+  if (state.avatar === url) state.avatar = AVATARS[0];
+  saveState();
+  renderProfile();
+}
+
 function openProfile() { renderProfile(); const b = document.querySelector("#profileBox"); if (b) b.hidden = false; }
 function closeProfile() { const b = document.querySelector("#profileBox"); if (b) b.hidden = true; }
 
@@ -1884,8 +2004,15 @@ function renderProfile() {
   if (titleEl) titleEl.textContent = playerTitle();
   const av = document.querySelector("#profileAvatars");
   if (av) {
-    av.innerHTML = AVATARS.map((e) => `<button type="button" class="avatar-btn ${state.avatar === e ? "is-on" : ""}" data-avatar="${e}">${e}</button>`).join("");
+    const sel = state.avatar;
+    let html = AVATARS.map((e) => `<button type="button" class="avatar-btn ${sel === e ? "is-on" : ""}" data-avatar="${e}">${e}</button>`).join("");
+    html += (state.customAvatars || []).map((u) => `<button type="button" class="avatar-btn avatar-custom ${sel === u ? "is-on" : ""}" data-avatar="${u}"><img class="avatar-img" src="${u}" alt="" /><span class="avatar-del" data-avatar-del="${u}" title="移除">✕</span></button>`).join("");
+    html += `<button type="button" class="avatar-btn avatar-add" data-avatar-add="1" title="新增頭像">＋</button>`;
+    av.innerHTML = html;
     av.querySelectorAll("[data-avatar]").forEach((b) => b.addEventListener("click", () => { state.avatar = b.dataset.avatar; saveState(); renderProfile(); }));
+    const addBtn = av.querySelector("[data-avatar-add]");
+    if (addBtn) addBtn.addEventListener("click", addCustomAvatar);
+    av.querySelectorAll("[data-avatar-del]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); removeCustomAvatar(b.dataset.avatarDel); }));
   }
   const s = state.stats || {};
   const help = (s.weed || 0) + (s.bug || 0) + (s.water || 0);
@@ -1927,6 +2054,9 @@ function renderFarmSettings() {
 }
 
 function render() {
+  applyScene();
+  applyFarmTitle();
+  renderRanchAnimals();
   applyWeatherPassive();
   renderHeader();
   renderFarm();
@@ -1948,6 +2078,7 @@ function updateWeatherFx() {
   fx.className = "wfx" + (w ? " " + w : "");
   applyClouds();
   applyBuildings();
+  applyRanchBg();
 }
 
 // 每秒的輕量更新：只就地更新成長倒數與進度，不重建 DOM，避免畫面閃爍
@@ -1961,6 +2092,7 @@ function tick() {
   updateFarmTimers();
   friendStealTick(now);
   resolveThieves(now);
+  if (state.scene === "ranch") renderRanchAnimals();
   const ffBox = document.querySelector("#friendFarmBox");
   if (ffBox && !ffBox.hidden && currentFriendId) {
     const f = state.friends.find((x) => x.id === currentFriendId);
@@ -2321,6 +2453,11 @@ function renderInventory() {
           <span>
             <span class="item-title">
               <strong>${crop.name}</strong>
+              <span class="sell-stepper">
+                <button class="qty-btn" type="button" data-qty-dec="${id}" aria-label="減少">−</button>
+                <input class="qty-num" type="number" inputmode="numeric" data-qty="${id}" value="1" min="1" max="${count}" />
+                <button class="qty-btn" type="button" data-qty-inc="${id}" aria-label="增加">＋</button>
+              </span>
               <span>${count} 個</span>
             </span>
             <span class="item-meta">單價 ${sellPrice(id)} 金幣</span>
@@ -2333,8 +2470,26 @@ function renderInventory() {
     })
     .join("");
 
+  const clampQty = (id) => {
+    const inp = elements.inventoryList.querySelector('[data-qty="' + id + '"]');
+    if (!inp) return 0;
+    const max = state.inventory[id] || 0;
+    let v = Math.floor(Number(inp.value) || 0);
+    v = Math.max(1, Math.min(max, v));
+    inp.value = v;
+    return v;
+  };
+  elements.inventoryList.querySelectorAll("[data-qty-dec]").forEach((b) => b.addEventListener("click", () => {
+    const inp = elements.inventoryList.querySelector('[data-qty="' + b.dataset.qtyDec + '"]');
+    if (inp) { inp.value = (Number(inp.value) || 1) - 1; clampQty(b.dataset.qtyDec); }
+  }));
+  elements.inventoryList.querySelectorAll("[data-qty-inc]").forEach((b) => b.addEventListener("click", () => {
+    const inp = elements.inventoryList.querySelector('[data-qty="' + b.dataset.qtyInc + '"]');
+    if (inp) { inp.value = (Number(inp.value) || 0) + 1; clampQty(b.dataset.qtyInc); }
+  }));
+  elements.inventoryList.querySelectorAll("[data-qty]").forEach((inp) => inp.addEventListener("change", () => clampQty(inp.dataset.qty)));
   elements.inventoryList.querySelectorAll("[data-sell-item]").forEach((button) => {
-    button.addEventListener("click", () => sellItem(button.dataset.sellItem));
+    button.addEventListener("click", () => sellItem(button.dataset.sellItem, clampQty(button.dataset.sellItem)));
   });
 
   elements.sellAllButton.disabled = inventoryValue() <= 0;
@@ -2384,6 +2539,7 @@ function renderShop() {
       const selected = state.selectedSeed === id;
       return `
         <article class="seed-card ${locked ? "is-locked" : ""}">
+          <span class="seed-lv">Lv.${crop.unlock}</span>
           <span class="mini-crop" aria-hidden="true">${cropCardVisual(id)}</span>
           <span class="seed-details">
             <span class="seed-title">
@@ -2391,10 +2547,9 @@ function renderShop() {
                 <strong>${crop.name}</strong>
                 <span class="seed-grow-pill">⏱ ${formatMinutes(crop.grow)}</span>
               </span>
-              <span class="seed-price">${locked ? `Lv.${crop.unlock}` : `${crop.cost} 金幣`}</span>
+              <span class="seed-price">${crop.cost} 金幣</span>
             </span>
-            <span class="seed-meta">單價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp}</span>
-            <span class="seed-bag-line">種子背包 <strong>${state.seeds[id] || 0}</strong> · 倉庫 ${state.inventory[id] || 0}</span>
+            <span class="seed-meta">收成售價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp} · 背包 <strong class="bag-num">${state.seeds[id] || 0}</strong></span>
             <span class="seed-buy">
               <button class="seed-step" type="button" data-seed-dec="${id}" ${locked ? "disabled" : ""}>−</button>
               <input class="seed-qty" type="number" inputmode="numeric" min="1" data-seed-qty="${id}" value="${shopQty[id] || 1}" ${locked ? "disabled" : ""} />
@@ -2813,16 +2968,17 @@ function restOneDay() {
   render();
 }
 
-function sellItem(id) {
+function sellItem(id, qty) {
   const count = state.inventory[id] || 0;
   if (count <= 0) {
     return;
   }
-
-  const earned = count * sellPrice(id);
-  state.inventory[id] = 0;
+  let n = Math.floor(Number(qty) || count);
+  n = Math.max(1, Math.min(count, n));
+  const earned = n * sellPrice(id);
+  state.inventory[id] = count - n;
   state.coins += earned;
-  toast(`${CROPS[id].name} 售出，獲得 ${earned} 金幣。`);
+  toast(`${CROPS[id].name} 售出 ${n} 個，獲得 ${earned} 金幣。`);
   saveState();
   render();
 }
@@ -3238,4 +3394,295 @@ function cropCardVisual(id) {
   }
 
   return cropVisual(id, "ripe");
+}
+
+
+/* ===== 牧場窗門四點框選器（GM + 牧場模式才出現）===== */
+const RANCH_OPENINGS_DEFAULT = [
+  { n: "中央門", p: [[46.3,18.2],[53.8,18.2],[53.8,31.4],[46.4,31.3]] },
+];
+
+let gmRanchOpenings = null;
+function loadRanchOpenings() {
+  if (gmRanchOpenings) return gmRanchOpenings;
+  let loaded = null;
+  try {
+    const r = JSON.parse(localStorage.getItem("gm-ranch-openings"));
+    if (Array.isArray(r) && r.length) loaded = r;
+  } catch (e) {}
+  gmRanchOpenings = RANCH_OPENINGS_DEFAULT.map((d) => {
+    const saved = loaded && loaded.find((o) => o.n === d.n);
+    return JSON.parse(JSON.stringify(saved || d));
+  });
+  return gmRanchOpenings;
+}
+function saveRanchOpenings() {
+  try { localStorage.setItem("gm-ranch-openings", JSON.stringify(gmRanchOpenings)); } catch (e) {}
+}
+function ptsStr(p) { return p.map((q) => q[0] + "," + q[1]).join(" "); }
+
+function updateRanchEditor() {
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  const show = state.scene === "ranch" && state.gm;
+  let ed = frame.querySelector("#ranchEditor");
+  if (!show) { if (ed) ed.remove(); return; }
+  if (!ed) buildRanchEditor(frame);
+}
+
+function buildRanchEditor(frame) {
+  loadRanchOpenings();
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const ed = document.createElement("div");
+  ed.id = "ranchEditor";
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.id = "ranchEditorSvg";
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "none");
+  ed.appendChild(svg);
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.id = "ranchExportBtn"; btn.textContent = "匯出窗門座標";
+  btn.addEventListener("click", exportRanchOpenings);
+  ed.appendChild(btn);
+  const reset = document.createElement("button");
+  reset.type = "button"; reset.id = "ranchResetBtn"; reset.textContent = "重設";
+  reset.addEventListener("click", () => {
+    gmRanchOpenings = JSON.parse(JSON.stringify(RANCH_OPENINGS_DEFAULT));
+    saveRanchOpenings(); renderRanchEditor();
+  });
+  ed.appendChild(reset);
+  frame.appendChild(ed);
+  renderRanchEditor();
+}
+
+function renderRanchEditor() {
+  const ed = document.querySelector("#ranchEditor");
+  if (!ed) return;
+  const frame = ed.parentElement;
+  const svg = ed.querySelector("#ranchEditorSvg");
+  const SVGNS = "http://www.w3.org/2000/svg";
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  ed.querySelectorAll(".ro-handle").forEach((n) => n.remove());
+  const ops = loadRanchOpenings();
+  ops.forEach((op, gi) => {
+    const poly = document.createElementNS(SVGNS, "polygon");
+    poly.setAttribute("points", ptsStr(op.p));
+    poly.setAttribute("class", "ro-poly");
+    poly.setAttribute("data-g", gi);
+    svg.appendChild(poly);
+    addRanchBodyDrag(poly, gi, frame);
+    op.p.forEach((pt, pi) => {
+      const h = document.createElement("div");
+      h.className = "ro-handle";
+      h.style.left = pt[0] + "%"; h.style.top = pt[1] + "%";
+      h.setAttribute("data-g", gi); h.setAttribute("data-i", pi);
+      addRanchHandleDrag(h, gi, pi, frame);
+      ed.appendChild(h);
+    });
+  });
+}
+
+function addRanchHandleDrag(h, gi, pi, frame) {
+  let drag = false;
+  h.addEventListener("pointerdown", (e) => {
+    drag = true; e.preventDefault(); e.stopPropagation();
+    try { h.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  h.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = frame.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100));
+    const y = Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100));
+    gmRanchOpenings[gi].p[pi] = [Number(x.toFixed(1)), Number(y.toFixed(1))];
+    h.style.left = x + "%"; h.style.top = y + "%";
+    const poly = frame.querySelector('.ro-poly[data-g="' + gi + '"]');
+    if (poly) poly.setAttribute("points", ptsStr(gmRanchOpenings[gi].p));
+  });
+  const end = (e) => {
+    if (!drag) return; drag = false;
+    try { h.releasePointerCapture(e.pointerId); } catch (_) {}
+    saveRanchOpenings();
+  };
+  h.addEventListener("pointerup", end);
+  h.addEventListener("pointercancel", end);
+}
+
+function addRanchBodyDrag(poly, gi, frame) {
+  let drag = false, sx = 0, sy = 0, orig = null;
+  poly.addEventListener("pointerdown", (e) => {
+    drag = true; sx = e.clientX; sy = e.clientY;
+    orig = gmRanchOpenings[gi].p.map((q) => q.slice());
+    e.preventDefault();
+    try { poly.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  poly.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = frame.getBoundingClientRect();
+    const dx = (e.clientX - sx) / r.width * 100;
+    const dy = (e.clientY - sy) / r.height * 100;
+    gmRanchOpenings[gi].p = orig.map((q) => [
+      Number(Math.max(0, Math.min(100, q[0] + dx)).toFixed(1)),
+      Number(Math.max(0, Math.min(100, q[1] + dy)).toFixed(1)),
+    ]);
+    poly.setAttribute("points", ptsStr(gmRanchOpenings[gi].p));
+    frame.querySelectorAll('.ro-handle[data-g="' + gi + '"]').forEach((h) => {
+      const i = Number(h.getAttribute("data-i"));
+      h.style.left = gmRanchOpenings[gi].p[i][0] + "%";
+      h.style.top = gmRanchOpenings[gi].p[i][1] + "%";
+    });
+  });
+  const end = (e) => {
+    if (!drag) return; drag = false;
+    try { poly.releasePointerCapture(e.pointerId); } catch (_) {}
+    saveRanchOpenings();
+  };
+  poly.addEventListener("pointerup", end);
+  poly.addEventListener("pointercancel", end);
+}
+
+function exportRanchOpenings() {
+  const ops = loadRanchOpenings();
+  const text = ops.map((op) => op.n + ": " + ptsStr(op.p)).join("\n");
+  try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
+  try { console.log("RANCH_OPENINGS:\n" + text); } catch (e) {}
+  try { window.prompt("已複製，貼回對話給 Claude：", text); } catch (e) {}
+  toast("窗門座標已匯出（已複製到剪貼簿）。");
+}
+
+
+/* ===== 牧場動物系統 ===== */
+const RANCH_ANIMALS = {
+  chicken: { name: "雞", emoji: "🐔", price: 200,  product: "蛋",   productEmoji: "🥚", value: 60,  growMs: 300000 },
+  sheep:   { name: "羊", emoji: "🐑", price: 600,  product: "羊毛", productEmoji: "🧶", value: 180, growMs: 720000 },
+  pig:     { name: "豬", emoji: "🐖", price: 900,  product: "豬肉", productEmoji: "🥓", value: 300, growMs: 1080000 },
+  cow:     { name: "牛", emoji: "🐄", price: 1500, product: "牛奶", productEmoji: "🥛", value: 500, growMs: 1500000 },
+};
+// 格柵內可漫步範圍（%）
+function randPaddock() {
+  const x = 31 + Math.random() * 36;  // 31~67
+  const y = 37 + Math.random() * 9;  // 37~46（下緣再上收，含抖動也不撞柵欄）
+  return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+}
+
+function renderRanchAnimals() {
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  let box = frame.querySelector("#ranchAnimals");
+  if (state.scene !== "ranch") { if (box) box.remove(); return; }
+  if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
+  const now = Date.now();
+  const list = state.ranchAnimals || [];
+  const ids = {};
+  list.forEach((a) => { ids[a.id] = true; });
+  Array.from(box.children).forEach((el) => { if (!ids[el.dataset.id]) el.remove(); });
+  list.forEach((a) => {
+    const cfg = RANCH_ANIMALS[a.type];
+    if (!cfg) return;
+    let el = box.querySelector('[data-id="' + a.id + '"]');
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "ranch-animal";
+      el.dataset.id = a.id;
+      const p = randPaddock();
+      el.style.left = p[0] + "%"; el.style.top = p[1] + "%";
+      el.innerHTML = '<span class="animal-badge"></span><span class="animal-emoji">' + cfg.emoji + '</span>';
+      box.appendChild(el);
+    }
+    const ready = a.fedAt && (now - a.fedAt >= cfg.growMs);
+    const growing = a.fedAt && !ready;
+    const b = el.querySelector(".animal-badge");
+    if (b) {
+      if (ready) { b.textContent = cfg.productEmoji; b.className = "animal-badge animal-prod"; }
+      else if (a.dirty) { b.textContent = "💩"; b.className = "animal-badge animal-dirty"; }
+      else if (growing) { b.textContent = "💤"; b.className = "animal-badge animal-z"; }
+      else { b.textContent = ""; b.className = "animal-badge"; }
+    }
+  });
+}
+
+function wanderRanchAnimals() {
+  if (state.scene !== "ranch") return;
+  const box = document.querySelector("#ranchAnimals");
+  if (!box) return;
+  box.querySelectorAll(".ranch-animal").forEach((el) => {
+    if (Math.random() < 0.35) return;  // 部分動物原地停一下
+    const cur = parseFloat(el.style.left) || 50;
+    const t = randPaddock();
+    el.style.left = t[0] + "%"; el.style.top = t[1] + "%";
+    const emoji = el.querySelector(".animal-emoji");
+    if (emoji) emoji.style.transform = (t[0] < cur) ? "scaleX(-1)" : "scaleX(1)";
+  });
+}
+
+function feedRanchAnimals() {
+  const list = state.ranchAnimals || [];
+  if (!list.length) { toast("牧場裡還沒有動物，先用「買動物」買一隻。"); return; }
+  const now = Date.now();
+  let n = 0;
+  list.forEach((a) => {
+    const cfg = RANCH_ANIMALS[a.type];
+    if (!cfg) return;
+    const ready = a.fedAt && (now - a.fedAt >= cfg.growMs);
+    if (a.dirty || a.fedAt || ready) return;
+    a.fedAt = now; n++;
+  });
+  saveState(); renderRanchAnimals();
+  toast(n ? `餵了 ${n} 隻動物，等產出。` : "沒有可餵的（生產中、待收成或要先洗澡）。");
+}
+
+function washRanchAnimals() {
+  const list = state.ranchAnimals || [];
+  const dirty = list.filter((a) => a.dirty);
+  if (!dirty.length) { toast("目前沒有需要洗澡的動物。"); return; }
+  dirty.forEach((a) => { a.dirty = false; });
+  saveState(); renderRanchAnimals();
+  toast(`幫 ${dirty.length} 隻動物洗好澡了，可以再餵飼料。`);
+}
+
+function harvestRanchAnimals() {
+  const list = state.ranchAnimals || [];
+  const now = Date.now();
+  let coins = 0, n = 0;
+  list.forEach((a) => {
+    const cfg = RANCH_ANIMALS[a.type];
+    if (!cfg) return;
+    if (a.fedAt && now - a.fedAt >= cfg.growMs) {
+      coins += cfg.value; n++;
+      a.fedAt = 0; a.dirty = true;
+    }
+  });
+  if (!n) { toast("還沒有可收成的產物。"); return; }
+  state.coins += coins;
+  state.stats = state.stats || {};
+  saveState(); render();
+  toast(`收成 ${n} 份產物，+${coins} 金幣！記得幫動物洗澡。`);
+}
+
+function openAnimalShop() {
+  const old = document.querySelector("#animalShop");
+  if (old) old.remove();
+  const m = document.createElement("div");
+  m.id = "animalShop"; m.className = "gm-box";
+  const cards = Object.entries(RANCH_ANIMALS).map(([k, c]) =>
+    `<button type="button" class="animal-buy" data-buy="${k}"><span class="ab-emoji">${c.emoji}</span><span class="ab-name">${c.name}</span><span class="ab-info">產${c.product}・${c.value}金</span><span class="ab-price">🪙 ${c.price}</span></button>`
+  ).join("");
+  m.innerHTML = `<div class="animal-shop-card"><h2>🐄 買動物</h2><div class="animal-shop-grid">${cards}</div><p class="animal-shop-hint">買來會放進格柵內。流程：餵飼料 → 等產出 → 收成 → 洗澡 → 再餵。</p><button type="button" class="gm-close" id="animalShopClose">關閉</button></div>`;
+  document.body.appendChild(m);
+  m.querySelectorAll("[data-buy]").forEach((b) => b.addEventListener("click", () => buyAnimal(b.dataset.buy)));
+  m.querySelector("#animalShopClose").addEventListener("click", () => m.remove());
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+}
+
+function buyAnimal(type) {
+  const cfg = RANCH_ANIMALS[type];
+  if (!cfg) return;
+  if (state.coins < cfg.price) { toast("金幣不足。"); return; }
+  state.coins -= cfg.price;
+  state.ranchAnimals = state.ranchAnimals || [];
+  state.ranchAnimals.push({ id: "a" + Date.now(), type: type, fedAt: 0, dirty: false });
+  saveState();
+  const shop = document.querySelector("#animalShop");
+  if (shop) shop.remove();
+  render();
+  toast(`買了一隻${cfg.name}！已放進牧場。`);
 }
