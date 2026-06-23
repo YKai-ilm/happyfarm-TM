@@ -1030,8 +1030,13 @@ function applyAudio() {
 }
 
 function bindStaticEvents() {
+  const bindToolToggle = (button, doToggle) => {
+    let handled = false;
+    button.addEventListener("touchend", (e) => { e.preventDefault(); handled = true; doToggle(); }, { passive: false });
+    button.addEventListener("click", () => { if (handled) { handled = false; return; } doToggle(); });
+  };
   document.querySelectorAll("[data-tool]").forEach((button) => {
-    button.addEventListener("click", () => {
+    bindToolToggle(button, () => {
       state.selectedTool = (state.selectedTool === button.dataset.tool) ? "" : button.dataset.tool;
       saveState();
       render();
@@ -1092,7 +1097,7 @@ function bindStaticEvents() {
 
   [["ranch-feed", "feed"], ["ranch-wash", "wash"], ["ranch-harvest", "harvest"]].forEach(([act, t]) => {
     document.querySelectorAll('[data-action="' + act + '"]').forEach((button) => {
-      button.addEventListener("click", () => {
+      bindToolToggle(button, () => {
         state.ranchTool = state.ranchTool === t ? "" : t;
         saveState();
         render();
