@@ -1288,6 +1288,20 @@ function bindStaticEvents() {
     if (changed) { saveState(); render(); }
   });
 
+  // 直接綁在田框上：點場景背景（天空/泥土/草地等非互動物件）也取消工具
+  const fieldFrameEl = document.querySelector(".field-frame");
+  if (fieldFrameEl) {
+    fieldFrameEl.addEventListener("click", (event) => {
+      if (!state.selectedTool && !state.ranchTool) return;
+      const t = event.target;
+      if (t && t.closest && t.closest("[data-plot], .plot, .ranch-animal, [data-action], button")) return;
+      let changed = false;
+      if (state.selectedTool) { state.selectedTool = ""; changed = true; }
+      if (state.ranchTool) { state.ranchTool = ""; changed = true; }
+      if (changed) { saveState(); render(); }
+    });
+  }
+
   elements.restButton.addEventListener("click", restOneDay);
   elements.sellAllButton.addEventListener("click", sellAllInventory);
   document.querySelector("#sellAllRanchButton")?.addEventListener("click", sellAllRanchProducts);
