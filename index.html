@@ -372,10 +372,15 @@
         <div class="gm-actions">
           <button id="gmEditBtn" type="button" class="gm-primary">修改數據</button>
           <button id="gmResetBtn" type="button" class="gm-secondary">重置遊戲</button>
-          <button id="gmTodoBtn" type="button" class="gm-secondary">匯出座標</button>
+          <div class="gm-ranch-toggle" role="group" aria-label="牧場底圖">
+            <span class="gm-ranch-label">牧場</span>
+            <button type="button" class="gm-mini" data-ranch-set="1">小</button>
+            <button type="button" class="gm-mini" data-ranch-set="2">大</button>
+            <button type="button" class="gm-mini" data-ranch-set="3">超大</button>
+          </div>
           <button id="gmExitBtn" type="button" class="gm-danger">關閉 GM 模式</button>
         </div>
-        <button id="gmPanelClose" type="button" class="gm-close">關閉視窗（保留 GM）</button>
+        <button id="gmPanelClose" type="button" class="gm-close">開/關視窗（保留 GM）</button>
       </div>
     </div>
 
@@ -410,7 +415,7 @@
           <input class="gm-slider" data-gm-range="xp" type="range" />
         </div>
         <div class="gm-row"><label>天氣</label><span class="gm-weather"><button data-gm-weather="sun" type="button">晴朗</button><button data-gm-weather="breeze" type="button">微風</button><button data-gm-weather="cloud" type="button">多雲</button><button data-gm-weather="rain" type="button">小雨</button><button data-gm-weather="scorch" type="button">烈日</button><button data-gm-weather="storm" type="button">雷雨</button><button data-gm-weather="fog" type="button">起霧</button><button data-gm-weather="snow" type="button">下雪</button><button data-gm-weather="typhoon" type="button">颱風</button></span></div>
-        <div class="gm-row"><label>庫存</label><button id="gmInvOpen" type="button">編輯庫存…</button><button id="gmThief" type="button" class="gm-row-right">好友偷菜</button><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
+        <div class="gm-row"><label>特殊</label><button id="gmInvOpen" type="button">庫存</button><button id="gmItemOpen" type="button">道具</button><button id="gmThief" type="button" class="gm-row-right">好友偷菜</button><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
         <div class="gm-foot">
           <button id="gmEditConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmEditRevert" type="button" class="gm-foot-undo">回復</button>
@@ -427,6 +432,18 @@
           <button id="gmInvConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmInvRevert" type="button" class="gm-foot-undo">回復</button>
           <button id="gmInvBack" type="button" class="gm-foot-back">返回</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="gmItemBox" class="gm-box" hidden>
+      <div class="gm-card gm-edit-card" role="dialog" aria-modal="true" aria-label="道具">
+        <h2>道具</h2>
+        <div id="gmItemList" class="gm-inv-list"></div>
+        <div class="gm-foot">
+          <button id="gmItemConfirm" type="button" class="gm-foot-ok">確定</button>
+          <button id="gmItemRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmItemBack" type="button" class="gm-foot-back">返回</button>
         </div>
       </div>
     </div>

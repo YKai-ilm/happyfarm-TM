@@ -804,6 +804,7 @@ button:disabled {
   gap: 8px;
   align-items: center;
 }
+.seed-actions .seed-button { flex: 1; }
 
 .seed-button,
 .action-button {
@@ -1298,7 +1299,7 @@ body {
 
 .work-panel {
   right: 12px;
-  width: min(380px, 42vw);
+  width: min(430px, 42vw);
 }
 
 .inventory-panel.is-open,
@@ -1384,7 +1385,7 @@ body {
 
   .work-panel {
     right: 6px;
-    width: min(300px, 44vw);
+    width: min(600px, 92vw);
   }
 
   .scene-status-strip {
@@ -1416,6 +1417,7 @@ body {
 .work-panel {
   width: min(430px, 42vw);
 }
+.work-panel[data-tab="upgrades"] { width: min(560px, 88vw); }
 
 .work-panel .tabs {
   display: none;
@@ -1592,6 +1594,7 @@ body {
   .work-panel {
     width: min(340px, 46vw);
   }
+  .work-panel[data-tab="upgrades"] { width: min(520px, 80vw); }
 }
 
 /* Mobile scale and right-side tool rail */
@@ -2378,7 +2381,7 @@ body {
 .gm-secondary[disabled] { opacity: 0.45; cursor: not-allowed; }
 .gm-danger { background: #b3463b; color: #fff; font-weight: bold; }
 .gm-close { width: 100%; margin-top: 4px; background: #2b3a2e; color: #d8efe0; }
-.gm-edit-card { width: min(470px, 96vw); }
+.gm-edit-card { width: min(820px, 96vw); }
 .gm-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .gm-row label { width: 48px; flex: 0 0 auto; font-size: 14px; color: #cfe6d6; }
 .gm-row input {
@@ -2386,8 +2389,8 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.22); background: #11180f; color: #eef3ee; font: inherit;
 }
 .gm-row button { background: #3a4a3c; color: #eef3ee; padding: 8px 12px; }
-.gm-weather { display: flex; gap: 6px; flex: 1 1 auto; }
-.gm-weather button { flex: 1; }
+.gm-weather { display: flex; gap: 6px; flex: 1 1 auto; flex-wrap: nowrap; }
+.gm-weather button { flex: 1; min-width: 0; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 .gm-badge {
   position: fixed; top: 8px; left: 8px; z-index: 65;
   background: #e8b94a; color: #2a2113; font-weight: bold; font-size: 12px;
@@ -2445,7 +2448,7 @@ body {
 
 /* GM 庫存清單：橫向單列（標籤＋步進＋滑桿同列） */
 .gm-inv-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
-.gm-inv-name { display: inline-block; width: 52px; flex: 0 0 auto; margin: 0; font-size: 13px; color: #eef3ee; }
+.gm-inv-name { display: inline-block; width: 120px; flex: 0 0 auto; margin: 0; font-size: 13px; color: #eef3ee; white-space: nowrap; }
 .gm-inv-row .gm-ctrl { flex: 0 0 auto; }
 .gm-inv-row .gm-num { width: 72px; }
 .gm-inv-row .gm-slider { flex: 1 1 130px; min-width: 90px; margin-top: 0; }
@@ -2473,6 +2476,7 @@ body {
   gap: 6px;
   min-width: 0;
 }
+.seed-name-wrap > strong { flex: none; min-width: 4em; }
 .seed-title .seed-grow-pill {
   flex: none;
   background: #e8b94a;
@@ -2499,20 +2503,23 @@ body {
 .seed-buy {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
+.seed-own { flex: 1; text-align: center; font-size: 0.78rem; font-weight: 800; color: #3f7d3a; white-space: nowrap; }
+.seed-own-num { display: inline-block; min-width: 2.5ch; text-align: center; }
 .seed-step {
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 22px;
   flex: none;
   border: 1px solid #c8dbb5;
-  border-radius: 8px;
+  border-radius: 5px;
   background: #e7f0dc;
   color: #2f5d2a;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 800;
   line-height: 1;
   cursor: pointer;
+  padding: 0;
 }
 .seed-step:disabled,
 .seed-buy-btn:disabled {
@@ -2520,14 +2527,15 @@ body {
   cursor: default;
 }
 .seed-qty {
-  width: 54px;
-  height: 30px;
+  width: 34px;
+  height: 22px;
   text-align: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 5px;
   background: #fff;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0 1px;
   -moz-appearance: textfield;
 }
 .seed-qty::-webkit-outer-spin-button,
@@ -2536,13 +2544,15 @@ body {
   margin: 0;
 }
 .seed-buy-btn {
-  flex: 1;
-  min-width: 60px;
-  height: 30px;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 22px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 5px;
   background: #e8b94a;
   color: #2a2113;
+  font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
 }
@@ -3317,9 +3327,9 @@ body.is-ranch .wfx-sky {
 
 /* ===== 牧場動物 ===== */
 #ranchAnimals { position: absolute; inset: 0; z-index: 3; pointer-events: none; contain: layout style; }
-.ranch-animal { position: absolute; transform: translate(-50%, -50%); transition: left 2.8s linear, top 2.8s linear; font-size: clamp(20px, 3vw, 34px); line-height: 1; animation: animal-bob 2.4s ease-in-out infinite; will-change: transform; text-shadow: 0 1px 1px rgba(0,0,0,0.3); }
+.ranch-animal { position: absolute; transform: translate(-50%, -50%); transition: left 5.5s linear, top 5.5s linear; font-size: clamp(15px, 2.25vw, 25px); line-height: 1; animation: animal-bob 4s ease-in-out infinite; will-change: transform; text-shadow: 0 1px 1px rgba(0,0,0,0.3); }
 .ranch-animal .animal-emoji { display: block; transition: transform 0.4s ease; }
-@keyframes animal-bob { 0%,100% { transform: translate(-50%,-50%) translateY(0); } 50% { transform: translate(-50%,-50%) translateY(-14%); } }
+@keyframes animal-bob { 0%,100% { transform: translate(-50%,-50%) translateY(0); } 50% { transform: translate(-50%,-50%) translateY(-7%); } }
 .animal-badge { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 0.62em; margin-bottom: 2px; }
 .animal-prod { animation: prod-pop 1.1s ease-in-out infinite; }
 @keyframes prod-pop { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.25); } }
@@ -3364,8 +3374,64 @@ body.is-ranch .wfx-sky {
 
 /* 動物可點選 + 圖片尺寸 */
 .ranch-animal { pointer-events: auto; cursor: pointer; }
-.ranch-animal .animal-img { display: block; width: clamp(44px, 5.6vw, 68px); height: auto; }
+.ranch-animal .animal-img { display: block; width: clamp(33px, 4.2vw, 51px); height: auto; }
 
 /* 數量可點：填入最大值 */
 .count-max { cursor: pointer; }
 .count-max:hover { text-decoration: underline; color: #b8841f; }
+
+/* 上排工具列：不換行、高度固定；擠壓時自動縮小字體符合寬幅，真的放不下才左右滑 */
+.scene-action { white-space: nowrap; }
+.scene-action .button-icon { flex: none; }
+.scene-toolbar-top {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.scene-toolbar-top::-webkit-scrollbar { height: 0; display: none; }
+.scene-toolbar-top .scene-action {
+  min-width: 0;
+  font-size: calc(clamp(0.6rem, 1.1vw, 0.8rem) * var(--tb-scale, 1));
+}
+
+/* 動物生產倒數徽章 */
+.animal-badge.animal-timer { font-size: 0.46em; font-weight: 900; color: #fff; background: rgba(28,40,28,0.78); padding: 1px 5px; border-radius: 8px; letter-spacing: 0.5px; }
+
+/* 農場 GM 場景內匯出鈕 */
+#farmExportBtn, #farmResetBtn { position: absolute; bottom: 10px; z-index: 9; padding: 7px 12px; font-weight: 900; color: #fffaf0; background: rgba(40,72,44,0.92); border: 1px solid rgba(255,244,213,0.5); border-radius: 8px; cursor: pointer; }
+#farmExportBtn { left: 10px; }
+#farmResetBtn { left: 150px; background: rgba(120,60,40,0.92); }
+
+/* GM 圈選畫面關閉時，隱藏農場標桿與提示 */
+body.gm-noselect .plot-stake { display: none !important; }
+body.gm-noselect #gmStakeReadout { display: none !important; }
+
+
+/* 開發：農地建設 / 牧場建設 兩欄 */
+.build-split .inv-col { display: flex; flex-direction: column; gap: 10px; }
+.build-split .ranchbuild-col { border-left: 1px solid var(--line); padding-left: 10px; }
+.build-split .panel-head h2 { margin: 0 0 2px; font-size: 1rem; }
+@media (max-width: 640px) {
+  .build-split { flex-direction: column; }
+  .build-split .ranchbuild-col { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+}
+
+/* GM 牧場底圖切換 */
+.gm-ranch-toggle { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: rgba(255,255,255,0.06); border-radius: 10px; }
+.gm-ranch-label { color: #f4e9c9; font-weight: 800; font-size: 0.9rem; }
+.gm-mini { flex: 1; padding: 8px 0; border: 1px solid rgba(255,244,213,0.35); border-radius: 8px; background: rgba(40,60,40,0.6); color: #f4e9c9; font-weight: 800; cursor: pointer; }
+.gm-mini:hover { background: rgba(60,90,60,0.7); }
+.gm-mini.is-active { background: #e3b53f; color: #2a2113; border-color: #e3b53f; }
+.gm-inv-divider { margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed rgba(255,244,213,0.3); color: #f4e9c9; font-weight: 800; font-size: 0.85rem; }
+/* GM 編輯：窄螢幕名稱獨占整列、不被擠壓 */
+@media (max-width: 560px) {
+  .gm-inv-name-mobile-stack {}
+  .gm-inv-name { width: 100%; flex: 1 1 100%; white-space: nowrap; }
+}
+
+/* 開發卡片：名稱與價格上下排、不折行 */
+.build-split .upgrade-title { flex-direction: column; align-items: flex-start; gap: 2px; }
+.build-split .upgrade-title strong { white-space: nowrap; }
+.build-split .upgrade-title > span { white-space: nowrap; }
+

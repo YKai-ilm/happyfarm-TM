@@ -145,10 +145,21 @@ const GM_FIELDS = {
 
 let gmEditSnap = null;
 let gmInvSnap = null;
+let gmItemSnap = null;
+const GM_ITEMS = [
+  ["weatherCard", "🌤️ 天氣兌換卡"],
+  ["fertilizer", "🌱 肥料"],
+  ["thawCard", "🃏 解凍卡"],
+  ["guardCard", "🛡️ 防盜卡"],
+  ["coinCard500", "🪙 金幣500兌換卡"],
+  ["expSpinPack", "🎰 抽獎經驗卡池包"],
+  ["expandCard", "🏗️ 牧場擴建卡"],
+  ["expandCardPro", "🏗️ 牧場擴建卡（特）"],
+];
 
 // grow/regrow 單位「分鐘」；sell=每顆售價(原版)；yieldCount=每次收成顆數(原版產量)；img:true 有田間 PNG
 const CROPS = {
-  turnip:      { name: "白蘿蔔", cost: 125,   sell: 17, yieldCount: 16, grow: 2.5,  regrow: 0,    seasons: 1, xp: 15, unlock: 0,  img: true, colors: ["#f8f3ee", "#d94c75", "#67a84f"] },
+  turnip:      { name: "白蘿蔔", cost: 125,   sell: 17, yieldCount: 16, grow: 2.5,  regrow: 0,    seasons: 1, xp: 15, unlock: 1,  img: true, colors: ["#f8f3ee", "#d94c75", "#67a84f"] },
   carrot:      { name: "胡蘿蔔", cost: 163,   sell: 21, yieldCount: 17, grow: 3.25, regrow: 0,    seasons: 1, xp: 18, unlock: 2,  img: true, colors: ["#f08a2d", "#ca5c24", "#5fa84d"] },
   corn:        { name: "玉米",   cost: 175,   sell: 23, yieldCount: 17, grow: 3.5,  regrow: 0,    seasons: 1, xp: 19, unlock: 3,  img: true, colors: ["#f7d64c", "#e2a73a", "#4d8a43"] },
   potato:      { name: "土豆",   cost: 188,   sell: 24, yieldCount: 18, grow: 3.75, regrow: 0,    seasons: 1, xp: 20, unlock: 4,  colors: ["#d9a86a", "#a9783f", "#6a9a4c"] },
@@ -338,10 +349,34 @@ const ORDER_BIG_XP = 1;
 
 /* 動物設定需在 init/render 前定義，避免 TDZ */
 const RANCH_ANIMALS = {
-  chicken: { name: "雞", emoji: "🐔", img: "./assets/ranch/animal-chicken.png", price: 200,  product: "蛋",   productEmoji: "🥚", value: 60,  growMs: 300000 },
-  sheep:   { name: "羊", emoji: "🐑", price: 600,  product: "羊毛", productEmoji: "🧶", value: 180, growMs: 720000 },
-  pig:     { name: "豬", emoji: "🐖", img: "./assets/ranch/animal-pig.png", price: 900,  product: "豬肉", productEmoji: "🥓", value: 300, growMs: 1080000 },
-  cow:     { name: "牛", emoji: "🐄", price: 1500, product: "牛奶", productEmoji: "🥛", value: 500, growMs: 1500000 },
+  chicken: { name: "雞", emoji: "🐔", img: "./assets/ranch/animal-chicken.png", price: 200,  product: "蛋",   productEmoji: "🥚", value: 20,  growMs: 100000 },
+  sheep:   { name: "羊", emoji: "🐑", price: 600,  product: "羊毛", productEmoji: "🧶", value: 60, growMs: 240000 },
+  pig:     { name: "豬", emoji: "🐖", img: "./assets/ranch/animal-pig.png", price: 900,  product: "豬肉", productEmoji: "🥓", value: 100, growMs: 360000 },
+  cow:     { name: "牛", emoji: "🐄", price: 1500, product: "牛奶", productEmoji: "🥛", value: 167, growMs: 500000 },
+};
+
+const RANCH_LEVEL_NAMES = { 1: "小牧場", 2: "大牧場", 3: "超大牧場" };
+const RANCH_CAP = { 1: 4, 2: 8, 3: 16 };
+function ranchCap() { return RANCH_CAP[state.ranchLevel || 1] || 4; }
+function cullRanchAnimals() {
+  const cap = ranchCap();
+  const list = state.ranchAnimals || [];
+  if (list.length <= cap) return 0;
+  // 強弱排序：先物種（價值），後等級，再以產出次數細分
+  const rank = (a) => ((RANCH_ANIMALS[a.type] ? RANCH_ANIMALS[a.type].price : 0) * 100000) + ((a.level || 1) * 1000) + (a.produced || 0);
+  const kept = list.slice().sort((a, b) => rank(b) - rank(a)).slice(0, cap);
+  const removed = list.length - kept.length;
+  state.ranchAnimals = kept;
+  return removed;
+}
+const RANCH_UPGRADES = [
+  { from: 1, to: 2, name: "大牧場",   coins: 50000,  card: "expandCard",    cardName: "牧場擴建卡" },
+  { from: 2, to: 3, name: "超大牧場", coins: 150000, card: "expandCardPro", cardName: "牧場擴建卡（特）" },
+];
+const RANCH_BG = {
+  1: { sun: "./assets/ranch/ranch-s-feed-grass.png", bad: "./assets/ranch/ranch-s-bad.png" },
+  2: { sun: "./assets/ranch/ranch-m-feed-grass.png", bad: "./assets/ranch/ranch-m-bad.png" },
+  3: { sun: "./assets/ranch/ranch-l-feed-grass.png", bad: "./assets/ranch/ranch-l-bad.png" },
 };
 
 let state = loadState();
@@ -357,10 +392,12 @@ hydrateIcons();
 bindStaticEvents();
 bindBgm();
 render();
+fitToolbar();
+if (window.addEventListener) window.addEventListener("resize", fitToolbar);
 setupCloudDrag();
 setupBuildingDrag();
 window.setInterval(tick, 1000);
-window.setInterval(wanderRanchAnimals, 3000);
+window.setInterval(wanderRanchAnimals, 500);
 
 function createDefaultState() {
   return {
@@ -379,9 +416,10 @@ function createDefaultState() {
     seeds: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
     giftsClaimed: [],
     openingSpinDone: false,
-    items: { weatherCard: 0, fertilizer: 0, thawCard: 0, guardCard: 0, coinCard500: 0, expSpinPack: 0 },
+    items: { weatherCard: 0, fertilizer: 0, thawCard: 0, guardCard: 0, coinCard500: 0, expSpinPack: 0, expandCard: 0, expandCardPro: 0 },
     guardUntil: 0,
     redeemed: [],
+    gmSelect: true,
     damaged: {},
     friends: [],
     candidates: makeBuiltinCandidates(),
@@ -407,6 +445,7 @@ function createDefaultState() {
     ranchAnimals: [],
     ranchProducts: {},
     ranchTool: "",
+    ranchLevel: 1,
     farmName: "",
     stats: { planted: 0, harvested: 0, stolen: 0, weed: 0, bug: 0, water: 0 },
   };
@@ -441,6 +480,7 @@ function loadState() {
       orders: Array.isArray(raw.orders) ? raw.orders : [],
       ranchAnimals: Array.isArray(raw.ranchAnimals) ? raw.ranchAnimals : [],
       ranchProducts: (raw.ranchProducts && typeof raw.ranchProducts === "object") ? { ...raw.ranchProducts } : {},
+      ranchLevel: typeof raw.ranchLevel === "number" ? raw.ranchLevel : 1,
     };
   } catch {
     return defaults;
@@ -683,6 +723,7 @@ function openGM() {
     updateGmBadge();
     toast("已進入 GM 模式。");
   }
+  updateGmRanchToggle();
   showGmBox("#gmPanel");
 }
 
@@ -792,10 +833,15 @@ function gmEditDismiss() {
 }
 
 function gmCaptureInv() {
-  return JSON.parse(JSON.stringify(state.inventory));
+  return {
+    inventory: JSON.parse(JSON.stringify(state.inventory)),
+    ranchProducts: JSON.parse(JSON.stringify(state.ranchProducts || {})),
+  };
 }
 function gmApplyInv(s) {
-  state.inventory = JSON.parse(JSON.stringify(s));
+  if (!s) return;
+  state.inventory = JSON.parse(JSON.stringify(s.inventory || {}));
+  state.ranchProducts = JSON.parse(JSON.stringify(s.ranchProducts || {}));
 }
 function gmInvConfirm() {
   gmInvSnap = gmCaptureInv();
@@ -826,7 +872,7 @@ function gmInvDismiss() {
 function buildGmInvList() {
   const list = document.querySelector("#gmInvList");
   if (!list) return;
-  list.innerHTML = Object.entries(CROPS).map(([id, c]) => `
+  const cropRows = Object.entries(CROPS).map(([id, c]) => `
     <div class="gm-inv-row">
       <span class="gm-inv-name">${c.name}</span>
       <div class="gm-ctrl">
@@ -837,10 +883,40 @@ function buildGmInvList() {
       <input class="gm-slider" data-gm-inv-range="${id}" type="range" min="0" max="999" step="1" value="${state.inventory[id] || 0}" />
     </div>
   `).join("");
+  const prodRows = Object.entries(RANCH_ANIMALS).map(([type, a]) => {
+    const v = (state.ranchProducts && state.ranchProducts[type]) || 0;
+    return `
+    <div class="gm-inv-row">
+      <span class="gm-inv-name">${a.productEmoji} ${a.product}</span>
+      <div class="gm-ctrl">
+        <button class="gm-step" data-gm-prod-dec="${type}" type="button">−</button>
+        <input class="gm-num" data-gm-prod-num="${type}" type="number" min="0" max="999" value="${v}" />
+        <button class="gm-step" data-gm-prod-inc="${type}" type="button">＋</button>
+      </div>
+      <input class="gm-slider" data-gm-prod-range="${type}" type="range" min="0" max="999" step="1" value="${v}" />
+    </div>`;
+  }).join("");
+  list.innerHTML = cropRows + '<div class="gm-inv-divider">牧場產物</div>' + prodRows;
   list.querySelectorAll("[data-gm-inv-dec]").forEach((b) => b.addEventListener("click", () => gmSetInv(b.dataset.gmInvDec, (state.inventory[b.dataset.gmInvDec] || 0) - 1)));
   list.querySelectorAll("[data-gm-inv-inc]").forEach((b) => b.addEventListener("click", () => gmSetInv(b.dataset.gmInvInc, (state.inventory[b.dataset.gmInvInc] || 0) + 1)));
   list.querySelectorAll("[data-gm-inv-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetInv(n.dataset.gmInvNum, parseInt(n.value, 10)); }));
   list.querySelectorAll("[data-gm-inv-range]").forEach((r) => r.addEventListener("input", () => gmSetInv(r.dataset.gmInvRange, parseInt(r.value, 10))));
+  list.querySelectorAll("[data-gm-prod-dec]").forEach((b) => b.addEventListener("click", () => gmSetProd(b.dataset.gmProdDec, ((state.ranchProducts && state.ranchProducts[b.dataset.gmProdDec]) || 0) - 1)));
+  list.querySelectorAll("[data-gm-prod-inc]").forEach((b) => b.addEventListener("click", () => gmSetProd(b.dataset.gmProdInc, ((state.ranchProducts && state.ranchProducts[b.dataset.gmProdInc]) || 0) + 1)));
+  list.querySelectorAll("[data-gm-prod-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetProd(n.dataset.gmProdNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-prod-range]").forEach((r) => r.addEventListener("input", () => gmSetProd(r.dataset.gmProdRange, parseInt(r.value, 10))));
+}
+
+function gmSetProd(type, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  if (!state.ranchProducts) state.ranchProducts = {};
+  state.ranchProducts[type] = v;
+  const num = document.querySelector(`[data-gm-prod-num="${type}"]`);
+  const rng = document.querySelector(`[data-gm-prod-range="${type}"]`);
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+  render();
 }
 
 function gmSetInv(id, v) {
@@ -848,6 +924,71 @@ function gmSetInv(id, v) {
   state.inventory[id] = v;
   const num = document.querySelector(`[data-gm-inv-num="${id}"]`);
   const rng = document.querySelector(`[data-gm-inv-range="${id}"]`);
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+  render();
+}
+
+function gmCaptureItems() {
+  return JSON.parse(JSON.stringify(state.items || {}));
+}
+function gmApplyItems(s) {
+  if (!s) return;
+  state.items = { ...(state.items || {}), ...JSON.parse(JSON.stringify(s)) };
+}
+function gmItemConfirm() {
+  gmItemSnap = gmCaptureItems();
+  saveState();
+  toast("已套用道具。");
+}
+function gmItemRevert() {
+  if (gmItemSnap) gmApplyItems(gmItemSnap);
+  saveState();
+  render();
+  buildGmItemList();
+  toast("已回復道具。");
+}
+function gmItemBack() {
+  if (gmItemSnap) gmApplyItems(gmItemSnap);
+  saveState();
+  render();
+  hideGmBox("#gmItemBox");
+  showGmBox("#gmEdit");
+}
+function gmItemDismiss() {
+  if (gmItemSnap) gmApplyItems(gmItemSnap);
+  saveState();
+  render();
+  hideGmBox("#gmItemBox");
+}
+function buildGmItemList() {
+  const list = document.querySelector("#gmItemList");
+  if (!list) return;
+  list.innerHTML = GM_ITEMS.map(([id, name]) => {
+    const v = (state.items && state.items[id]) || 0;
+    return `
+    <div class="gm-inv-row">
+      <span class="gm-inv-name">${name}</span>
+      <div class="gm-ctrl">
+        <button class="gm-step" data-gm-item-dec="${id}" type="button">−</button>
+        <input class="gm-num" data-gm-item-num="${id}" type="number" min="0" max="999" value="${v}" />
+        <button class="gm-step" data-gm-item-inc="${id}" type="button">＋</button>
+      </div>
+      <input class="gm-slider" data-gm-item-range="${id}" type="range" min="0" max="999" step="1" value="${v}" />
+    </div>`;
+  }).join("");
+  list.querySelectorAll("[data-gm-item-dec]").forEach((b) => b.addEventListener("click", () => gmSetItem(b.dataset.gmItemDec, ((state.items && state.items[b.dataset.gmItemDec]) || 0) - 1)));
+  list.querySelectorAll("[data-gm-item-inc]").forEach((b) => b.addEventListener("click", () => gmSetItem(b.dataset.gmItemInc, ((state.items && state.items[b.dataset.gmItemInc]) || 0) + 1)));
+  list.querySelectorAll("[data-gm-item-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetItem(n.dataset.gmItemNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-item-range]").forEach((r) => r.addEventListener("input", () => gmSetItem(r.dataset.gmItemRange, parseInt(r.value, 10))));
+}
+function gmSetItem(id, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  if (!state.items) state.items = {};
+  state.items[id] = v;
+  const num = document.querySelector(`[data-gm-item-num="${id}"]`);
+  const rng = document.querySelector(`[data-gm-item-range="${id}"]`);
   if (num && document.activeElement !== num) num.value = v;
   if (rng) rng.value = v;
   saveState();
@@ -903,6 +1044,7 @@ function bindStaticEvents() {
       const workPanel = document.querySelector(".work-panel");
       const isSameOpen = workPanel?.classList.contains("is-open") && state.activeTab === nextTab;
       state.activeTab = nextTab;
+      if (workPanel) workPanel.setAttribute("data-tab", nextTab);  // 先設好寬度再定位，避免首次開啟跑版
       if (isSameOpen) {
         openPanel("");
       } else {
@@ -1067,8 +1209,20 @@ function bindStaticEvents() {
   document.querySelector("#gmEditBtn")?.addEventListener("click", openGmEdit);
   document.querySelector("#gmResetBtn")?.addEventListener("click", gmReset);
   document.querySelector("#gmExitBtn")?.addEventListener("click", gmExit);
-  document.querySelector("#gmTodoBtn")?.addEventListener("click", exportStakePos);
-  document.querySelector("#gmPanelClose")?.addEventListener("click", () => hideGmBox("#gmPanel"));
+  document.querySelectorAll("[data-ranch-set]").forEach((b) => b.addEventListener("click", () => {
+    state.ranchLevel = Number(b.dataset.ranchSet) || 1;
+    const culled = cullRanchAnimals();
+    saveState();
+    applyRanchBg();
+    updateGmRanchToggle();
+    render();
+    repositionRanchAnimals();
+    if (document.querySelector("#ranchEditor")) renderRanchEditor();
+    const nm = RANCH_LEVEL_NAMES[state.ranchLevel] || "小牧場";
+    toast(culled ? ("牧場切換為" + nm + "，超出上限已移除 " + culled + " 隻較弱的動物。") : ("牧場切換為" + nm + "。"));
+  }));
+  updateGmRanchToggle();
+  document.querySelector("#gmPanelClose")?.addEventListener("click", () => { state.gmSelect = !(state.gmSelect !== false); saveState(); hideGmBox("#gmPanel"); render(); toast(state.gmSelect ? "已開啟圈選畫面。" : "已關閉圈選畫面（GM 保留）。"); });
   if (gmPanel) gmPanel.addEventListener("click", (e) => { if (e.target === gmPanel) hideGmBox("#gmPanel"); });
   document.querySelector("#gmEditConfirm")?.addEventListener("click", gmEditConfirm);
   document.querySelector("#gmEditRevert")?.addEventListener("click", gmEditRevert);
@@ -1090,6 +1244,12 @@ function bindStaticEvents() {
   document.querySelector("#gmInvBack")?.addEventListener("click", gmInvBack);
   const gmInvBox = document.querySelector("#gmInvBox");
   if (gmInvBox) gmInvBox.addEventListener("click", (e) => { if (e.target === gmInvBox) gmInvDismiss(); });
+  document.querySelector("#gmItemOpen")?.addEventListener("click", () => { gmItemSnap = gmCaptureItems(); buildGmItemList(); hideGmBox("#gmEdit"); showGmBox("#gmItemBox"); });
+  document.querySelector("#gmItemConfirm")?.addEventListener("click", gmItemConfirm);
+  document.querySelector("#gmItemRevert")?.addEventListener("click", gmItemRevert);
+  document.querySelector("#gmItemBack")?.addEventListener("click", gmItemBack);
+  const gmItemBox = document.querySelector("#gmItemBox");
+  if (gmItemBox) gmItemBox.addEventListener("click", (e) => { if (e.target === gmItemBox) gmItemDismiss(); });
   document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
     state.orders = generateOrders();
     state.ordersRefreshAt = Date.now() + ORDER_REFRESH_MS;
@@ -1128,24 +1288,61 @@ function applyFarmTitle() {
 
 function applyScene() {
   document.body.classList.toggle("is-ranch", state.scene === "ranch");
+  document.body.classList.toggle("gm-noselect", state.gmSelect === false);
   updateRanchEditor();
+  updateFarmExportBtn();
   applyRanchBg();
+}
+
+function updateFarmExportBtn() {
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  const show = state.gm && state.scene !== "ranch" && state.gmSelect !== false;
+  let btn = frame.querySelector("#farmExportBtn");
+  let rst = frame.querySelector("#farmResetBtn");
+  if (!show) { if (btn) btn.remove(); if (rst) rst.remove(); return; }
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "farmExportBtn"; btn.type = "button"; btn.textContent = "匯出圈選座標";
+    btn.addEventListener("click", exportStakePos);
+    frame.appendChild(btn);
+  }
+  if (!rst) {
+    rst = document.createElement("button");
+    rst.id = "farmResetBtn"; rst.type = "button"; rst.textContent = "重設";
+    rst.addEventListener("click", resetFarmCalibration);
+    frame.appendChild(rst);
+  }
+}
+
+function resetFarmCalibration() {
+  if (!window.confirm("確定要把標桿／雲／風車座標重設為預設嗎？")) return;
+  gmStakePos = {};
+  gmBuildingPos = {};
+  try { localStorage.removeItem("gm-stake-pos"); localStorage.removeItem("gm-building-pos"); } catch (e) {}
+  render();
+  toast("已重設標桿／建築座標為預設。");
 }
 
 function applyRanchBg() {
   const frame = document.querySelector(".field-frame");
   if (!frame) return;
-  if (state.scene === "ranch" && ["rain", "storm", "typhoon"].includes(state.weather)) {
-    frame.style.setProperty("--scene-image", 'url("./assets/ranch/ranch-s-bad.png")');
-  } else {
-    frame.style.removeProperty("--scene-image");
-  }
+  if (state.scene !== "ranch") { frame.style.removeProperty("--scene-image"); return; }
+  const set = RANCH_BG[state.ranchLevel || 1] || RANCH_BG[1];
+  const bad = ["rain", "storm", "typhoon"].includes(state.weather);
+  frame.style.setProperty("--scene-image", 'url("' + (bad ? set.bad : set.sun) + '")');
+}
+
+function updateGmRanchToggle() {
+  document.querySelectorAll("[data-ranch-set]").forEach((b) => {
+    b.classList.toggle("is-active", Number(b.dataset.ranchSet) === (state.ranchLevel || 1));
+  });
 }
 
 function enterRanch() {
   state.scene = "ranch";
   if (typeof Image === "function") {
-    ["./assets/ranch/ranch-s-feed-grass.png", "./assets/ranch/ranch-s-bad.png"].forEach((u) => { const im = new Image(); im.src = u; });
+    Object.values(RANCH_BG).forEach((s) => { [s.sun, s.bad].forEach((u) => { const im = new Image(); im.src = u; }); });
   }
   openPanel("");
   applyScene();
@@ -1545,6 +1742,26 @@ function renderItemList() {
         <span class="gift-contents">使用抽一次，隨機獲得 50~350 經驗</span>
       </div>
       <button class="gift-claim" type="button" id="useExpPack">使用</button>
+    </div>`;
+  }
+  const exC = (state.items && state.items.expandCard) || 0;
+  const exP = (state.items && state.items.expandCardPro) || 0;
+  if (exC > 0) {
+    rows += `
+    <div class="gift-row">
+      <div class="gift-row-main">
+        <strong>🏗️ 牧場擴建卡 ×${exC}</strong>
+        <span class="gift-contents">於「開發 → 牧場建設」升級小牧場為大牧場時消耗</span>
+      </div>
+    </div>`;
+  }
+  if (exP > 0) {
+    rows += `
+    <div class="gift-row">
+      <div class="gift-row-main">
+        <strong>🏗️ 牧場擴建卡（特）×${exP}</strong>
+        <span class="gift-contents">於「開發 → 牧場建設」升級大牧場為超大牧場時消耗</span>
+      </div>
     </div>`;
   }
   if (!rows) rows = '<p class="item-empty">目前沒有道具。</p>';
@@ -2133,7 +2350,9 @@ function render() {
 function updateWeatherFx() {
   const fx = document.querySelector("#weatherFx");
   if (!fx) return;
-  const w = ["rain", "storm", "snow", "typhoon", "scorch", "breeze", "fog", "cloud"].includes(state.weather) ? state.weather : "";
+  // 超大牧場：關掉中央門的天氣粒子特效（保留天氣差底圖與音效）
+  const hugeRanch = state.scene === "ranch" && (state.ranchLevel || 1) === 3;
+  const w = (!hugeRanch && ["rain", "storm", "snow", "typhoon", "scorch", "breeze", "fog", "cloud"].includes(state.weather)) ? state.weather : "";
   fx.className = "wfx" + (w ? " " + w : "");
   applyClouds();
   applyBuildings();
@@ -2561,8 +2780,8 @@ function renderInventory() {
 }
 
 function renderTabs() {
-  document.querySelector(".farm-app")?.classList.toggle("is-watering-tool", state.selectedTool === "water");
-  document.querySelector(".farm-app")?.classList.toggle("is-planting-tool", state.selectedTool === "seed");
+  document.querySelector(".farm-app")?.classList.toggle("is-watering-tool", state.selectedTool === "water" && state.scene !== "ranch");
+  document.querySelector(".farm-app")?.classList.toggle("is-planting-tool", state.selectedTool === "seed" && state.scene !== "ranch");
   const workOpen = document.querySelector(".work-panel")?.classList.contains("is-open");
 
   document.querySelectorAll("[data-tool]").forEach((button) => {
@@ -2577,9 +2796,16 @@ function renderTabs() {
     button.classList.toggle("is-active", workOpen && button.dataset.tab === state.activeTab);
   });
 
+  const wpEl = document.querySelector(".work-panel");
+  if (wpEl) wpEl.setAttribute("data-tab", state.activeTab);
   if (elements.workPanelTitle) {
     const titles = { shop: "種子", market: "農民市集", orders: "訂單", upgrades: "開發" };
-    elements.workPanelTitle.textContent = titles[state.activeTab] || "農場管理";
+    if (state.activeTab === "upgrades") {
+      elements.workPanelTitle.style.display = "none";
+    } else {
+      elements.workPanelTitle.style.display = "";
+      elements.workPanelTitle.textContent = titles[state.activeTab] || "農場管理";
+    }
   }
 }
 
@@ -2618,11 +2844,12 @@ function renderShop() {
               </span>
               <span class="seed-price">${crop.cost} 金幣</span>
             </span>
-            <span class="seed-meta">收成價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp} · 背包 <strong class="bag-num">${state.seeds[id] || 0}</strong></span>
+            <span class="seed-meta">收成價 ${sellPrice(id)} · 產量 ${crop.yieldCount} · 經驗 ${crop.xp}</span>
             <span class="seed-buy">
               <button class="seed-step" type="button" data-seed-dec="${id}" ${locked ? "disabled" : ""}>−</button>
               <input class="seed-qty" type="number" inputmode="numeric" min="1" data-seed-qty="${id}" value="${shopQty[id] || 1}" ${locked ? "disabled" : ""} />
               <button class="seed-step" type="button" data-seed-inc="${id}" ${locked ? "disabled" : ""}>＋</button>
+              <span class="seed-own">背包內有 <span class="seed-own-num">${state.seeds[id] || 0}</span> 個</span>
               <button class="seed-buy-btn" type="button" data-seed-buy="${id}" ${locked ? "disabled" : ""}>購買</button>
             </span>
             <span class="seed-actions">
@@ -2842,7 +3069,20 @@ function renderUpgrades() {
         </article>
       `;
 
-  elements.tabContent.innerHTML = plotRow + repairRow + upgradeRows;
+  const farmHtml = plotRow + repairRow + upgradeRows;
+  const ranchHtml = ranchBuildRows();
+  elements.tabContent.innerHTML = `
+    <div class="inv-split build-split">
+      <div class="inv-col farmbuild-col">
+        <div class="panel-head"><h2>農地建設</h2></div>
+        ${farmHtml}
+      </div>
+      <div class="inv-col ranchbuild-col">
+        <div class="panel-head"><h2>牧場建設</h2></div>
+        ${ranchHtml}
+      </div>
+    </div>
+  `;
 
   const plotButton = elements.tabContent.querySelector("[data-buy-plot]");
   if (plotButton) {
@@ -2855,6 +3095,55 @@ function renderUpgrades() {
   elements.tabContent.querySelectorAll("[data-buy-upgrade]").forEach((button) => {
     button.addEventListener("click", () => buyUpgrade(button.dataset.buyUpgrade));
   });
+
+  const ranchUpBtn = elements.tabContent.querySelector("[data-ranch-upgrade]");
+  if (ranchUpBtn) ranchUpBtn.addEventListener("click", doRanchUpgrade);
+}
+
+function ranchBuildRows() {
+  const lvl = state.ranchLevel || 1;
+  const curName = RANCH_LEVEL_NAMES[lvl] || "小牧場";
+  const up = RANCH_UPGRADES.find((u) => u.from === lvl);
+  if (!up) {
+    return `
+      <article class="upgrade-row">
+        <span class="upgrade-title"><strong>牧場升級</strong><span>最高級</span></span>
+        <span class="upgrade-meta">目前為${curName}，已達最高等級，無法再擴建。</span>
+      </article>
+    `;
+  }
+  const cardHave = (state.items && state.items[up.card]) || 0;
+  const meet = state.coins >= up.coins && cardHave >= 1;
+  return `
+    <article class="upgrade-row">
+      <span class="upgrade-title">
+        <strong>牧場升級　${curName} → ${up.name}</strong>
+        <span>${up.coins} 金幣</span>
+      </span>
+      <span class="upgrade-meta">另需 ${up.cardName} ×1（持有 ${cardHave} 張）。升級後牧場空間更大、可養更多動物。</span>
+      <button class="action-button" type="button" data-ranch-upgrade ${meet ? "" : "disabled"}>
+        <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
+        升級
+      </button>
+    </article>
+  `;
+}
+
+function doRanchUpgrade() {
+  const lvl = state.ranchLevel || 1;
+  const up = RANCH_UPGRADES.find((u) => u.from === lvl);
+  if (!up) return;
+  const cardHave = (state.items && state.items[up.card]) || 0;
+  if (state.coins < up.coins) { toast("金幣不足。"); return; }
+  if (cardHave < 1) { toast("缺少" + up.cardName + "。"); return; }
+  state.coins -= up.coins;
+  state.items[up.card] = cardHave - 1;
+  state.ranchLevel = up.to;
+  saveState();
+  applyRanchBg();
+  renderUpgrades();
+  render();
+  toast("牧場已升級為" + up.name + "！");
 }
 
 function handlePlotClick(index) {
@@ -3470,7 +3759,13 @@ function cropCardVisual(id) {
 /* ===== 牧場窗門四點框選器（GM + 牧場模式才出現）===== */
 const RANCH_OPENINGS_DEFAULT = [
   { n: "中央門", p: [[46.3,18.2],[53.8,18.2],[53.8,31.4],[46.4,31.3]] },
+  { n: "小牧場動物移動範圍", p: [[36.7,39],[62.6,39.5],[67.2,49],[32.1,49]] },
+  { n: "大牧場動物移動範圍", p: [[36.9,38.5],[62.8,39],[73.1,63.8],[26.8,63.4]] },
+  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[89.3,54.4],[10.8,55]] },
 ];
+function currentRangeName() {
+  return (RANCH_LEVEL_NAMES[state.ranchLevel || 1] || "小牧場") + "動物移動範圍";
+}
 
 let gmRanchOpenings = null;
 function loadRanchOpenings() {
@@ -3494,7 +3789,7 @@ function ptsStr(p) { return p.map((q) => q[0] + "," + q[1]).join(" "); }
 function updateRanchEditor() {
   const frame = document.querySelector(".field-frame");
   if (!frame) return;
-  const show = state.scene === "ranch" && state.gm;
+  const show = state.scene === "ranch" && state.gm && state.gmSelect !== false;
   let ed = frame.querySelector("#ranchEditor");
   if (!show) { if (ed) ed.remove(); return; }
   if (!ed) buildRanchEditor(frame);
@@ -3511,7 +3806,7 @@ function buildRanchEditor(frame) {
   svg.setAttribute("preserveAspectRatio", "none");
   ed.appendChild(svg);
   const btn = document.createElement("button");
-  btn.type = "button"; btn.id = "ranchExportBtn"; btn.textContent = "匯出窗門座標";
+  btn.type = "button"; btn.id = "ranchExportBtn"; btn.textContent = "匯出圈選座標";
   btn.addEventListener("click", exportRanchOpenings);
   ed.appendChild(btn);
   const reset = document.createElement("button");
@@ -3534,7 +3829,9 @@ function renderRanchEditor() {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   ed.querySelectorAll(".ro-handle").forEach((n) => n.remove());
   const ops = loadRanchOpenings();
+  const visible = ((state.ranchLevel || 1) === 3) ? [currentRangeName()] : ["中央門", currentRangeName()];
   ops.forEach((op, gi) => {
+    if (!visible.includes(op.n)) return;
     const poly = document.createElementNS(SVGNS, "polygon");
     poly.setAttribute("points", ptsStr(op.p));
     poly.setAttribute("class", "ro-poly");
@@ -3612,7 +3909,8 @@ function addRanchBodyDrag(poly, gi, frame) {
 
 function exportRanchOpenings() {
   const ops = loadRanchOpenings();
-  const text = ops.map((op) => op.n + ": " + ptsStr(op.p)).join("\n");
+  const visible = ((state.ranchLevel || 1) === 3) ? [currentRangeName()] : ["中央門", currentRangeName()];
+  const text = ops.filter((op) => visible.includes(op.n)).map((op) => op.n + ": " + ptsStr(op.p)).join("\n");
   try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
   try { console.log("RANCH_OPENINGS:\n" + text); } catch (e) {}
   try { window.prompt("已複製，貼回對話給 Claude：", text); } catch (e) {}
@@ -3622,9 +3920,29 @@ function exportRanchOpenings() {
 
 /* ===== 牧場動物系統 ===== */
 // 格柵內可漫步範圍（%）
+function pointInPoly(x, y, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
 function randPaddock() {
-  const x = 31 + Math.random() * 36;  // 31~67
-  const y = 37 + Math.random() * 9;  // 37~46（下緣再上收，含抖動也不撞柵欄）
+  const ops = loadRanchOpenings();
+  const region = ops.find((o) => o.n === currentRangeName());
+  if (region && region.p && region.p.length >= 3) {
+    const xs = region.p.map((q) => q[0]), ys = region.p.map((q) => q[1]);
+    const minx = Math.min.apply(null, xs), maxx = Math.max.apply(null, xs);
+    const miny = Math.min.apply(null, ys), maxy = Math.max.apply(null, ys);
+    for (let i = 0; i < 24; i++) {
+      const x = minx + Math.random() * (maxx - minx);
+      const y = miny + Math.random() * (maxy - miny);
+      if (pointInPoly(x, y, region.p)) return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+    }
+    return [Number(((minx + maxx) / 2).toFixed(1)), Number(((miny + maxy) / 2).toFixed(1))];
+  }
+  const x = 31 + Math.random() * 36, y = 41 + Math.random() * 9;
   return [Number(x.toFixed(1)), Number(y.toFixed(1))];
 }
 
@@ -3648,7 +3966,7 @@ function renderRanchAnimals() {
       el.className = "ranch-animal";
       el.dataset.id = a.id;
       const p = randPaddock();
-      el.style.left = p[0] + "%"; el.style.top = p[1] + "%";
+      el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; el.style.zIndex = Math.round(p[1] * 10);
       el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
       el.addEventListener("click", () => onRanchAnimalClick(a.id));
       box.appendChild(el);
@@ -3659,23 +3977,45 @@ function renderRanchAnimals() {
     if (b) {
       if (ready) { b.textContent = cfg.productEmoji; b.className = "animal-badge animal-prod"; }
       else if (a.dirty) { b.textContent = "💩"; b.className = "animal-badge animal-dirty"; }
-      else if (growing) { b.textContent = "💤"; b.className = "animal-badge animal-z"; }
+      else if (growing) { b.textContent = fmtSecs(cfg.growMs - (now - a.fedAt)); b.className = "animal-badge animal-timer"; }
       else { b.textContent = ""; b.className = "animal-badge"; }
     }
   });
 }
 
+// 滑行 5.5s，每次抵達後強制停頓 1.5-2.5s（期間僅原地抖動），不連續滑行
+const RANCH_GLIDE_MS = 5500;
+function ranchRestMs() { return 1500 + Math.random() * 1000; }
 function wanderRanchAnimals() {
   if (state.scene !== "ranch") return;
   const box = document.querySelector("#ranchAnimals");
   if (!box) return;
+  const now = Date.now();
   box.querySelectorAll(".ranch-animal").forEach((el) => {
-    if (Math.random() < 0.35) return;  // 部分動物原地停一下
+    let next = Number(el.dataset.nextMove || 0);
+    if (!next) { el.dataset.nextMove = now + 300 + Math.random() * 3500; return; }  // 初次錯開
+    if (now < next) return;
     const cur = parseFloat(el.style.left) || 50;
     const t = randPaddock();
-    el.style.left = t[0] + "%"; el.style.top = t[1] + "%";
+    el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; el.style.zIndex = Math.round(t[1] * 10);
     const face = el.querySelector(".animal-emoji, .animal-img");
     if (face) face.style.transform = (t[0] < cur) ? "scaleX(-1)" : "scaleX(1)";
+    el.dataset.nextMove = now + RANCH_GLIDE_MS + ranchRestMs();  // 滑行完成 + 停頓後才能再滑行
+  });
+}
+
+function repositionRanchAnimals() {
+  const box = document.querySelector("#ranchAnimals");
+  if (!box) return;
+  const now = Date.now();
+  let i = 0;
+  box.querySelectorAll(".ranch-animal").forEach((el) => {
+    const t = randPaddock();
+    el.style.transition = "none";          // 瞬移進新範圍，不走滑行
+    el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; el.style.zIndex = Math.round(t[1] * 10);
+    void el.offsetWidth;                    // 強制 reflow 後恢復過渡
+    el.style.transition = "";
+    el.dataset.nextMove = now + RANCH_GLIDE_MS + ranchRestMs() + (i++ * 200);
   });
 }
 
@@ -3743,10 +4083,11 @@ function buyAnimal(type) {
   const cfg = RANCH_ANIMALS[type];
   if (!cfg) return;
   state.ranchAnimals = state.ranchAnimals || [];
-  if (state.ranchAnimals.length >= 4) { toast("小牧場最多養 4 隻動物。"); return; }
+  const cap = ranchCap();
+  if (state.ranchAnimals.length >= cap) { toast((RANCH_LEVEL_NAMES[state.ranchLevel || 1] || "小牧場") + "最多養 " + cap + " 隻動物。"); return; }
   if (state.coins < cfg.price) { toast("金幣不足。"); return; }
   state.coins -= cfg.price;
-  state.ranchAnimals.push({ id: "a" + Date.now(), type: type, fedAt: 0, dirty: false, produced: 0 });
+  state.ranchAnimals.push({ id: "a" + Date.now(), type: type, level: 1, fedAt: 0, dirty: false, produced: 0 });
   saveState();
   const shop = document.querySelector("#animalShop");
   if (shop) shop.remove();
@@ -3886,14 +4227,19 @@ function onRanchAnimalClick(id) {
   if (!a) return;
   const cfg = RANCH_ANIMALS[a.type];
   if (!cfg) return;
-  if (state.gm) {
-    state.ranchAnimals = (state.ranchAnimals || []).filter((x) => x.id !== id);
-    saveState(); renderRanchAnimals();
-    toast("（GM）已移除一隻" + cfg.name + "。");
+  const tool = state.ranchTool;
+  if (!tool) {
+    if (state.gm) {
+      if (window.confirm("（GM）確定要移除這隻" + cfg.name + "嗎？")) {
+        state.ranchAnimals = (state.ranchAnimals || []).filter((x) => x.id !== id);
+        saveState(); renderRanchAnimals();
+        toast("（GM）已移除一隻" + cfg.name + "。");
+      }
+      return;
+    }
+    toast("先選下方的餵飼料／洗澡／收成，再點動物。");
     return;
   }
-  const tool = state.ranchTool;
-  if (!tool) { toast("先選下方的餵飼料／洗澡／收成，再點動物。"); return; }
   const now = Date.now();
   const ready = a.fedAt && (now - a.fedAt >= cfg.growMs);
   if (tool === "feed") {
@@ -3905,11 +4251,12 @@ function onRanchAnimalClick(id) {
     a.dirty = false; saveState(); renderRanchAnimals(); toast("幫" + cfg.name + "洗好澡了。");
   } else if (tool === "harvest") {
     if (!ready) { toast(a.fedAt ? (cfg.name + " 還沒生產完。") : (cfg.name + " 還沒餵飼料。")); return; }
+    const yieldN = 3 + Math.floor(Math.random() * 3);
     state.ranchProducts = state.ranchProducts || {};
-    state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + 1;
+    state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + yieldN;
     a.produced = (a.produced || 0) + 1;
     a.fedAt = 0; a.dirty = true;
-    saveState(); render(); toast("收成 1 份" + cfg.product + "，放進牧場倉。");
+    saveState(); render(); toast("收成 " + yieldN + " 份" + cfg.product + "，放進牧場倉。");
   }
 }
 
@@ -3974,4 +4321,25 @@ function redeemCode(input) {
   state.redeemed.push(code);
   saveState(); render();
   toast("兌換成功：" + parts.join("、") + "。");
+}
+
+
+/* ===== 上排工具列自動縮放字體以符合寬幅 ===== */
+function fitToolbar() {
+  const bar = document.querySelector(".scene-toolbar-top");
+  if (!bar) return;
+  bar.style.setProperty("--tb-scale", "1");
+  const avail = bar.clientWidth || 0;
+  const need = bar.scrollWidth || 0;
+  if (need > avail + 1 && avail > 0) {
+    bar.style.setProperty("--tb-scale", Math.max(0.68, avail / need).toFixed(3));
+  }
+}
+
+
+/* 倒數時間格式（M:SS 或 Xs）*/
+function fmtSecs(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  return m > 0 ? (m + ":" + String(s % 60).padStart(2, "0")) : (s + "s");
 }
