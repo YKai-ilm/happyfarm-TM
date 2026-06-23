@@ -1031,7 +1031,8 @@ function applyAudio() {
 
 function bindStaticEvents() {
   document.querySelectorAll("[data-tool]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("pointerup", (e) => {
+      e.preventDefault();
       state.selectedTool = (state.selectedTool === button.dataset.tool) ? "" : button.dataset.tool;
       saveState();
       render();
@@ -1081,21 +1082,23 @@ function bindStaticEvents() {
       if (button.dataset.action === "ranch-exit") {
         exitRanch();
       }
-      if (button.dataset.action === "ranch-feed") {
-        state.ranchTool = state.ranchTool === "feed" ? "" : "feed"; saveState(); render();
-      }
-      if (button.dataset.action === "ranch-wash") {
-        state.ranchTool = state.ranchTool === "wash" ? "" : "wash"; saveState(); render();
-      }
-      if (button.dataset.action === "ranch-harvest") {
-        state.ranchTool = state.ranchTool === "harvest" ? "" : "harvest"; saveState(); render();
-      }
       if (button.dataset.action === "ranch-shop") {
         openAnimalShop();
       }
       if (button.dataset.action === "ranch-sell") {
         openSellAnimal();
       }
+    });
+  });
+
+  [["ranch-feed", "feed"], ["ranch-wash", "wash"], ["ranch-harvest", "harvest"]].forEach(([act, t]) => {
+    document.querySelectorAll('[data-action="' + act + '"]').forEach((button) => {
+      button.addEventListener("pointerup", (e) => {
+        e.preventDefault();
+        state.ranchTool = state.ranchTool === t ? "" : t;
+        saveState();
+        render();
+      });
     });
   });
 
