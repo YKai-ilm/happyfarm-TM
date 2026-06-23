@@ -1030,17 +1030,12 @@ function applyAudio() {
 }
 
 function bindStaticEvents() {
-  let lastToolTapAt = 0;
-  const toolTapAllowed = () => { const n = Date.now(); if (n - lastToolTapAt < 350) return false; lastToolTapAt = n; return true; };
   document.querySelectorAll("[data-tool]").forEach((button) => {
-    const toggleTool = () => {
-      if (!toolTapAllowed()) return;
+    button.addEventListener("click", () => {
       state.selectedTool = (state.selectedTool === button.dataset.tool) ? "" : button.dataset.tool;
       saveState();
       render();
-    };
-    button.addEventListener("click", toggleTool);
-    button.addEventListener("touchend", (e) => { e.preventDefault(); toggleTool(); }, { passive: false });
+    });
   });
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
@@ -1097,14 +1092,11 @@ function bindStaticEvents() {
 
   [["ranch-feed", "feed"], ["ranch-wash", "wash"], ["ranch-harvest", "harvest"]].forEach(([act, t]) => {
     document.querySelectorAll('[data-action="' + act + '"]').forEach((button) => {
-      const toggleRanch = () => {
-        if (!toolTapAllowed()) return;
+      button.addEventListener("click", () => {
         state.ranchTool = state.ranchTool === t ? "" : t;
         saveState();
         render();
-      };
-      button.addEventListener("click", toggleRanch);
-      button.addEventListener("touchend", (e) => { e.preventDefault(); toggleRanch(); }, { passive: false });
+      });
     });
   });
 
@@ -1282,6 +1274,18 @@ function bindStaticEvents() {
     if (t.closest && (t.closest(".work-panel, .inventory-panel") || t.closest("[data-tab], [data-panel-target]"))) return;
     openPanel("");
     render();
+  });
+
+  // 點空白處（非工具鈕／田地／動物／面板等）自動取消目前選取的工具（農場＋牧場）
+  document.addEventListener("click", (event) => {
+    if (!state.selectedTool && !state.ranchTool) return;
+    const t = event.target;
+    if (!t || !t.closest) return;
+    if (t.closest("[data-tool], [data-action], [data-tab], [data-panel-target], [data-plot], .plot, .ranch-animal, .work-panel, .inventory-panel, .scene-toolbar, .gm-box, .panel, button, input")) return;
+    let changed = false;
+    if (state.selectedTool) { state.selectedTool = ""; changed = true; }
+    if (state.ranchTool) { state.ranchTool = ""; changed = true; }
+    if (changed) { saveState(); render(); }
   });
 
   elements.restButton.addEventListener("click", restOneDay);
