@@ -1030,13 +1030,17 @@ function applyAudio() {
 }
 
 function bindStaticEvents() {
+  let lastToolTapAt = 0;
+  const toolTapAllowed = () => { const n = Date.now(); if (n - lastToolTapAt < 350) return false; lastToolTapAt = n; return true; };
   document.querySelectorAll("[data-tool]").forEach((button) => {
-    button.addEventListener("pointerup", (e) => {
-      e.preventDefault();
+    const toggleTool = () => {
+      if (!toolTapAllowed()) return;
       state.selectedTool = (state.selectedTool === button.dataset.tool) ? "" : button.dataset.tool;
       saveState();
       render();
-    });
+    };
+    button.addEventListener("click", toggleTool);
+    button.addEventListener("touchend", (e) => { e.preventDefault(); toggleTool(); }, { passive: false });
   });
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
@@ -1093,12 +1097,14 @@ function bindStaticEvents() {
 
   [["ranch-feed", "feed"], ["ranch-wash", "wash"], ["ranch-harvest", "harvest"]].forEach(([act, t]) => {
     document.querySelectorAll('[data-action="' + act + '"]').forEach((button) => {
-      button.addEventListener("pointerup", (e) => {
-        e.preventDefault();
+      const toggleRanch = () => {
+        if (!toolTapAllowed()) return;
         state.ranchTool = state.ranchTool === t ? "" : t;
         saveState();
         render();
-      });
+      };
+      button.addEventListener("click", toggleRanch);
+      button.addEventListener("touchend", (e) => { e.preventDefault(); toggleRanch(); }, { passive: false });
     });
   });
 
