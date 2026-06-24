@@ -1031,16 +1031,12 @@ function applyAudio() {
 
 function bindStaticEvents() {
   const bindToolToggle = (button, doToggle) => {
-    let lastTouchAt = 0;
-    button.addEventListener("touchend", (e) => {
-      e.preventDefault();           // 抑制這次 touch 補發的 click
-      lastTouchAt = Date.now();
+    // 用 pointerup 切換（觸控/滑鼠都只觸發一次），click 一律吸收（含手機幽靈 click），避免重複切換
+    button.addEventListener("pointerup", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       doToggle();
-    }, { passive: false });
-    button.addEventListener("click", () => {
-      if (Date.now() - lastTouchAt < 700) return;  // 忽略 touch 之後的幽靈 click（可能不只一次）
-      doToggle();                   // 純滑鼠點擊才走這裡
     });
+    button.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); });
   };
   document.querySelectorAll("[data-tool]").forEach((button) => {
     bindToolToggle(button, () => {
@@ -1051,7 +1047,7 @@ function bindStaticEvents() {
   });
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
-    button.addEventListener("click", () => {
+    bindToolToggle(button, () => {
       const nextTab = button.dataset.tab;
       const workPanel = document.querySelector(".work-panel");
       const isSameOpen = workPanel?.classList.contains("is-open") && state.activeTab === nextTab;
@@ -1273,8 +1269,9 @@ function bindStaticEvents() {
   makeGmBadgeDraggable();
 
   document.querySelectorAll("[data-panel-target]").forEach((button) => {
-    button.addEventListener("click", () => {
+    bindToolToggle(button, () => {
       togglePanel(button.dataset.panelTarget, getPanelAnchor(button));
+      render();
     });
   });
 
@@ -2833,6 +2830,10 @@ function renderTabs() {
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.classList.toggle("is-active", workOpen && button.dataset.tab === state.activeTab);
+  });
+  const invOpen = document.querySelector(".inventory-panel")?.classList.contains("is-open");
+  document.querySelectorAll('[data-panel-target="inventory"]').forEach((button) => {
+    button.classList.toggle("is-active", !!invOpen);
   });
 
   const wpEl = document.querySelector(".work-panel");
