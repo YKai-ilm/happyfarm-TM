@@ -1084,12 +1084,17 @@ body {
   gap: 6px;
 }
 
-.scene-action:hover,
 .scene-action.is-active,
-.bottom-tool-row .tool-button:hover,
 .bottom-tool-row .tool-button.is-active {
   background: rgba(238, 176, 56, 0.92);
   color: #2d281b;
+}
+@media (hover: hover) {
+  .scene-action:hover,
+  .bottom-tool-row .tool-button:hover {
+    background: rgba(238, 176, 56, 0.92);
+    color: #2d281b;
+  }
 }
 
 .field-frame {
