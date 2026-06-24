@@ -1031,9 +1031,16 @@ function applyAudio() {
 
 function bindStaticEvents() {
   const bindToolToggle = (button, doToggle) => {
-    let handled = false;
-    button.addEventListener("touchend", (e) => { e.preventDefault(); handled = true; doToggle(); }, { passive: false });
-    button.addEventListener("click", () => { if (handled) { handled = false; return; } doToggle(); });
+    let lastTouchAt = 0;
+    button.addEventListener("touchend", (e) => {
+      e.preventDefault();           // 抑制這次 touch 補發的 click
+      lastTouchAt = Date.now();
+      doToggle();
+    }, { passive: false });
+    button.addEventListener("click", () => {
+      if (Date.now() - lastTouchAt < 700) return;  // 忽略 touch 之後的幽靈 click（可能不只一次）
+      doToggle();                   // 純滑鼠點擊才走這裡
+    });
   };
   document.querySelectorAll("[data-tool]").forEach((button) => {
     bindToolToggle(button, () => {

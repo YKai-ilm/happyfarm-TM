@@ -3404,7 +3404,7 @@ body.is-ranch .wfx-sky {
 #farmResetBtn { left: 150px; background: rgba(120,60,40,0.92); }
 
 /* GM 圈選畫面關閉時，隱藏農場標桿與提示 */
-body.gm-noselect .plot-stake { display: none !important; }
+.farm-app:not(.is-gm) .plot-stake { display: none !important; }
 body.gm-noselect #gmStakeReadout { display: none !important; }
 
 
