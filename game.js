@@ -1031,12 +1031,8 @@ function applyAudio() {
 
 function bindStaticEvents() {
   const bindToolToggle = (button, doToggle) => {
-    // 用 pointerup 切換（觸控/滑鼠都只觸發一次），click 一律吸收（含手機幽靈 click），避免重複切換
-    button.addEventListener("pointerup", (e) => {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      doToggle();
-    });
-    button.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); });
+    // 跟好友鈕一樣用最單純的 click（你手機上單純 click 才正常）
+    button.addEventListener("click", () => { doToggle(); });
   };
   document.querySelectorAll("[data-tool]").forEach((button) => {
     bindToolToggle(button, () => {
