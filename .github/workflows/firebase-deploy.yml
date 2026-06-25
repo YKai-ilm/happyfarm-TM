@@ -2,14 +2,26 @@ name: Deploy to Firebase Hosting
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - uses: actions/setup-node@v4
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: happyfarm-tm
-          channelId: live
+          node-version: 20
+      - name: Check secret (no leak)
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "secret length = ${#SA}"
+          node -e "try{const o=JSON.parse(process.env.SA);console.log('JSON OK | type:',o.type,'| project_id:',o.project_id,'| has private_key:',!!o.private_key,'| client_email:',o.client_email)}catch(e){console.log('JSON PARSE FAIL:',e.message)}"
+      - name: Write service account file
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+      - name: Deploy to Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx firebase-tools@latest deploy --only hosting --project happyfarm-tm --non-interactive
