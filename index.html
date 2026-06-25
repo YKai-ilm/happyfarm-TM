@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-041" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-042" />
   </head>
   <body>
     <div class="farm-app">
@@ -272,6 +272,10 @@
           <button id="exportCodeBtn" type="button" class="save-primary">複製備份碼</button>
           <button id="importCodeBtn" type="button" class="save-secondary">貼備份碼還原</button>
         </div>
+        <div class="save-account">
+          <button id="googleLoginBtn" type="button" class="save-primary">用 Google 登入（雲端存檔）</button>
+          <p id="accountStatus" class="account-status">登入後進度會同步到雲端，換手機或清快取也能繼續。</p>
+        </div>
         <button id="saveBoxClose" type="button" class="save-close">關閉</button>
       </div>
     </div>
@@ -447,7 +451,10 @@
       </div>
     </div>
 
-    <script src="./game.js?v=20260624-claude-041"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="./game.js?v=20260624-claude-042"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

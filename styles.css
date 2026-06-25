@@ -3442,3 +3442,7 @@ body.gm-noselect #gmStakeReadout { display: none !important; }
 
 /* 手機：停用雙擊縮放，避免工具鈕第二下點擊被當成雙擊而失效 */
 button, .tool-button, .scene-action, .farm-tool, .ranch-tool, [data-tool], [data-action] { touch-action: manipulation; }
+
+/* 帳號/雲端存檔 */
+.save-account { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.account-status { font-size: 0.8rem; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }

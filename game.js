@@ -380,6 +380,7 @@ const RANCH_BG = {
 };
 
 let state = loadState();
+let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null;
 let shopQty = {};
 let spinning = false;
 let pendingWeatherCard = false;
@@ -391,6 +392,7 @@ maybeRefreshOrders();
 hydrateIcons();
 bindStaticEvents();
 bindBgm();
+initFirebase();
 render();
 fitToolbar();
 if (window.addEventListener) window.addEventListener("resize", fitToolbar);
@@ -488,7 +490,9 @@ function loadState() {
 }
 
 function saveState() {
+  state.savedAt = Date.now();
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  if (typeof cloudSync === "function") cloudSync();
 }
 
 function encodeSave() {
@@ -511,6 +515,99 @@ function decodeSave(code) {
     }
   }
   return data && typeof data === "object" ? data : null;
+}
+
+/* ===== Firebase 帳號 + 雲端存檔 ===== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA9P0ixYCA_tSxDII4A4PUONK7TH6gHNHE",
+  authDomain: "happyfarm-tm.firebaseapp.com",
+  projectId: "happyfarm-tm",
+  storageBucket: "happyfarm-tm.firebasestorage.app",
+  messagingSenderId: "621025441541",
+  appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
+};
+function initFirebase() {
+  if (typeof firebase === "undefined" || !firebase.initializeApp) return;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbAuth.getRedirectResult().catch(() => {});
+    fbAuth.onAuthStateChanged(onAuthChanged);
+    updateAccountUI();
+  } catch (e) { console.warn("Firebase init 失敗", e); }
+}
+
+function googleLogin() {
+  if (!fbAuth) { toast("雲端服務尚未就緒，請稍候再試。"); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(provider).catch((e) => {
+    const c = e && e.code;
+    if (["auth/popup-blocked","auth/cancelled-popup-request","auth/operation-not-supported-in-this-environment","auth/popup-closed-by-user"].includes(c)) {
+      try { fbAuth.signInWithRedirect(provider); } catch (_) { toast("登入失敗：" + (e.message || c)); }
+    } else {
+      toast("登入失敗：" + ((e && e.message) || c));
+    }
+  });
+}
+
+function googleLogout() { if (fbAuth) fbAuth.signOut(); }
+
+function onAuthChanged(user) {
+  fbUser = user;
+  updateAccountUI();
+  if (user) { cloudLoadAndMerge(); } else { cloudReady = false; }
+}
+
+async function cloudLoadAndMerge() {
+  if (!fbDb || !fbUser) return;
+  try {
+    const ref = fbDb.collection("saves").doc(fbUser.uid);
+    const snap = await ref.get();
+    const localAt = state.savedAt || 0;
+    if (snap.exists) {
+      const data = snap.data() || {};
+      const cloudAt = data.savedAt || 0;
+      if (data.stateJson && cloudAt > localAt) {
+        let cloud = null;
+        try { cloud = JSON.parse(data.stateJson); } catch (_) {}
+        if (cloud) {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(cloud));
+          state = loadState();
+          render();
+          toast("已從雲端載入較新的進度。");
+        }
+      }
+    }
+    cloudReady = true;
+    cloudSaveNow();
+  } catch (e) { console.warn("雲端載入失敗", e); cloudReady = true; }
+}
+
+function cloudSync() {
+  if (!cloudReady || !fbUser || !fbDb) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(cloudSaveNow, 1500);
+}
+
+async function cloudSaveNow() {
+  if (!fbUser || !fbDb) return;
+  try {
+    await fbDb.collection("saves").doc(fbUser.uid).set({
+      stateJson: JSON.stringify(state),
+      savedAt: state.savedAt || Date.now(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) { console.warn("雲端儲存失敗", e); }
+}
+
+function updateAccountUI() {
+  const btn = document.querySelector("#googleLoginBtn");
+  const st = document.querySelector("#accountStatus");
+  if (btn) btn.textContent = fbUser ? "登出 Google" : "用 Google 登入（雲端存檔）";
+  if (st) st.textContent = fbUser
+    ? ("已登入：" + (fbUser.displayName || fbUser.email || "Google 帳號") + "，進度雲端同步中")
+    : "登入後進度會同步到雲端，換手機或清快取也能繼續。";
 }
 
 function openSaveBox() {
@@ -1146,6 +1243,7 @@ function bindStaticEvents() {
   if (exportBtn) exportBtn.addEventListener("click", exportCode);
   if (importBtn) importBtn.addEventListener("click", importCode);
   if (saveBoxClose) saveBoxClose.addEventListener("click", closeSaveBox);
+  document.querySelector("#googleLoginBtn")?.addEventListener("click", () => { fbUser ? googleLogout() : googleLogin(); });
   if (saveBox) {
     saveBox.addEventListener("click", (event) => {
       if (event.target === saveBox) closeSaveBox();
