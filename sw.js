@@ -28,7 +28,7 @@ self.addEventListener('fetch', e => {
   if (codeLike) {
     e.respondWith(
       fetch(req)
-        .then(r => { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(req, c)); return r; })
+        .then(r => { if (r && r.status === 200) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(req, c)).catch(() => {}); } return r; })
         .catch(() => caches.match(req).then(m => m || caches.match('./index.html')))
     );
     return;
@@ -38,7 +38,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(req).then(m => {
       const f = fetch(req)
-        .then(r => { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(req, c)); return r; })
+        .then(r => { if (r && r.status === 200) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(req, c)).catch(() => {}); } return r; })
         .catch(() => m);
       return m || f;
     })

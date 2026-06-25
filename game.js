@@ -380,6 +380,14 @@ const RANCH_BG = {
 };
 
 let state = loadState();
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA9P0ixYCA_tSxDII4A4PUONK7TH6gHNHE",
+  authDomain: "happyfarm-tm.firebaseapp.com",
+  projectId: "happyfarm-tm",
+  storageBucket: "happyfarm-tm.firebasestorage.app",
+  messagingSenderId: "621025441541",
+  appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
+};
 let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null;
 let shopQty = {};
 let spinning = false;
@@ -518,14 +526,6 @@ function decodeSave(code) {
 }
 
 /* ===== Firebase 帳號 + 雲端存檔 ===== */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyA9P0ixYCA_tSxDII4A4PUONK7TH6gHNHE",
-  authDomain: "happyfarm-tm.firebaseapp.com",
-  projectId: "happyfarm-tm",
-  storageBucket: "happyfarm-tm.firebasestorage.app",
-  messagingSenderId: "621025441541",
-  appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
-};
 function initFirebase() {
   if (typeof firebase === "undefined" || !firebase.initializeApp) return;
   try {
