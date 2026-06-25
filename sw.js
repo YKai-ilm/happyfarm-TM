@@ -1,4 +1,4 @@
-const CACHE = 'happyfarm-cache-v5';
+const CACHE = 'happyfarm-cache-v6';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 
@@ -14,6 +14,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // 跨網域請求（如 Firebase CDN gstatic）直接放行，不攔截、不快取
+  if (new URL(req.url).origin !== self.location.origin) return;
 
   const dest = req.destination;
   // HTML / JS / CSS：網路優先（有網路就抓最新程式，沒網路才用快取）
