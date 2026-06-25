@@ -3481,3 +3481,11 @@ button, .tool-button, .scene-action, .farm-tool, .ranch-tool, [data-tool], [data
 .visit-plot .crop-visual { width: 48px; height: 48px; display: grid; place-items: center; }
 .visit-plot .crop-visual img { width: 46px; height: 46px; object-fit: contain; }
 .visit-plot .ff-btn { margin-top: 4px; }
+
+/* 參觀模式工具列切換（農場版／牧場版） */
+.bottom-tool-row .visit-tool-farm, .bottom-tool-row .visit-tool-ranch { display: none; }
+body.is-visiting .bottom-tool-row .farm-tool,
+body.is-visiting .bottom-tool-row .ranch-tool { display: none; }
+body.is-visiting .bottom-tool-row .visit-tool-farm { display: inline-flex; }
+body.is-visiting.is-visit-ranch .bottom-tool-row .visit-tool-farm { display: none; }
+body.is-visiting.is-visit-ranch .bottom-tool-row .visit-tool-ranch { display: inline-flex; }

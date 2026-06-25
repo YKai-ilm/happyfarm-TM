@@ -288,7 +288,7 @@ const SPIN_PRIZES = [
 ];
 
 const FRIEND_PLOT_COUNT = 2;
-const FRIEND_PLOT_MAX = 8;
+const FRIEND_PLOT_MAX = 16;
 const FRIEND_PLOT_GROW_MS = 900000;
 const FRIEND_LEVEL_MS = 360000;
 const FRIEND_REGROW_MS = 180000;
@@ -390,6 +390,8 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0;
 let visiting = null;
+let visitTool = "";
+let visitScene = "farm";
 let shopQty = {};
 let spinning = false;
 let pendingWeatherCard = false;
@@ -653,6 +655,17 @@ async function publishProfile(force) {
         const planted = p.plantedAt || 0;
         return { s: "crop", crop: p.crop, plantedAt: planted, readyAt: planted + getPlotDuration(p) };
       }),
+      ranchSnapshot: {
+        ranchLevel: state.ranchLevel || 1,
+        animals: (state.ranchAnimals || []).map((a) => {
+          const cfg = RANCH_ANIMALS[a.type];
+          let status = "hungry";
+          if (a.dirty) status = "dirty";
+          else if (a.fedAt && cfg && (Date.now() - a.fedAt >= cfg.growMs)) status = "ready";
+          else if (a.fedAt) status = "growing";
+          return { type: a.type, level: a.level || 1, status: status };
+        }),
+      },
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
   } catch (e) { console.warn("發布公開檔失敗", e); }
@@ -726,6 +739,7 @@ async function visitCloudFriend(uid) {
 
 function enterVisit(profile) {
   visiting = Object.assign({ kind: "cloud" }, profile);
+  visitScene = "farm";
   closeFriends();
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   render();
@@ -734,62 +748,178 @@ function enterVisit(profile) {
 
 function exitVisit() {
   visiting = null;
+  visitTool = "";
+  visitScene = "farm";
+  const fr = document.querySelector(".field-frame");
+  if (fr) fr.style.removeProperty("--scene-image");
   const b = document.querySelector("#visitBanner");
   if (b) b.remove();
   render();
 }
 
 function renderVisitingFarm() {
+  if (visitScene === "ranch") { renderVisitingRanch(); return; }
+  const fr0 = document.querySelector(".field-frame");
+  if (fr0) fr0.style.removeProperty("--scene-image");
   const grid = elements.farmGrid;
+  grid.className = "farm-grid";
+  const now = Date.now();
+  let cells = [];
   if (visiting.kind === "npc") {
     const friend = state.friends.find((f) => f.id === visiting.id);
     if (!friend) { exitVisit(); return; }
-    grid.className = "farm-grid is-visit-npc";
-    const blocked = friendCooldownMs(friend) > 0;
-    grid.innerHTML = friend.plots.map((p, i) => {
-      if (!p.crop) return '<div class="plot empty visit-plot"><span class="plot-label">空地</span></div>';
-      const crop = CROPS[p.crop];
-      const ready = friendProgress(p) >= 1;
-      let label = "", action = "";
-      if (p.hazard) { label = ({ weed: "🌿 雜草", bug: "🐛 蟲害", dry: "💧 缺水" })[p.hazard] || "需幫忙"; action = '<button class="ff-btn help" type="button" data-help="' + i + '">幫忙</button>'; }
-      else if (p.stolenAt) { label = "已被偷，重長中"; }
-      else if (ready) {
-        const cap = Math.floor(((p.yield || crop.yieldCount || 1) * 0.4));
-        const remain = cap - (p.stolen || 0);
-        if (remain <= 0) label = "已偷滿";
-        else { label = "✅ 可偷（剩 " + remain + "）"; action = '<button class="ff-btn steal" type="button" data-steal="' + i + '"' + (blocked ? " disabled" : "") + '>偷菜</button>'; }
-      } else { label = "成長 " + Math.round(friendProgress(p) * 100) + "%"; }
-      return '<div class="plot ' + (ready ? "ready" : "growing") + ' visit-plot" title="' + crop.name + '">'
-        + '<span class="crop-visual">' + cropVisual(p.crop, ready ? "ripe" : "leaf") + '</span>'
-        + '<span class="plot-info"><span class="plot-label">' + crop.name + '</span><span class="plot-time">' + label + '</span></span>'
-        + action + '</div>';
-    }).join("");
-    grid.querySelectorAll("[data-steal]").forEach((b) => b.addEventListener("click", () => stealCrop(visiting.id, Number(b.dataset.steal))));
-    grid.querySelectorAll("[data-help]").forEach((b) => b.addEventListener("click", () => helpFriend(visiting.id, Number(b.dataset.help))));
-    updateVisitBanner();
-    return;
+    cells = friend.plots.map((p) => {
+      if (!p.crop) return { empty: true };
+      const prog = friendProgress(p);
+      return { crop: p.crop, prog: prog, hazard: p.hazard || null, ready: prog >= 1 };
+    });
+  } else {
+    const plots = Array.isArray(visiting.farmSnapshot) ? visiting.farmSnapshot : [];
+    cells = plots.map((pl) => {
+      if (pl.s === "locked") return { locked: true };
+      if (pl.s === "broken") return { broken: true };
+      if (pl.s === "empty" || !pl.crop) return { empty: true };
+      const prog = (pl.readyAt && pl.plantedAt && pl.readyAt > pl.plantedAt)
+        ? Math.max(0, Math.min(1, (now - pl.plantedAt) / (pl.readyAt - pl.plantedAt))) : 1;
+      return { crop: pl.crop, prog: prog, ready: pl.readyAt ? now >= pl.readyAt : true };
+    });
   }
-  grid.className = "farm-grid";
-  const now = Date.now();
-  const plots = Array.isArray(visiting.farmSnapshot) ? visiting.farmSnapshot : [];
-  grid.innerHTML = plots.map((pl, index) => {
-    const slot = 'data-slot="' + (index + 1) + '"';
-    if (pl.s === "locked") return '<div class="plot locked" ' + slot + '><span class="plot-label">未開墾</span></div>';
-    if (pl.s === "broken") return '<div class="plot broken" ' + slot + '><span class="plot-info"><span class="plot-label">損壞</span></span></div>';
-    if (pl.s === "empty" || !pl.crop) return '<div class="plot empty" ' + slot + '><span></span><span class="plot-info"><span class="plot-label">空地</span></span></div>';
-    const crop = CROPS[pl.crop];
-    const nm = crop ? crop.name : pl.crop;
-    const ready = pl.readyAt && now >= pl.readyAt;
-    const stage = ready ? "ripe" : "leaf";
-    const pct = (pl.readyAt && pl.plantedAt && pl.readyAt > pl.plantedAt)
-      ? Math.max(0, Math.min(100, Math.round((now - pl.plantedAt) / (pl.readyAt - pl.plantedAt) * 100))) : 100;
-    return '<div class="plot ' + (ready ? "ready" : "growing") + '" ' + slot + ' title="' + nm + '">'
-      + '<span class="crop-visual">' + cropVisual(pl.crop, stage) + '</span>'
+  grid.innerHTML = cells.map((c, index) => {
+    const slot = 'data-plot="' + index + '" data-slot="' + (index + 1) + '"';
+    if (c.locked) return '<button class="plot locked" ' + slot + '><span class="plot-label">未開墾</span></button>';
+    if (c.broken) return '<button class="plot broken" ' + slot + '><span class="plot-info"><span class="plot-label">損壞</span></span></button>';
+    if (c.empty) return '<button class="plot empty" ' + slot + '><span></span><span class="plot-info"><span class="plot-label">空地</span></span></button>';
+    const crop = CROPS[c.crop];
+    const nm = crop ? crop.name : c.crop;
+    const stage = c.ready ? "ripe" : (c.prog >= 0.4 ? "leaf" : "sprout");
+    const pct = Math.round((c.prog || 0) * 100);
+    const haz = c.hazard ? '<span class="stolen-badge" aria-hidden="true">' + (({ weed: "🌿", bug: "🐛", dry: "💧" })[c.hazard] || "⚠️") + '</span>' : '';
+    return '<button class="plot ' + (c.ready ? "ready" : "growing") + '" ' + slot + ' title="' + nm + '">'
+      + haz
+      + '<span class="crop-visual">' + cropVisual(c.crop, stage) + '</span>'
       + '<span class="plot-info"><span class="plot-label">' + nm + '</span>'
-      + '<span class="plot-time">' + (ready ? "可收成" : (pct + "%")) + '</span>'
-      + '<span class="plot-meter" aria-hidden="true"><span style="width:' + pct + '%"></span></span></span></div>';
+      + '<span class="plot-time">' + (c.ready ? "可收成" : (pct + "%")) + '</span>'
+      + '<span class="plot-meter" aria-hidden="true"><span style="width:' + pct + '%"></span></span></span></button>';
   }).join("");
+  grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
   updateVisitBanner();
+  updateVisitToolUI();
+}
+
+function renderVisitingRanch() {
+  const grid = elements.farmGrid;
+  grid.className = "farm-grid is-visit-npc";
+  const rs = visiting.ranchSnapshot || {};
+  const animals = Array.isArray(rs.animals) ? rs.animals : [];
+  const frame = document.querySelector(".field-frame");
+  const bg = RANCH_BG[rs.ranchLevel || 1] || RANCH_BG[1];
+  if (frame) frame.style.setProperty("--scene-image", 'url("' + bg.sun + '")');
+  if (!animals.length) {
+    grid.innerHTML = '<p class="item-empty" style="grid-column:1/-1;align-self:center">這位好友的牧場還沒有動物。</p>';
+  } else {
+    const stMap = { hungry: "🍽️ 待餵", growing: "⏳ 生長中", ready: "✅ 可收", dirty: "💩 待洗" };
+    grid.innerHTML = animals.map((a, i) => {
+      const cfg = RANCH_ANIMALS[a.type];
+      const vis = cfg ? (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="">' : cfg.emoji) : "🐾";
+      const st = a.status === "ready" && cfg ? ("✅ 可收 " + cfg.productEmoji) : (stMap[a.status] || "");
+      return '<div class="plot visit-plot" data-ranimal="' + i + '"><span class="crop-visual">' + vis + '</span>'
+        + '<span class="plot-info"><span class="plot-label">' + (cfg ? cfg.name : a.type) + (a.level ? (" Lv." + a.level) : "") + '</span>'
+        + '<span class="plot-time">' + st + '</span></span></div>';
+    }).join("");
+    grid.querySelectorAll("[data-ranimal]").forEach((b) => b.addEventListener("click", () => handleVisitRanchClick(Number(b.dataset.ranimal))));
+  }
+  updateVisitBanner();
+  updateVisitToolUI();
+}
+
+function handleVisitRanchClick(i) {
+  if (!visitTool) { toast("先選下方工具（偷產物／幫忙／亂噴水），再點動物。"); return; }
+  if (visitTool === "rsteal") cloudStealProduct(i);
+  else toast("好友牧場的幫忙／亂噴水會在下一階段開放。");
+}
+
+function cloudStealProduct(i) {
+  const rs = visiting.ranchSnapshot || {};
+  const a = (rs.animals || [])[i];
+  if (!a) return;
+  if (a.status !== "ready") { toast("這隻還沒有可收的產物。"); return; }
+  const cfg = RANCH_ANIMALS[a.type];
+  const uid = (visiting.uid || "?") + ":r";
+  const now = Date.now();
+  state.cloudStealLog = state.cloudStealLog || {};
+  let log = (state.cloudStealLog[uid] || []).filter((t) => now - t < FRIEND_STEAL_WINDOW);
+  if (log.length >= FRIEND_STEAL_MAX) { toast("這位好友 10 分鐘內只能偷 " + FRIEND_STEAL_MAX + " 次。"); return; }
+  state.ranchProducts = state.ranchProducts || {};
+  state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + 1;
+  log.push(now);
+  state.cloudStealLog[uid] = log;
+  saveState();
+  render();
+  toast("偷到 " + (visiting.farmName || "好友") + " 的 " + (cfg ? cfg.product : "產物") + " 1 個！");
+}
+
+function visitGo(scene) {
+  if (!visiting) return;
+  if (scene === "ranch" && visiting.kind !== "cloud") { toast("這位好友沒有牧場。"); return; }
+  visitScene = scene;
+  visitTool = "";
+  render();
+}
+
+function updateVisitToolUI() {
+  document.querySelectorAll("[data-visit-tool]").forEach((b) => b.classList.toggle("is-active", b.dataset.visitTool === visitTool));
+  const goRanch = document.querySelector('[data-visit-go="ranch"]');
+  if (goRanch) goRanch.style.display = (visiting && visiting.kind === "cloud") ? "" : "none";
+}
+
+function handleVisitPlotClick(index) {
+  if (!visiting) return;
+  if (!visitTool) { toast("先選下方工具（偷菜／幫忙／放蟲），再點田地。"); return; }
+  if (visiting.kind === "npc") {
+    if (visitTool === "steal") stealCrop(visiting.id, index);
+    else if (visitTool === "help") helpFriend(visiting.id, index);
+    else if (visitTool === "bug") npcPutBug(index);
+    else if (visitTool === "sign") toast("插牌子功能還在規劃中。");
+  } else {
+    if (visitTool === "steal") cloudSteal(index);
+    else if (visitTool === "sign") toast("插牌子功能還在規劃中。");
+    else toast("雲端好友的幫忙／放蟲會在下一階段開放。");
+  }
+}
+
+function npcPutBug(index) {
+  const friend = state.friends.find((f) => f.id === visiting.id);
+  if (!friend) return;
+  const p = friend.plots[index];
+  if (!p || !p.crop) { toast("這格沒有作物可放蟲。"); return; }
+  if (friendProgress(p) >= 1) { toast("已成熟的作物放蟲沒用。"); return; }
+  if (p.hazard) { toast("這格已經有狀況了。"); return; }
+  p.hazard = "bug";
+  saveState();
+  renderVisitingFarm();
+  toast("你在 " + friend.name + " 的田裡放了蟲 🐛");
+}
+
+function cloudSteal(index) {
+  const plots = Array.isArray(visiting.farmSnapshot) ? visiting.farmSnapshot : [];
+  const pl = plots[index];
+  if (!pl || !pl.crop) { toast("這格沒有作物。"); return; }
+  const ready = pl.readyAt ? Date.now() >= pl.readyAt : false;
+  if (!ready) { toast("還沒成熟，不能偷。"); return; }
+  const uid = visiting.uid || "?";
+  const now = Date.now();
+  state.cloudStealLog = state.cloudStealLog || {};
+  let log = (state.cloudStealLog[uid] || []).filter((t) => now - t < FRIEND_STEAL_WINDOW);
+  if (log.length >= FRIEND_STEAL_MAX) { toast("這位好友 10 分鐘內只能偷 " + FRIEND_STEAL_MAX + " 次。"); return; }
+  const crop = CROPS[pl.crop];
+  const amt = 1 + Math.floor(Math.random() * 3);
+  state.inventory[pl.crop] = (state.inventory[pl.crop] || 0) + amt;
+  if (state.stats) state.stats.stolen = (state.stats.stolen || 0) + amt;
+  log.push(now);
+  state.cloudStealLog[uid] = log;
+  saveState();
+  render();
+  toast("偷到 " + (visiting.farmName || "好友") + " 的 " + (crop ? crop.name : pl.crop) + " " + amt + " 個！");
 }
 
 function updateVisitBanner() {
@@ -1520,6 +1650,12 @@ function bindStaticEvents() {
   const friendsBox = document.querySelector("#friendsBox");
   const friendsClose = document.querySelector("#friendsClose");
   if (friendsClose) friendsClose.addEventListener("click", closeFriends);
+  document.querySelectorAll("[data-visit-tool]").forEach((b) => b.addEventListener("click", () => {
+    visitTool = (visitTool === b.dataset.visitTool) ? "" : b.dataset.visitTool;
+    updateVisitToolUI();
+  }));
+  document.querySelector('[data-action="visit-exit"]')?.addEventListener("click", exitVisit);
+  document.querySelectorAll("[data-visit-go]").forEach((b) => b.addEventListener("click", () => visitGo(b.dataset.visitGo)));
   document.querySelector("#addFriendBtn")?.addEventListener("click", () => {
     const inp = document.querySelector("#addFriendInput");
     if (inp) { addFriendByInput(inp.value); inp.value = ""; }
@@ -1668,6 +1804,8 @@ function applyFarmTitle() {
 
 function applyScene() {
   document.body.classList.toggle("is-ranch", state.scene === "ranch");
+  document.body.classList.toggle("is-visiting", !!visiting);
+  document.body.classList.toggle("is-visit-ranch", !!visiting && visitScene === "ranch");
   document.body.classList.toggle("gm-noselect", state.gmSelect === false);
   updateRanchEditor();
   updateFarmExportBtn();
@@ -2314,7 +2452,7 @@ function refreshFriendFarm(friend) {
   const now = Date.now();
   if (!friend.startedAt) friend.startedAt = now;
   const lvl = friendLevel(friend);
-  const target = Math.min(FRIEND_PLOT_MAX, 2 + PLOT_UNLOCKS.filter((u) => u.level <= lvl).length);
+  const target = Math.min(FRIEND_PLOT_MAX, 4 + PLOT_UNLOCKS.filter((u) => u.level <= lvl).length);
   if (!Array.isArray(friend.plots)) friend.plots = [];
   if (friend.plots.length > target) friend.plots.length = target;
   while (friend.plots.length < target) friend.plots.push({ crop: null, plantedAt: 0, stolenAt: 0, hazard: null });
@@ -2463,6 +2601,7 @@ function visitFriend(id) {
   saveState();
   currentFriendId = id;
   visiting = { kind: "npc", id: id };
+  visitScene = "farm";
   closeFriends();
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   render();
@@ -2756,9 +2895,12 @@ function tick() {
   friendStealTick(now);
   resolveThieves(now);
   if (state.scene === "ranch") renderRanchAnimals();
-  if (visiting && visiting.kind === "npc") {
-    const f = state.friends.find((x) => x.id === visiting.id);
-    if (f) { refreshFriendFarm(f); renderVisitingFarm(); }
+  if (visiting) {
+    if (visiting.kind === "npc") {
+      const f = state.friends.find((x) => x.id === visiting.id);
+      if (f) refreshFriendFarm(f);
+    }
+    renderVisitingFarm();
   }
   maybeRefreshOrders();
   const wp = document.querySelector(".work-panel");
