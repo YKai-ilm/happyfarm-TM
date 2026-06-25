@@ -374,9 +374,9 @@ const RANCH_UPGRADES = [
   { from: 2, to: 3, name: "超大牧場", coins: 150000, card: "expandCardPro", cardName: "牧場擴建卡（特）" },
 ];
 const RANCH_BG = {
-  1: { sun: "./assets/ranch/ranch-s-feed-grass.png", bad: "./assets/ranch/ranch-s-bad.png" },
-  2: { sun: "./assets/ranch/ranch-m-feed-grass.png", bad: "./assets/ranch/ranch-m-bad.png" },
-  3: { sun: "./assets/ranch/ranch-l-feed-grass.png", bad: "./assets/ranch/ranch-l-bad.png" },
+  1: { sun: "./assets/ranch/ranch-s-feed-grass.jpg", bad: "./assets/ranch/ranch-s-bad.jpg" },
+  2: { sun: "./assets/ranch/ranch-m-feed-grass.jpg", bad: "./assets/ranch/ranch-m-bad.jpg" },
+  3: { sun: "./assets/ranch/ranch-l-feed-grass.jpg", bad: "./assets/ranch/ranch-l-bad.jpg" },
 };
 
 let state = loadState();

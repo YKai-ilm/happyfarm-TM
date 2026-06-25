@@ -13,7 +13,7 @@
   --red: #cf4b3f;
   --blue: #3f83a6;
   --green: #4f8a48;
-  --scene-image: url("./assets/farm-background-v1.png");
+  --scene-image: url("./assets/farm-background-v1.jpg");
   --shadow: 0 18px 40px rgba(73, 58, 36, 0.18);
 }
 
@@ -1988,7 +1988,7 @@ body {
   aspect-ratio: 1672 / 941;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(39, 89, 40, 0.08)),
-    url("./assets/farm-background-v1.png") center center / 100% 100% no-repeat;
+    url("./assets/farm-background-v1.jpg") center center / 100% 100% no-repeat;
   background-color: #78bd63;
 }
 
@@ -3301,7 +3301,7 @@ body {
 body.is-ranch .bottom-tool-row .farm-tool { display: none; }
 body.is-ranch .bottom-tool-row .ranch-tool { display: inline-flex; }
 
-body.is-ranch { --scene-image: url("./assets/ranch/ranch-s-feed-grass.png"); }
+body.is-ranch { --scene-image: url("./assets/ranch/ranch-s-feed-grass.jpg"); }
 /* 進牧場後清空農場上的東西 */
 body.is-ranch #farmGrid { display: none; }
 body.is-ranch #bld-windmill { display: none !important; }
