@@ -3489,3 +3489,7 @@ body.is-visiting .bottom-tool-row .ranch-tool { display: none; }
 body.is-visiting .bottom-tool-row .visit-tool-farm { display: inline-flex; }
 body.is-visiting.is-visit-ranch .bottom-tool-row .visit-tool-farm { display: none; }
 body.is-visiting.is-visit-ranch .bottom-tool-row .visit-tool-ranch { display: inline-flex; }
+
+/* 好友排行榜 */
+.lb-rank { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:#e3b53f; color:#2a2113; font-weight:900; flex:none; }
+.friend-row.lb-me { background: rgba(227,181,63,0.18); border-radius:10px; }

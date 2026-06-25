@@ -700,7 +700,7 @@ async function addFriendByInput(raw) {
   } catch (e) { console.warn("加好友失敗", e); toast("加好友失敗，稍後再試。"); }
 }
 
-function renderCloudFriends() {
+function renderCloudAdd() {
   const need = document.querySelector("#cfNeedLogin");
   const panel = document.querySelector("#cfPanel");
   if (!panel) return;
@@ -709,8 +709,13 @@ function renderCloudFriends() {
   panel.hidden = false;
   const codeEl = document.querySelector("#myFriendCode");
   if (codeEl) codeEl.textContent = state.friendCode || "產生中…";
+}
+
+function renderCloudFriends() {
   const list = document.querySelector("#cloudFriendsList");
-  if (list) {
+  if (!list) return;
+  if (!fbUser) { list.innerHTML = '<p class="item-empty">登入 Google 後會顯示你的真好友。</p>'; return; }
+  {
     const fr = state.cloudFriends || [];
     list.innerHTML = fr.length
       ? fr.map((f) => `
@@ -720,7 +725,7 @@ function renderCloudFriends() {
           <button class="friend-visit" type="button" data-cf-visit="${f.uid}">拜訪</button>
           <button class="friend-visit cancel" type="button" data-cf-remove="${f.uid}">移除</button>
         </div>`).join("")
-      : '<p class="item-empty">還沒有真好友，用好友碼或莊園名稱加吧。</p>';
+      : '<p class="item-empty">還沒有真好友，到「邀請好友」用好友碼加。</p>';
     list.querySelectorAll("[data-cf-remove]").forEach((b) => b.addEventListener("click", () => {
       state.cloudFriends = (state.cloudFriends || []).filter((f) => f.uid !== b.dataset.cfRemove);
       saveState(); renderCloudFriends();
@@ -1701,6 +1706,10 @@ function bindStaticEvents() {
         openRedeem();
         return;
       }
+      if (button.dataset.menuAction === "leaderboard") {
+        openLeaderboard();
+        return;
+      }
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
       button.classList.add("is-active");
       const labels = {
@@ -1760,6 +1769,7 @@ function bindStaticEvents() {
   const friendsBox = document.querySelector("#friendsBox");
   const friendsClose = document.querySelector("#friendsClose");
   if (friendsClose) friendsClose.addEventListener("click", closeFriends);
+  document.querySelector("#leaderboardClose")?.addEventListener("click", () => { const b = document.querySelector("#leaderboardBox"); if (b) b.hidden = true; });
   document.querySelectorAll("[data-visit-tool]").forEach((b) => b.addEventListener("click", () => {
     visitTool = (visitTool === b.dataset.visitTool) ? "" : b.dataset.visitTool;
     updateVisitToolUI();
@@ -2596,7 +2606,6 @@ function refreshFriendFarm(friend) {
 function openFriends() {
   renderFriendsList();
   renderCloudFriends();
-  if (fbUser) publishProfile(true);
   const box = document.querySelector("#friendsBox");
   if (box) box.hidden = false;
 }
@@ -2636,8 +2645,37 @@ function inviteCost() {
 function openInvite() {
   pendingInviteId = null;
   renderInviteList();
+  renderCloudAdd();
+  if (fbUser) publishProfile(true);
   const box = document.querySelector("#inviteBox");
   if (box) box.hidden = false;
+}
+
+function openLeaderboard() {
+  const box = document.querySelector("#leaderboardBox");
+  if (box) box.hidden = false;
+  const list = document.querySelector("#leaderboardList");
+  if (!list) return;
+  if (!fbUser || !fbDb) { list.innerHTML = '<p class="item-empty">登入 Google 後才能看好友排行榜。</p>'; return; }
+  list.innerHTML = '<p class="item-empty">載入中…</p>';
+  (async () => {
+    try {
+      const ids = [fbUser.uid].concat((state.cloudFriends || []).map((f) => f.uid));
+      const rows = [];
+      for (const uid of ids) {
+        try {
+          const s = await fbDb.collection("profiles").doc(uid).get();
+          if (s.exists) { const d = s.data(); rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, me: uid === fbUser.uid }); }
+        } catch (_) {}
+      }
+      rows.sort((a, b) => (b.level - a.level) || (b.coins - a.coins));
+      list.innerHTML = rows.length ? rows.map((r, i) => `
+        <div class="friend-row${r.me ? " lb-me" : ""}">
+          <span class="lb-rank">${i + 1}</span>
+          <span class="friend-name">${r.name}${r.me ? "（你）" : ""} <small>Lv.${r.level} · 🪙${r.coins}</small></span>
+        </div>`).join("") : '<p class="item-empty">沒有資料。</p>';
+    } catch (e) { console.warn(e); list.innerHTML = '<p class="item-empty">載入失敗，稍後再試。</p>'; }
+  })();
 }
 
 function closeInvite() {
