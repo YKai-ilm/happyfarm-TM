@@ -3451,3 +3451,33 @@ button, .tool-button, .scene-action, .farm-tool, .ranch-tool, [data-tool], [data
 .cf-code-row { font-size: 0.9rem; margin: 4px 0 8px; }
 .cf-code-row strong { color: #3f7d3a; letter-spacing: 1px; font-size: 1.05rem; }
 .cf-sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
+
+/* 沉浸式參觀好友農場橫幅 */
+#visitBanner {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 14; display: flex; align-items: center; gap: 10px;
+  max-width: 92%; padding: 8px 12px; border-radius: 12px;
+  background: rgba(40, 60, 40, 0.92); color: #fdf6e3; font-weight: 700; font-size: 0.9rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+#visitBanner .vb-info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#visitBanner strong { color: #ffd76a; }
+#visitBanner button { flex: none; padding: 6px 12px; border: 0; border-radius: 8px; background: #e3b53f; color: #2a2113; font-weight: 800; cursor: pointer; }
+
+/* NPC 沉浸式參觀：農場背景上置中田卡 */
+.farm-grid.is-visit-npc {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-wrap: wrap; gap: 18px;
+  align-content: center; justify-content: center; padding: 6% 8%;
+}
+.farm-grid.is-visit-npc .plot.visit-plot {
+  position: static !important; left: auto !important; top: auto !important;
+  width: clamp(110px, 22vw, 150px) !important; height: auto !important; min-height: 0 !important;
+  clip-path: none !important; -webkit-clip-path: none !important;
+  background: rgba(243, 236, 217, 0.96); border: 2px solid #c8b88a; border-radius: 14px;
+  display: grid; gap: 5px; justify-items: center; padding: 12px 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+}
+.visit-plot .crop-visual { width: 48px; height: 48px; display: grid; place-items: center; }
+.visit-plot .crop-visual img { width: 46px; height: 46px; object-fit: contain; }
+.visit-plot .ff-btn { margin-top: 4px; }
