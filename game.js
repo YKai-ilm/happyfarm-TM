@@ -432,6 +432,8 @@ function createDefaultState() {
     gmSelect: true,
     damaged: {},
     friends: [],
+    friendCode: "",
+    cloudFriends: [],
     candidates: makeBuiltinCandidates(),
     plots: Array.from({ length: PLOT_COUNT }, (_, index) => ({
       unlocked: index < 4,
@@ -481,6 +483,8 @@ function loadState() {
       redeemed: Array.isArray(raw.redeemed) ? raw.redeemed : [],
       damaged: (raw.damaged && typeof raw.damaged === "object") ? { ...raw.damaged } : {},
       friends: Array.isArray(raw.friends) ? raw.friends : [],
+      friendCode: typeof raw.friendCode === "string" ? raw.friendCode : "",
+      cloudFriends: Array.isArray(raw.cloudFriends) ? raw.cloudFriends : [],
       candidates: Array.isArray(raw.candidates) ? raw.candidates : defaults.candidates.filter((c) => !(raw.friends || []).some((f) => f.name === c.name)),
       upgrades: { ...defaults.upgrades, ...(raw.upgrades || {}) },
       plots: defaults.plots.map((plot, index) => ({
@@ -581,6 +585,7 @@ async function cloudLoadAndMerge() {
     }
     cloudReady = true;
     cloudSaveNow();
+    publishProfile();
   } catch (e) { console.warn("雲端載入失敗", e); cloudReady = true; }
 }
 
@@ -608,6 +613,93 @@ function updateAccountUI() {
   if (st) st.textContent = fbUser
     ? ("已登入：" + (fbUser.displayName || fbUser.email || "Google 帳號") + "，進度雲端同步中")
     : "登入後進度會同步到雲端，換手機或清快取也能繼續。";
+}
+
+/* ===== 雲端好友（Phase 1：公開檔＋好友碼＋加好友） ===== */
+async function ensureFriendCode() {
+  if (!fbDb || !fbUser) return "";
+  if (state.friendCode) return state.friendCode;
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  state.friendCode = code;
+  try {
+    await fbDb.collection("friendCodes").doc(code).set({ uid: fbUser.uid });
+    saveState();
+  } catch (e) { console.warn("產生好友碼失敗", e); }
+  return code;
+}
+
+async function publishProfile() {
+  if (!fbDb || !fbUser) return;
+  await ensureFriendCode();
+  const name = String(state.farmName || state.nickname || fbUser.displayName || "農友").slice(0, 20);
+  try {
+    await fbDb.collection("profiles").doc(fbUser.uid).set({
+      uid: fbUser.uid,
+      farmName: name,
+      nameLower: name.toLowerCase(),
+      level: state.level || 1,
+      coins: state.coins || 0,
+      friendCode: state.friendCode || "",
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (e) { console.warn("發布公開檔失敗", e); }
+}
+
+async function addFriendByInput(raw) {
+  const text = String(raw || "").trim();
+  if (!fbDb || !fbUser) { toast("請先用 Google 登入。"); return; }
+  if (!text) { toast("輸入好友碼或莊園名稱。"); return; }
+  state.cloudFriends = state.cloudFriends || [];
+  try {
+    let targetUid = null, targetName = null;
+    const codeSnap = await fbDb.collection("friendCodes").doc(text.toUpperCase()).get();
+    if (codeSnap.exists) {
+      targetUid = codeSnap.data().uid;
+    } else {
+      const q = await fbDb.collection("profiles").where("nameLower", "==", text.toLowerCase()).limit(1).get();
+      if (!q.empty) { targetUid = q.docs[0].id; targetName = q.docs[0].data().farmName; }
+    }
+    if (!targetUid) { toast("找不到這個好友碼或莊園名稱。"); return; }
+    if (targetUid === fbUser.uid) { toast("這是你自己啦 😄"); return; }
+    if (state.cloudFriends.some((f) => f.uid === targetUid)) { toast("已經是好友了。"); return; }
+    if (!targetName) {
+      const p = await fbDb.collection("profiles").doc(targetUid).get();
+      targetName = (p.exists && p.data().farmName) ? p.data().farmName : "農友";
+    }
+    state.cloudFriends.push({ uid: targetUid, name: targetName });
+    saveState();
+    renderCloudFriends();
+    toast("已加好友：" + targetName);
+  } catch (e) { console.warn("加好友失敗", e); toast("加好友失敗，稍後再試。"); }
+}
+
+function renderCloudFriends() {
+  const need = document.querySelector("#cfNeedLogin");
+  const panel = document.querySelector("#cfPanel");
+  if (!panel) return;
+  if (!fbUser) { if (need) need.hidden = false; panel.hidden = true; return; }
+  if (need) need.hidden = true;
+  panel.hidden = false;
+  const codeEl = document.querySelector("#myFriendCode");
+  if (codeEl) codeEl.textContent = state.friendCode || "產生中…";
+  const list = document.querySelector("#cloudFriendsList");
+  if (list) {
+    const fr = state.cloudFriends || [];
+    list.innerHTML = fr.length
+      ? fr.map((f) => `
+        <div class="friend-row">
+          <span class="friend-ava" aria-hidden="true">☁️</span>
+          <span class="friend-name">${f.name}</span>
+          <button class="friend-visit cancel" type="button" data-cf-remove="${f.uid}">移除</button>
+        </div>`).join("")
+      : '<p class="item-empty">還沒有真好友，用好友碼或莊園名稱加吧。</p>';
+    list.querySelectorAll("[data-cf-remove]").forEach((b) => b.addEventListener("click", () => {
+      state.cloudFriends = (state.cloudFriends || []).filter((f) => f.uid !== b.dataset.cfRemove);
+      saveState(); renderCloudFriends();
+    }));
+  }
 }
 
 function openSaveBox() {
@@ -664,6 +756,8 @@ function importCode() {
     items: { ...defaults.items, ...(data.items || {}) },
     damaged: (data.damaged && typeof data.damaged === "object") ? { ...data.damaged } : {},
     friends: Array.isArray(data.friends) ? data.friends : [],
+    friendCode: typeof data.friendCode === "string" ? data.friendCode : "",
+    cloudFriends: Array.isArray(data.cloudFriends) ? data.cloudFriends : [],
     candidates: Array.isArray(data.candidates) ? data.candidates : defaults.candidates.filter((c) => !(data.friends || []).some((f) => f.name === c.name)),
     upgrades: { ...defaults.upgrades, ...(data.upgrades || {}) },
     plots: defaults.plots.map((plot, index) => ({
@@ -1282,6 +1376,18 @@ function bindStaticEvents() {
   const friendsBox = document.querySelector("#friendsBox");
   const friendsClose = document.querySelector("#friendsClose");
   if (friendsClose) friendsClose.addEventListener("click", closeFriends);
+  document.querySelector("#addFriendBtn")?.addEventListener("click", () => {
+    const inp = document.querySelector("#addFriendInput");
+    if (inp) { addFriendByInput(inp.value); inp.value = ""; }
+  });
+  document.querySelector("#addFriendInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { addFriendByInput(e.target.value); e.target.value = ""; }
+  });
+  document.querySelector("#copyFriendCode")?.addEventListener("click", () => {
+    if (!state.friendCode) { toast("好友碼產生中，稍候再試。"); return; }
+    try { navigator.clipboard && navigator.clipboard.writeText(state.friendCode); toast("已複製好友碼：" + state.friendCode); }
+    catch (_) { window.prompt("你的好友碼：", state.friendCode); }
+  });
   if (friendsBox) friendsBox.addEventListener("click", (e) => { if (e.target === friendsBox) closeFriends(); });
   const inviteBox = document.querySelector("#inviteBox");
   const inviteClose = document.querySelector("#inviteClose");
@@ -2096,6 +2202,8 @@ function refreshFriendFarm(friend) {
 
 function openFriends() {
   renderFriendsList();
+  renderCloudFriends();
+  if (fbUser) publishProfile();
   const box = document.querySelector("#friendsBox");
   if (box) box.hidden = false;
 }

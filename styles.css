@@ -3409,7 +3409,6 @@ body.is-ranch .wfx-sky {
 #farmResetBtn { left: 150px; background: rgba(120,60,40,0.92); }
 
 /* GM 圈選畫面關閉時，隱藏農場標桿與提示 */
-.farm-app:not(.is-gm) .plot-stake { display: none !important; }
 body.gm-noselect #gmStakeReadout { display: none !important; }
 
 
@@ -3446,3 +3445,9 @@ button, .tool-button, .scene-action, .farm-tool, .ranch-tool, [data-tool], [data
 /* 帳號/雲端存檔 */
 .save-account { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .account-status { font-size: 0.8rem; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+
+/* 雲端好友 */
+.cloud-friend-area { margin-bottom: 6px; }
+.cf-code-row { font-size: 0.9rem; margin: 4px 0 8px; }
+.cf-code-row strong { color: #3f7d3a; letter-spacing: 1px; font-size: 1.05rem; }
+.cf-sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }

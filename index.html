@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-042" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-043" />
   </head>
   <body>
     <div class="farm-app">
@@ -314,7 +314,19 @@
     <div id="friendsBox" class="gift-box" hidden>
       <div class="gift-card" role="dialog" aria-modal="true" aria-label="好友">
         <h2>🧑‍🌾 好友</h2>
-        <p>拜訪好友農場，可以偷菜、幫忙賺獎勵。</p>
+        <div class="cloud-friend-area">
+          <p id="cfNeedLogin" class="item-empty">登入 Google 後才能加真好友（到「存檔備份」登入）。</p>
+          <div id="cfPanel" hidden>
+            <p class="cf-code-row">你的好友碼：<strong id="myFriendCode">—</strong> <button id="copyFriendCode" type="button" class="friend-visit">複製</button></p>
+            <div class="friend-add">
+              <input id="addFriendInput" type="text" maxlength="20" placeholder="輸入好友碼或莊園名稱" />
+              <button id="addFriendBtn" type="button">加好友</button>
+            </div>
+            <div id="cloudFriendsList" class="friends-list"></div>
+          </div>
+        </div>
+        <hr class="cf-sep" />
+        <p>內建好友（單機）：拜訪可偷菜、幫忙賺獎勵。</p>
         <div id="friendsList" class="friends-list"></div>
         <button id="friendsClose" type="button" class="gift-close">關閉</button>
       </div>
@@ -454,7 +466,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-042"></script>
+    <script src="./game.js?v=20260624-claude-043"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
