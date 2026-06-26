@@ -3313,6 +3313,7 @@ function helpFriend(friendId, idx) {
   if (!friend) return;
   const p = friend.plots[idx];
   if (!p || !p.hazard) { toast("這格不需要幫忙。"); return; }
+  if (p.hazard === "bug") { toast("田裡的蟲要主人自己除，幫忙不能清 🐛"); return; }
   const labels = { weed: "除草", bug: "除蟲", dry: "澆水" };
   const did = labels[p.hazard];
   const hk = { weed: "weed", bug: "bug", dry: "water" }[p.hazard];
