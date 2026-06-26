@@ -616,12 +616,52 @@ function showSlotPicker() {
   const box = document.querySelector("#slotPickerBox");
   if (!box) return;
   renderSlotList();
+  const canBranch = !!(activeSlot && accountData && accountData.slots[activeSlot]);
+  const sa = document.querySelector("#saveAsBtn"); if (sa) sa.hidden = !canBranch;
+  const cc = document.querySelector("#slotCancel"); if (cc) cc.hidden = !pickerResumeTarget();
   box.hidden = false;
+}
+function pickerResumeTarget() {
+  if (accountData && activeSlot && accountData.slots[activeSlot]) return activeSlot;
+  let last = ""; try { last = localStorage.getItem(SLOT_KEY) || ""; } catch (_) {}
+  if (accountData && last && accountData.slots[last]) return last;
+  return "";
+}
+function cancelSlotPicker() {
+  const t = pickerResumeTarget();
+  if (!t) { toast("還沒有可回去的存檔，請先選一個。"); return; }
+  useSlot(t);
+}
+function saveAsNewSlot(name) {
+  if (!accountData) return;
+  if (!activeSlot || !accountData.slots[activeSlot]) { toast("請先進入一個存檔，才能另存目前進度。"); return; }
+  name = String(name || "").trim() || ("存檔" + (Object.keys(accountData.slots).length + 1));
+  const id = "s" + Date.now().toString(36);
+  const copy = JSON.parse(JSON.stringify(state));
+  copy.rev = 1; copy.savedAt = Date.now();
+  accountData.slots[id] = { name: name, stateJson: JSON.stringify(copy), rev: 1, savedAt: Date.now() };
+  useSlot(id);
+  toast("已另存為新存檔：" + name);
+}
+function overwriteSlot(id) {
+  if (!accountData || !accountData.slots[id]) return;
+  if (!activeSlot || !accountData.slots[activeSlot]) { toast("請先進入一個存檔。"); return; }
+  if (id === activeSlot) { toast("這就是目前的存檔。"); return; }
+  if (!window.confirm("用『目前進度』覆蓋存檔「" + (accountData.slots[id].name || id) + "」？原本內容會被取代。")) return;
+  const targetRev = (accountData.slots[id].rev || 0) + 1;
+  const copy = JSON.parse(JSON.stringify(state));
+  copy.rev = targetRev; copy.savedAt = Date.now();
+  const payload = { name: accountData.slots[id].name || id, stateJson: JSON.stringify(copy), rev: targetRev, savedAt: Date.now() };
+  accountData.slots[id] = payload;
+  try { const upd = { slots: {} }; upd.slots[id] = payload; fbDb.collection("saves").doc(fbUser.uid).set(upd, { merge: true }); } catch (_) {}
+  renderSlotList();
+  toast("已覆蓋存檔：" + payload.name);
 }
 function hideSlotPicker() { const b = document.querySelector("#slotPickerBox"); if (b) b.hidden = true; }
 function renderSlotList() {
   const list = document.querySelector("#slotList");
   if (!list || !accountData) return;
+  const canBranch = !!(activeSlot && accountData.slots[activeSlot]);
   const ids = Object.keys(accountData.slots);
   list.innerHTML = ids.length ? ids.map((id) => {
     const s = accountData.slots[id]; let lv = 1, co = 0;
@@ -631,9 +671,11 @@ function renderSlotList() {
       '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 版本 ' + (s.rev || 0) + '</span>' +
       '<span class="slot-when">⏱ ' + when + '</span></div>' +
       '<button class="slot-use" type="button" data-use="' + id + '">使用</button>' +
+      ((canBranch && id !== activeSlot) ? '<button class="slot-over" type="button" data-over="' + id + '">覆蓋</button>' : '') +
       '<button class="slot-del" type="button" data-del="' + id + '">刪除</button></div>';
   }).join("") : '<p class="item-empty">還沒有存檔，在下面新增一個。</p>';
   list.querySelectorAll("[data-use]").forEach((b) => b.addEventListener("click", () => useSlot(b.dataset.use)));
+  list.querySelectorAll("[data-over]").forEach((b) => b.addEventListener("click", () => overwriteSlot(b.dataset.over)));
   list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteSlot(b.dataset.del)));
 }
 
@@ -2600,6 +2642,12 @@ function bindStaticEvents() {
     createSlot(inp ? inp.value : "");
     if (inp) inp.value = "";
   });
+  document.querySelector("#saveAsBtn")?.addEventListener("click", () => {
+    const inp = document.querySelector("#newSlotName");
+    saveAsNewSlot(inp ? inp.value : "");
+    if (inp) inp.value = "";
+  });
+  document.querySelector("#slotCancel")?.addEventListener("click", cancelSlotPicker);
   document.querySelector("#switchSlotBtn")?.addEventListener("click", () => {
     if (!fbUser) { toast("請先登入。"); return; }
     if (!accountData) { toast("雲端載入中，稍候再試。"); return; }

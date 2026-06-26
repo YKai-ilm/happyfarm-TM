@@ -3628,5 +3628,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .slot-when { font-size: 0.7rem; color: #9aa0a6; }
 .slot-use, .slot-del { flex: 0 0 auto; height: 32px; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; font-size: 0.8rem; cursor: pointer; padding: 0 10px; color: var(--ink); }
 .slot-use { background: #ffe7a8; }
+.slot-over { background: #e7f0ff; }
 .slot-del { background: #f3efe9; }
 .slot-new { margin-top: 4px; }
+.slot-cancel { width: 100%; margin-top: 10px; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: #f1efe9; font-weight: 800; cursor: pointer; color: var(--ink); }
+#saveAsBtn { background: #cdebd2; }
