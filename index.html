@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-098" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-100" />
   </head>
   <body>
     <div class="farm-app">
@@ -469,7 +469,7 @@
           <input class="gm-slider" data-gm-range="xp" type="range" />
         </div>
         <div class="gm-row"><label>天氣</label><span class="gm-weather"><button data-gm-weather="sun" type="button">晴朗</button><button data-gm-weather="breeze" type="button">微風</button><button data-gm-weather="cloud" type="button">多雲</button><button data-gm-weather="rain" type="button">小雨</button><button data-gm-weather="scorch" type="button">烈日</button><button data-gm-weather="storm" type="button">雷雨</button><button data-gm-weather="fog" type="button">起霧</button><button data-gm-weather="snow" type="button">下雪</button><button data-gm-weather="typhoon" type="button">颱風</button></span></div>
-        <div class="gm-row"><label>特殊</label><button id="gmInvOpen" type="button">庫存</button><button id="gmItemOpen" type="button">道具</button><button id="gmThief" type="button" class="gm-row-right">好友偷菜</button><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
+        <div class="gm-row"><label>特殊</label><button id="gmInvOpen" type="button">庫存</button><button id="gmItemOpen" type="button">道具</button><button id="gmSeedOpen" type="button">種子</button><button id="gmThief" type="button" class="gm-row-right">好友偷菜</button><button id="gmOrderRefresh" type="button">刷新訂單</button></div>
         <div class="gm-foot">
           <button id="gmEditConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmEditRevert" type="button" class="gm-foot-undo">回復</button>
@@ -502,10 +502,22 @@
       </div>
     </div>
 
+    <div id="gmSeedBox" class="gm-box" hidden>
+      <div class="gm-card gm-edit-card" role="dialog" aria-modal="true" aria-label="種子">
+        <h2>種子</h2>
+        <div id="gmSeedList" class="gm-inv-list"></div>
+        <div class="gm-foot">
+          <button id="gmSeedConfirm" type="button" class="gm-foot-ok">確定</button>
+          <button id="gmSeedRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmSeedBack" type="button" class="gm-foot-back">返回</button>
+        </div>
+      </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-098"></script>
+    <script src="./game.js?v=20260624-claude-100"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

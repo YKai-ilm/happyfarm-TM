@@ -144,7 +144,7 @@ const GM_FIELDS = {
 };
 
 let gmEditSnap = null;
-let gmInvSnap = null;
+let gmInvSnap = null; let gmSeedSnap = null;
 let gmItemSnap = null;
 const GM_ITEMS = [
   ["weatherCard", "🌤️ 天氣兌換卡"],
@@ -1617,14 +1617,14 @@ function gmInvRevert() {
   toast("已回復庫存。");
 }
 function gmInvBack() {
-  if (gmInvSnap) gmApplyInv(gmInvSnap);
+  gmInvSnap = gmCaptureInv();   // 保留變更（已即時套用），返回不還原
   saveState();
   render();
   hideGmBox("#gmInvBox");
   showGmBox("#gmEdit");
 }
 function gmInvDismiss() {
-  if (gmInvSnap) gmApplyInv(gmInvSnap);
+  gmInvSnap = gmCaptureInv();   // 點視窗外關閉 = 保留變更
   saveState();
   render();
   hideGmBox("#gmInvBox");
@@ -1711,18 +1711,57 @@ function gmItemRevert() {
   toast("已回復道具。");
 }
 function gmItemBack() {
-  if (gmItemSnap) gmApplyItems(gmItemSnap);
+  gmItemSnap = gmCaptureItems();   // 保留變更，返回不還原
   saveState();
   render();
   hideGmBox("#gmItemBox");
   showGmBox("#gmEdit");
 }
 function gmItemDismiss() {
-  if (gmItemSnap) gmApplyItems(gmItemSnap);
+  gmItemSnap = gmCaptureItems();   // 點視窗外關閉 = 保留變更
   saveState();
   render();
   hideGmBox("#gmItemBox");
 }
+
+function gmCaptureSeeds() { return JSON.parse(JSON.stringify(state.seeds || {})); }
+function gmApplySeeds(s) { if (!s) return; state.seeds = { ...(state.seeds || {}), ...JSON.parse(JSON.stringify(s)) }; }
+function buildGmSeedList() {
+  const list = document.querySelector("#gmSeedList");
+  if (!list) return;
+  list.innerHTML = Object.entries(CROPS).map(([id, c]) => {
+    const v = (state.seeds && state.seeds[id]) || 0;
+    return `
+    <div class="gm-inv-row">
+      <span class="gm-inv-name">${c.name}</span>
+      <div class="gm-ctrl">
+        <button class="gm-step" data-gm-seed-dec="${id}" type="button">−</button>
+        <input class="gm-num" data-gm-seed-num="${id}" type="number" min="0" max="999" value="${v}" />
+        <button class="gm-step" data-gm-seed-inc="${id}" type="button">＋</button>
+      </div>
+      <input class="gm-slider" data-gm-seed-range="${id}" type="range" min="0" max="999" step="1" value="${v}" />
+    </div>`;
+  }).join("");
+  list.querySelectorAll("[data-gm-seed-dec]").forEach((b) => b.addEventListener("click", () => gmSetSeed(b.dataset.gmSeedDec, ((state.seeds && state.seeds[b.dataset.gmSeedDec]) || 0) - 1)));
+  list.querySelectorAll("[data-gm-seed-inc]").forEach((b) => b.addEventListener("click", () => gmSetSeed(b.dataset.gmSeedInc, ((state.seeds && state.seeds[b.dataset.gmSeedInc]) || 0) + 1)));
+  list.querySelectorAll("[data-gm-seed-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetSeed(n.dataset.gmSeedNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-seed-range]").forEach((r) => r.addEventListener("input", () => gmSetSeed(r.dataset.gmSeedRange, parseInt(r.value, 10))));
+}
+function gmSetSeed(id, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  if (!state.seeds) state.seeds = {};
+  state.seeds[id] = v;
+  const num = document.querySelector(`[data-gm-seed-num="${id}"]`);
+  const rng = document.querySelector(`[data-gm-seed-range="${id}"]`);
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+  render();
+}
+function gmSeedConfirm() { gmSeedSnap = gmCaptureSeeds(); saveState(); toast("已套用種子。"); }
+function gmSeedRevert() { if (gmSeedSnap) gmApplySeeds(gmSeedSnap); saveState(); render(); buildGmSeedList(); toast("已回復種子。"); }
+function gmSeedBack() { gmSeedSnap = gmCaptureSeeds(); saveState(); render(); hideGmBox("#gmSeedBox"); showGmBox("#gmEdit"); }
+function gmSeedDismiss() { gmSeedSnap = gmCaptureSeeds(); saveState(); render(); hideGmBox("#gmSeedBox"); }
 function buildGmItemList() {
   const list = document.querySelector("#gmItemList");
   if (!list) return;
@@ -2434,6 +2473,12 @@ function bindStaticEvents() {
   document.querySelector("#gmItemBack")?.addEventListener("click", gmItemBack);
   const gmItemBox = document.querySelector("#gmItemBox");
   if (gmItemBox) gmItemBox.addEventListener("click", (e) => { if (e.target === gmItemBox) gmItemDismiss(); });
+  document.querySelector("#gmSeedOpen")?.addEventListener("click", () => { gmSeedSnap = gmCaptureSeeds(); buildGmSeedList(); hideGmBox("#gmEdit"); showGmBox("#gmSeedBox"); });
+  document.querySelector("#gmSeedConfirm")?.addEventListener("click", gmSeedConfirm);
+  document.querySelector("#gmSeedRevert")?.addEventListener("click", gmSeedRevert);
+  document.querySelector("#gmSeedBack")?.addEventListener("click", gmSeedBack);
+  const gmSeedBox = document.querySelector("#gmSeedBox");
+  if (gmSeedBox) gmSeedBox.addEventListener("click", (e) => { if (e.target === gmSeedBox) gmSeedDismiss(); });
   document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
     state.orders = generateOrders();
     state.ordersRefreshAt = Date.now() + ORDER_REFRESH_MS;
