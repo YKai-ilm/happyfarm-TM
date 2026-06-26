@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-100" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-102" />
   </head>
   <body>
     <div class="farm-app">
@@ -290,6 +290,18 @@
       <audio id="aud-scorch" loop preload="auto" src="./assets/audio/weather-scorch.mp3"></audio>
     </div>
 
+    <div id="slotPickerBox" class="slot-box" hidden>
+      <div class="slot-card" role="dialog" aria-modal="true" aria-label="選擇存檔">
+        <h2>選擇存檔</h2>
+        <p class="slot-hint">同一個帳號可有多個存檔。選同一個存檔的裝置會互相同步；選不同存檔則各玩各的，好友資訊共通。</p>
+        <div id="slotList" class="slot-list"></div>
+        <div class="friend-add slot-new">
+          <input id="newSlotName" type="text" maxlength="16" placeholder="新存檔名稱" />
+          <button id="newSlotBtn" type="button">新增存檔</button>
+        </div>
+      </div>
+    </div>
+
     <div id="saveBox" class="save-box" hidden>
       <div class="save-card" role="dialog" aria-modal="true" aria-label="存檔備份">
         <h2>存檔備份</h2>
@@ -300,6 +312,7 @@
         </div>
         <div class="save-account">
           <button id="googleLoginBtn" type="button" class="save-primary">用 Google 登入（雲端存檔）</button>
+          <button id="switchSlotBtn" type="button" class="save-secondary" hidden>切換／選擇存檔</button>
           <p id="accountStatus" class="account-status">登入後進度會同步到雲端，換手機或清快取也能繼續。</p>
         </div>
         <button id="saveBoxClose" type="button" class="save-close">關閉</button>
@@ -517,7 +530,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-100"></script>
+    <script src="./game.js?v=20260624-claude-102"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

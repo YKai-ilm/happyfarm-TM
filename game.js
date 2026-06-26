@@ -389,6 +389,8 @@ const FIREBASE_CONFIG = {
   appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
 };
 let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0;
+const SLOT_KEY = "happy-farm-active-slot";
+let activeSlot = ""; let accountData = null; let idleTimer = null; let lastActivity = Date.now(); let slotReady = false; const IDLE_MS = 600000;
 let visiting = null; let visitRefreshTimer = null; let visitPendingBug = {}; let visitPendingSpray = {};
 let visitTool = "";
 let visitScene = "farm";
@@ -568,84 +570,189 @@ function googleLogout() { if (reconcileTimer) { clearInterval(reconcileTimer); r
 function onAuthChanged(user) {
   fbUser = user;
   updateAccountUI();
-  if (user) { cloudLoadAndMerge(); } else { cloudReady = false; }
+  if (user) { startSlotFlow(); }
+  else { cloudReady = false; slotReady = false; stopCloudTimers(); }
 }
 
-async function cloudLoadAndMerge() {
+function stopCloudTimers() {
+  if (reconcileTimer) { clearInterval(reconcileTimer); reconcileTimer = null; }
+  if (saveListener) { saveListener(); saveListener = null; }
+  if (idleTimer) { clearInterval(idleTimer); idleTimer = null; }
+}
+
+async function startSlotFlow() {
   if (!fbDb || !fbUser) return;
   try {
     const ref = fbDb.collection("saves").doc(fbUser.uid);
     const snap = await ref.get();
-    const localRev = state.rev || 0;
-    let cloudExists = false, cloudRev = -1;
-    if (snap.exists) {
-      const data = snap.data() || {};
-      cloudExists = true;
-      cloudRev = data.rev || 0;
-      if (data.stateJson && cloudRev > localRev) {   // 只有雲端版本較新才載入
-        let cloud = null;
-        try { cloud = JSON.parse(data.stateJson); } catch (_) {}
-        if (cloud) {
-          localStorage.setItem(SAVE_KEY, JSON.stringify(cloud));
-          state = loadState();
-          render();
-          toast("已從雲端載入較新的進度。");
-        }
-      }
+    const data = snap.exists ? (snap.data() || {}) : {};
+    let slots = data.slots || {};
+    if (Object.keys(slots).length === 0) {
+      // 遷移：舊單一存檔 / 目前本機存檔 → 第一個 slot
+      const js = data.stateJson || JSON.stringify(state);
+      slots = { main: { name: "我的農場", stateJson: js, rev: data.rev || state.rev || 0, savedAt: data.savedAt || Date.now() } };
     }
-    cloudReady = true;
-    lastCloudRev = Math.max(cloudRev, state.rev || 0);
-    // 關鍵：只有「雲端尚無存檔」或「本機版本較新」才上傳；剛開啟的舊資料不會覆蓋雲端
-    if (!cloudExists || (state.rev || 0) > cloudRev) cloudSaveNow();
-    publishProfile(true);
-    reconcileFriendEvents();
-    if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
-    if (!saveListener) {
-      saveListener = ref.onSnapshot((s) => {
-        if (!s.exists) return;
-        if (s.metadata.hasPendingWrites) return;     // 自己剛寫、伺服器還沒確認 → 跳過
-        const d = s.data() || {};
-        if (!d.stateJson) return;
-        const incomingRev = d.rev || 0;
-        if (incomingRev <= (state.rev || 0)) return; // 核心保護：不比本機新就絕不覆蓋
-        if (pendingLocalSave) return;                // 本機有未存的改動，先別被覆蓋
-        if (visiting || stockOpen) return;           // 操作中不打斷
-        try {
-          const cloud = JSON.parse(d.stateJson);
-          if (cloud) {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(cloud));
-            state = loadState();
-            lastCloudRev = incomingRev;
-            render();
-            toast("已同步另一台裝置的最新進度。");
-          }
-        } catch (_) {}
-      }, (err) => console.warn("存檔監聽錯誤", err));
+    let friend = data.friend;
+    if (!friend) friend = { friendCode: state.friendCode || "", cloudFriends: state.cloudFriends || [] };
+    accountData = { slots: slots, friend: friend };
+    cloudReady = true; slotReady = false;
+    showSlotPicker();
+  } catch (e) { console.warn("讀取帳號存檔失敗", e); cloudReady = true; }
+}
+
+function mergeFriends(a, b) {
+  const map = {};
+  (a || []).concat(b || []).forEach((f) => { if (f && f.uid) map[f.uid] = f; });
+  return Object.keys(map).map((k) => map[k]);
+}
+function applySharedFriend() {
+  if (!accountData || !accountData.friend) return;
+  state.friendCode = state.friendCode || accountData.friend.friendCode || "";
+  state.cloudFriends = mergeFriends(state.cloudFriends, accountData.friend.cloudFriends);
+}
+
+function showSlotPicker() {
+  slotReady = false;
+  const box = document.querySelector("#slotPickerBox");
+  if (!box) return;
+  renderSlotList();
+  box.hidden = false;
+}
+function hideSlotPicker() { const b = document.querySelector("#slotPickerBox"); if (b) b.hidden = true; }
+function renderSlotList() {
+  const list = document.querySelector("#slotList");
+  if (!list || !accountData) return;
+  const ids = Object.keys(accountData.slots);
+  list.innerHTML = ids.length ? ids.map((id) => {
+    const s = accountData.slots[id]; let lv = 1, co = 0;
+    try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (_) {}
+    const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
+    return '<div class="slot-row' + (id === activeSlot ? ' is-current' : '') + '"><div class="slot-info"><strong>' + (s.name || id) + (id === activeSlot ? ' ✓' : '') + '</strong>' +
+      '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 版本 ' + (s.rev || 0) + '</span>' +
+      '<span class="slot-when">⏱ ' + when + '</span></div>' +
+      '<button class="slot-use" type="button" data-use="' + id + '">使用</button>' +
+      '<button class="slot-del" type="button" data-del="' + id + '">刪除</button></div>';
+  }).join("") : '<p class="item-empty">還沒有存檔，在下面新增一個。</p>';
+  list.querySelectorAll("[data-use]").forEach((b) => b.addEventListener("click", () => useSlot(b.dataset.use)));
+  list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteSlot(b.dataset.del)));
+}
+
+function useSlot(slotId) {
+  if (!accountData || !accountData.slots[slotId]) return;
+  const slot = accountData.slots[slotId];
+  activeSlot = slotId;
+  try { localStorage.setItem(SLOT_KEY, slotId); } catch (_) {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(JSON.parse(slot.stateJson))); } catch (_) {}
+  state = loadState();
+  applySharedFriend();
+  lastCloudRev = slot.rev || 0;
+  cloudReady = true; slotReady = true;
+  hideSlotPicker();
+  render();
+  cloudSaveNow();
+  publishProfile(true);
+  reconcileFriendEvents();
+  startCloudTimers();
+  resetIdle();
+  toast("使用存檔：" + (slot.name || slotId));
+}
+
+function createSlot(name) {
+  if (!accountData) return;
+  name = String(name || "").trim() || ("存檔" + (Object.keys(accountData.slots).length + 1));
+  const id = "s" + Date.now().toString(36);
+  const fresh = createDefaultState();
+  fresh.rev = 1; fresh.savedAt = Date.now();
+  accountData.slots[id] = { name: name, stateJson: JSON.stringify(fresh), rev: 1, savedAt: Date.now() };
+  useSlot(id);
+}
+
+async function deleteSlot(slotId) {
+  if (!accountData || !accountData.slots[slotId]) return;
+  if (!window.confirm("確定刪除存檔「" + (accountData.slots[slotId].name || slotId) + "」？此動作無法復原。")) return;
+  delete accountData.slots[slotId];
+  try {
+    const upd = {}; upd["slots." + slotId] = firebase.firestore.FieldValue.delete();
+    await fbDb.collection("saves").doc(fbUser.uid).update(upd);
+  } catch (e) { console.warn("刪除存檔失敗", e); }
+  if (slotId === activeSlot) { activeSlot = ""; slotReady = false; }
+  renderSlotList();
+}
+
+function startCloudTimers() {
+  if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
+  if (!idleTimer) idleTimer = setInterval(idleCheck, 30000);
+  attachSaveListener();
+}
+
+function attachSaveListener() {
+  if (saveListener || !fbDb || !fbUser) return;
+  const ref = fbDb.collection("saves").doc(fbUser.uid);
+  saveListener = ref.onSnapshot((s) => {
+    if (!s.exists) return;
+    const d = s.data() || {};
+    // 共用好友：即時合併（聯集，不會弄丟剛加的）
+    if (d.friend) {
+      if (d.friend.friendCode && !state.friendCode) state.friendCode = d.friend.friendCode;
+      const before = (state.cloudFriends || []).length;
+      state.cloudFriends = mergeFriends(state.cloudFriends, d.friend.cloudFriends);
+      if (accountData) accountData.friend = d.friend;
+      if ((state.cloudFriends || []).length !== before) renderCloudFriends();
     }
-  } catch (e) { console.warn("雲端載入失敗", e); cloudReady = true; }
+    if (s.metadata.hasPendingWrites) return;
+    if (!slotReady || !activeSlot) return;
+    const slot = d.slots && d.slots[activeSlot];
+    if (!slot || !slot.stateJson) return;
+    const incomingRev = slot.rev || 0;
+    if (incomingRev <= (state.rev || 0)) return;   // 不比本機新就絕不覆蓋
+    if (pendingLocalSave || visiting || stockOpen) return;
+    try {
+      const obj = JSON.parse(slot.stateJson);
+      localStorage.setItem(SAVE_KEY, JSON.stringify(obj));
+      state = loadState();
+      applySharedFriend();
+      lastCloudRev = incomingRev;
+      render();
+      toast("已同步另一台裝置的最新進度。");
+    } catch (_) {}
+  }, (err) => console.warn("存檔監聽錯誤", err));
+}
+
+function resetIdle() { lastActivity = Date.now(); }
+function idleCheck() {
+  if (!fbUser || !slotReady || !activeSlot) return;
+  const box = document.querySelector("#slotPickerBox");
+  if (box && !box.hidden) return;
+  if (visiting || stockOpen) { resetIdle(); return; }
+  if (Date.now() - lastActivity >= IDLE_MS) {
+    cloudSaveNow();
+    showSlotPicker();
+    toast("閒置太久，請重新選擇存檔。");
+  }
 }
 
 function cloudSync() {
-  if (!cloudReady || !fbUser || !fbDb) return;
+  if (!cloudReady || !slotReady || !fbUser || !fbDb || !activeSlot) return;
   pendingLocalSave = true;          // 有本機改動還沒寫到雲端
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(cloudSaveNow, 1500);
 }
 
 async function cloudSaveNow() {
-  if (!fbUser || !fbDb) return;
+  if (!fbUser || !fbDb || !activeSlot) return;
   try {
     lastSelfSavedAt = state.savedAt || Date.now();
-    await fbDb.collection("saves").doc(fbUser.uid).set({
-      stateJson: JSON.stringify(state),
-      savedAt: lastSelfSavedAt,
-      rev: state.rev || 0,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    const nm = (accountData && accountData.slots[activeSlot] && accountData.slots[activeSlot].name) || "我的農場";
+    const slotPayload = { name: nm, stateJson: JSON.stringify(state), rev: state.rev || 0, savedAt: lastSelfSavedAt };
+    const friendPayload = { friendCode: state.friendCode || "", cloudFriends: state.cloudFriends || [] };
+    const upd = { friend: friendPayload, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    upd.slots = {}; upd.slots[activeSlot] = slotPayload;
+    await fbDb.collection("saves").doc(fbUser.uid).set(upd, { merge: true });
+    if (accountData) { accountData.slots[activeSlot] = slotPayload; accountData.friend = friendPayload; }
     lastCloudRev = state.rev || 0;
-    pendingLocalSave = false;        // 已同步到雲端
+    pendingLocalSave = false;
   } catch (e) { console.warn("雲端儲存失敗", e); }
-  publishProfile();  // 節流更新公開快照，讓好友拜訪看到接近即時的農場
+  publishProfile();
 }
 
 function updateAccountUI() {
@@ -655,6 +762,8 @@ function updateAccountUI() {
   if (st) st.textContent = fbUser
     ? ("已登入：" + (fbUser.displayName || fbUser.email || "Google 帳號") + "，進度雲端同步中")
     : "登入後進度會同步到雲端，換手機或清快取也能繼續。";
+  const sw = document.querySelector("#switchSlotBtn");
+  if (sw) sw.hidden = !fbUser;
 }
 
 /* ===== 雲端好友（Phase 1：公開檔＋好友碼＋加好友） ===== */
@@ -839,6 +948,12 @@ function enterVisit(profile) {
   toast("正在參觀 " + (profile.farmName || "好友") + " 的農場");
   if (visitRefreshTimer) clearInterval(visitRefreshTimer);
   if (visiting.kind === "cloud" && visiting.uid) visitRefreshTimer = setInterval(refreshVisit, 7000);
+  // 預載好友牧場底圖，避免切換到牧場時才載入造成延遲
+  try {
+    const lvl = (visiting.ranchSnapshot && visiting.ranchSnapshot.ranchLevel) || 1;
+    const bg = RANCH_BG[lvl] || RANCH_BG[1];
+    if (bg && bg.sun) { const im = new Image(); im.src = bg.sun; }
+  } catch (_) {}
 }
 
 async function refreshVisit() {
@@ -1037,7 +1152,8 @@ function visitGo(scene) {
   if (scene === "ranch" && visiting.kind !== "cloud") { toast("這位好友沒有牧場。"); return; }
   visitScene = scene;
   visitTool = "";
-  render();
+  document.body.classList.toggle("is-visit-ranch", scene === "ranch");
+  rerenderVisit();
 }
 
 function updateVisitToolUI() {
@@ -2479,6 +2595,19 @@ function bindStaticEvents() {
   document.querySelector("#gmSeedBack")?.addEventListener("click", gmSeedBack);
   const gmSeedBox = document.querySelector("#gmSeedBox");
   if (gmSeedBox) gmSeedBox.addEventListener("click", (e) => { if (e.target === gmSeedBox) gmSeedDismiss(); });
+  document.querySelector("#newSlotBtn")?.addEventListener("click", () => {
+    const inp = document.querySelector("#newSlotName");
+    createSlot(inp ? inp.value : "");
+    if (inp) inp.value = "";
+  });
+  document.querySelector("#switchSlotBtn")?.addEventListener("click", () => {
+    if (!fbUser) { toast("請先登入。"); return; }
+    if (!accountData) { toast("雲端載入中，稍候再試。"); return; }
+    if (slotReady) cloudSaveNow();
+    const sb = document.querySelector("#saveBox"); if (sb) sb.hidden = true;
+    showSlotPicker();
+  });
+  ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, resetIdle, { passive: true }));
   document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
     state.orders = generateOrders();
     state.ordersRefreshAt = Date.now() + ORDER_REFRESH_MS;
