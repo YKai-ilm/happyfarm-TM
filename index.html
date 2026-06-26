@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-079" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-088" />
   </head>
   <body>
     <div class="farm-app">
@@ -199,6 +199,10 @@
             <button class="tool-button farm-tool" data-tool="harvest" type="button" title="收成">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               收成
+            </button>
+            <button class="tool-button farm-tool" data-tool="clean" type="button" title="除蟲/拔草">
+              <span aria-hidden="true">🐛</span>
+              除蟲/拔草
             </button>
             <button class="tool-button farm-tool" type="button" data-tab="shop" title="換種子">
               <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
@@ -499,7 +503,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-079"></script>
+    <script src="./game.js?v=20260624-claude-088"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

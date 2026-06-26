@@ -388,8 +388,8 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "621025441541",
   appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
 };
-let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0;
-let visiting = null;
+let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null;
+let visiting = null; let visitRefreshTimer = null;
 let visitTool = "";
 let visitScene = "farm";
 let stockOpen = false;
@@ -562,7 +562,7 @@ function googleLogin() {
   });
 }
 
-function googleLogout() { if (fbAuth) fbAuth.signOut(); }
+function googleLogout() { if (reconcileTimer) { clearInterval(reconcileTimer); reconcileTimer = null; } if (fbAuth) fbAuth.signOut(); }
 
 function onAuthChanged(user) {
   fbUser = user;
@@ -594,6 +594,7 @@ async function cloudLoadAndMerge() {
     cloudSaveNow();
     publishProfile(true);
     reconcileFriendEvents();
+    if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
   } catch (e) { console.warn("雲端載入失敗", e); cloudReady = true; }
 }
 
@@ -641,7 +642,7 @@ async function ensureFriendCode() {
 
 async function publishProfile(force) {
   if (!fbDb || !fbUser) return;
-  if (!force && Date.now() - lastProfileAt < 25000) return;  // 節流：最少 25 秒更新一次
+  if (!force && Date.now() - lastProfileAt < 8000) return;  // 節流：最少 8 秒更新一次
   lastProfileAt = Date.now();
   await ensureFriendCode();
   const name = String(state.farmName || state.nickname || fbUser.displayName || "農友").slice(0, 20);
@@ -700,7 +701,8 @@ async function addFriendByInput(raw) {
     state.cloudFriends.push({ uid: targetUid, name: targetName });
     saveState();
     renderCloudFriends();
-    toast("已加好友：" + targetName);
+    writeFriendEvent(targetUid, { type: "friendadd" });   // 通知對方自動把我加回（雙向）
+    toast("已加好友：" + targetName + "（對方也會自動看到你）");
   } catch (e) { console.warn("加好友失敗", e); toast("加好友失敗，稍後再試。"); }
 }
 
@@ -754,9 +756,23 @@ function enterVisit(profile) {
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   render();
   toast("正在參觀 " + (profile.farmName || "好友") + " 的農場");
+  if (visitRefreshTimer) clearInterval(visitRefreshTimer);
+  if (visiting.kind === "cloud" && visiting.uid) visitRefreshTimer = setInterval(refreshVisit, 7000);
+}
+
+async function refreshVisit() {
+  if (!visiting || visiting.kind !== "cloud" || !visiting.uid || !fbDb) return;
+  try {
+    const snap = await fbDb.collection("profiles").doc(visiting.uid).get();
+    if (!snap.exists || !visiting) return;
+    visiting = Object.assign({ kind: "cloud" }, snap.data() || {});
+    if (visitScene === "ranch") renderVisitingRanch(); else renderVisitingFarm();
+    updateVisitBanner();
+  } catch (e) { /* 靜默重試 */ }
 }
 
 function exitVisit() {
+  if (visitRefreshTimer) { clearInterval(visitRefreshTimer); visitRefreshTimer = null; }
   visiting = null;
   visitTool = "";
   visitScene = "farm";
@@ -770,7 +786,7 @@ function exitVisit() {
 function renderVisitingFarm() {
   if (visitScene === "ranch") { renderVisitingRanch(); return; }
   const fr0 = document.querySelector(".field-frame");
-  if (fr0) fr0.style.removeProperty("--scene-image");
+  if (fr0) { fr0.style.removeProperty("--scene-image"); const ab = fr0.querySelector("#ranchAnimals"); if (ab) ab.remove(); }
   const grid = elements.farmGrid;
   grid.className = "farm-grid";
   const now = Date.now();
@@ -818,26 +834,46 @@ function renderVisitingFarm() {
 
 function renderVisitingRanch() {
   const grid = elements.farmGrid;
-  grid.className = "farm-grid is-visit-npc";
+  grid.className = "farm-grid";
+  grid.innerHTML = "";
   const rs = visiting.ranchSnapshot || {};
   const animals = Array.isArray(rs.animals) ? rs.animals : [];
   const frame = document.querySelector(".field-frame");
-  const bg = RANCH_BG[rs.ranchLevel || 1] || RANCH_BG[1];
-  if (frame) frame.style.setProperty("--scene-image", 'url("' + bg.sun + '")');
-  if (!animals.length) {
-    grid.innerHTML = '<p class="item-empty" style="grid-column:1/-1;align-self:center">這位好友的牧場還沒有動物。</p>';
-  } else {
-    const stMap = { hungry: "🍽️ 待餵", growing: "⏳ 生長中", ready: "✅ 可收", dirty: "💩 待洗" };
-    grid.innerHTML = animals.map((a, i) => {
-      const cfg = RANCH_ANIMALS[a.type];
-      const vis = cfg ? (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="">' : cfg.emoji) : "🐾";
-      const st = a.status === "ready" && cfg ? ("✅ 可收 " + cfg.productEmoji) : (stMap[a.status] || "");
-      return '<div class="plot visit-plot" data-ranimal="' + i + '"><span class="crop-visual">' + vis + '</span>'
-        + '<span class="plot-info"><span class="plot-label">' + (cfg ? cfg.name : a.type) + (a.level ? (" Lv." + a.level) : "") + '</span>'
-        + '<span class="plot-time">' + st + '</span></span></div>';
-    }).join("");
-    grid.querySelectorAll("[data-ranimal]").forEach((b) => b.addEventListener("click", () => handleVisitRanchClick(Number(b.dataset.ranimal))));
-  }
+  if (!frame) return;
+  const lvl = rs.ranchLevel || 1;
+  const bg = RANCH_BG[lvl] || RANCH_BG[1];
+  frame.style.setProperty("--scene-image", 'url("' + bg.sun + '")');
+  const rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
+  let box = frame.querySelector("#ranchAnimals");
+  if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
+  // 移除多出來的動物節點
+  const want = {};
+  animals.forEach((a, i) => { want["v" + i] = true; });
+  Array.from(box.children).forEach((el) => { if (!want[el.dataset.id]) el.remove(); });
+  animals.forEach((a, i) => {
+    const cfg = RANCH_ANIMALS[a.type];
+    if (!cfg) return;
+    let el = box.querySelector('[data-id="v' + i + '"]');
+    if (!el || el.dataset.type !== a.type) {
+      if (el) el.remove();
+      el = document.createElement("div");
+      el.className = "ranch-animal";
+      el.dataset.id = "v" + i;
+      el.dataset.type = a.type;
+      const p = randPaddock(rangeName);
+      el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; el.style.zIndex = Math.round(p[1] * 10);
+      el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
+      el.addEventListener("click", () => handleVisitRanchClick(i));
+      box.appendChild(el);
+    }
+    const b = el.querySelector(".animal-badge");
+    if (b) {
+      if (a.status === "ready") { b.textContent = cfg.productEmoji; b.className = "animal-badge animal-prod"; }
+      else if (a.status === "dirty") { b.textContent = "💩"; b.className = "animal-badge animal-dirty"; }
+      else if (a.status === "growing") { b.textContent = "⏳"; b.className = "animal-badge animal-timer"; }
+      else { b.textContent = ""; b.className = "animal-badge"; }
+    }
+  });
   updateVisitBanner();
   updateVisitToolUI();
 }
@@ -852,6 +888,7 @@ function handleVisitRanchClick(i) {
 function cloudRanchHelp(i) {
   const a = ((visiting.ranchSnapshot && visiting.ranchSnapshot.animals) || [])[i];
   if (!a) return;
+  if (a.status === "dirty") { toast("這隻髒了 💩，要等主人洗乾淨才能幫忙。"); return; }
   writeFriendEvent(visiting.uid, { type: "rhelp", animalIndex: i });
   state.coins = (state.coins || 0) + 8;
   addXp(3);
@@ -862,8 +899,9 @@ function cloudRanchHelp(i) {
 function cloudRanchSpray(i) {
   const a = ((visiting.ranchSnapshot && visiting.ranchSnapshot.animals) || [])[i];
   if (!a) return;
+  if (a.status === "dirty") { toast("這隻已經髒了 💩，不用再噴。"); return; }
   writeFriendEvent(visiting.uid, { type: "spray", animalIndex: i });
-  toast("你朝 " + (visiting.farmName || "好友") + " 的動物亂噴水 💦（牠髒了）");
+  toast("你朝 " + (visiting.farmName || "好友") + " 的動物噴了髒水 💩（牠髒了，主人要先洗才能照顧）");
 }
 
 function cloudStealProduct(i) {
@@ -965,7 +1003,7 @@ async function reconcileFriendEvents() {
   try {
     const snap = await fbDb.collection("events").doc(fbUser.uid).collection("items").limit(200).get();
     if (snap.empty) return;
-    let stolen = 0, bugged = 0, helped = 0, sprayed = 0, rstolen = 0;
+    let stolen = 0, bugged = 0, helped = 0, sprayed = 0, rstolen = 0, added = 0;
     const batchDeletes = [];
     snap.forEach((doc) => {
       const d = doc.data() || {};
@@ -975,6 +1013,7 @@ async function reconcileFriendEvents() {
         else if (d.type === "help" || d.type === "rhelp") helped++;
         else if (d.type === "spray") sprayed++;
         else if (d.type === "rsteal") rstolen++;
+        else if (d.type === "friendadd") added++;
       }
       batchDeletes.push(doc.ref);
     });
@@ -982,22 +1021,30 @@ async function reconcileFriendEvents() {
     saveState();
     render();
     const parts = [];
+    if (added) parts.push("新好友×" + added);
     if (stolen) parts.push("被偷菜×" + stolen);
     if (rstolen) parts.push("被偷產物×" + rstolen);
     if (bugged) parts.push("被放蟲×" + bugged);
     if (sprayed) parts.push("被噴髒×" + sprayed);
     if (helped) parts.push("好友幫忙×" + helped);
-    if (parts.length) toast("離線期間：" + parts.join("、"));
+    if (parts.length) toast("好友動態：" + parts.join("、"));
   } catch (e) { console.warn("結算好友事件失敗", e); }
 }
 
 function applyFriendEvent(d) {
   if (!d || !d.type) return false;
+  if (d.type === "friendadd") {
+    if (!d.actor) return false;
+    state.cloudFriends = state.cloudFriends || [];
+    if (state.cloudFriends.some((f) => f.uid === d.actor)) return false;
+    state.cloudFriends.push({ uid: d.actor, name: d.actorName || "農友" });
+    return true;
+  }
   if (d.type === "steal" || d.type === "bug" || d.type === "help") {
     const p = (state.plots || [])[d.plotIndex];
     if (!p || !p.unlocked) return false;
     if (d.type === "steal") { if (!p.crop) return false; p.stolenPct = Math.min(0.4, (p.stolenPct || 0) + 0.2); return true; }
-    if (d.type === "bug") { if (!p.crop) return false; p.pest = true; return true; }
+    if (d.type === "bug") { if (!p.crop) return false; p.pest = true; if (!p.hazardSince) p.hazardSince = Date.now(); return true; }
     if (d.type === "help") { if (!p.crop) return false; p.watered = true; return true; }
   } else {
     const a = (state.ranchAnimals || [])[d.animalIndex];
@@ -1006,7 +1053,7 @@ function applyFriendEvent(d) {
     if (d.type === "rsteal") { a.fedAt = 0; a.dirty = false; return true; }
     if (d.type === "spray") { a.dirty = true; return true; }
     if (d.type === "rhelp") {
-      if (a.dirty) { a.dirty = false; return true; }
+      if (a.dirty) return false;   // 髒汙只能本人清洗，幫忙不處理（避免噴髒→幫忙洗的循環）
       if (a.fedAt && cfg && (Date.now() - a.fedAt >= cfg.growMs)) {
         state.ranchProducts = state.ranchProducts || {};
         state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + (3 + Math.floor(Math.random() * 3));
@@ -1053,7 +1100,7 @@ function updateVisitBanner() {
     const cd = f ? friendCooldownMs(f) : 0;
     info = "👀 參觀 <strong>" + (f ? f.name : "好友") + "</strong> 的農場" + (cd > 0 ? ("　·　⛔ 偷菜冷卻 " + fmtCooldown(cd)) : "");
   } else {
-    info = "👀 參觀 <strong>" + (visiting.farmName || "好友") + "</strong> 的農場　·　Lv." + (visiting.level || 1) + "　·　🪙 " + (visiting.coins || 0);
+    info = "👀 參觀 <strong>" + (visiting.farmName || "好友") + "</strong> 的農場　·　Lv." + (visiting.level || 1) + "　·　🪙 " + (visiting.coins || 0) + "　·　🔄 即時同步中";
   }
   b.innerHTML = '<span class="vb-info">' + info + '</span><button id="exitVisitBtn" type="button">返回我的農場</button>';
   b.querySelector("#exitVisitBtn").addEventListener("click", exitVisit);
@@ -3440,6 +3487,7 @@ function tick() {
   updateFarmTimers();
   friendStealTick(now);
   resolveThieves(now);
+  maybeSpawnHazards(now);
   if (state.scene === "ranch") renderRanchAnimals();
   if (visiting) {
     if (visiting.kind === "npc") {
@@ -3451,6 +3499,22 @@ function tick() {
   maybeRefreshOrders();
   const wp = document.querySelector(".work-panel");
   if (wp && wp.classList.contains("is-open") && state.activeTab === "orders") renderTabContent();
+}
+
+let lastHazardAt = 0;
+function maybeSpawnHazards(now) {
+  if (visiting || state.scene === "ranch") return;
+  if (now - lastHazardAt < 18000) return;          // 每 18 秒檢查一次
+  lastHazardAt = now;
+  if (Math.random() > 0.35) return;                // 該次 35% 機率發生
+  const elig = (state.plots || []).filter((p) => p.unlocked && p.crop && !p.pest && !p.weed && !p.thief && getPlotProgress(p) < 1);
+  if (!elig.length) return;
+  const p = elig[Math.floor(Math.random() * elig.length)];
+  if (Math.random() < 0.5) p.weed = true; else p.pest = true;
+  p.hazardSince = Date.now();
+  saveState();
+  render();
+  toast(p.weed ? "🌿 有一塊田長雜草了，生長暫停！用「除蟲/拔草」清除。" : "🐛 有一塊田鬧蟲害了，生長暫停！用「除蟲/拔草」清除。");
 }
 
 function gmSpawnThief() {
@@ -3564,7 +3628,7 @@ function updateFarmTimers() {
 
     const timeEl = button.querySelector(".plot-time");
     if (timeEl) {
-      const remaining = Math.max(0, getPlotDuration(plot) - (Date.now() - plot.plantedAt));
+      const remaining = Math.max(0, getPlotDuration(plot) * (1 - getPlotProgress(plot)));
       const text = ready ? "可收成" : formatTime(remaining);
       if (timeEl.textContent !== text) {
         timeEl.textContent = text;
@@ -3672,6 +3736,7 @@ function renderFarm() {
           ${plot.typhoonHalf && !ready ? `<span class="typhoon-badge" aria-hidden="true">🌀颱風</span>` : ""}
           ${plot.stolenPct ? `<span class="stolen-badge" aria-hidden="true">🤏 -${Math.round(plot.stolenPct * 100)}%</span>` : ""}
           ${plot.pest ? `<span class="stolen-badge" aria-hidden="true">🐛 蟲害</span>` : ""}
+          ${plot.weed ? `<span class="stolen-badge" aria-hidden="true">🌿 雜草</span>` : ""}
           ${plot.thief ? `<span class="thief-wrap" aria-hidden="true"><span class="thief-label">趕走 ${Math.max(0, Math.ceil((plot.thief.expiresAt - Date.now()) / 1000))}s</span><span class="thief-person">🦹</span></span>` : ""}
           <span class="crop-visual">${cropVisual(plot.crop, stage)}</span>
           <span class="plot-info">
@@ -4225,7 +4290,6 @@ function doRanchUpgrade() {
 
 function handlePlotClick(index) {
   const plot = state.plots[index];
-  if (plot && plot.pest) { plot.pest = false; saveState(); render(); toast("除掉好友放的蟲 🐛"); return; }
   if (!plot.unlocked) {
     state.activeTab = "upgrades";
     toast("這格還沒開墾，去開發頁買一格田地。");
@@ -4251,6 +4315,18 @@ function handlePlotClick(index) {
 
   if (pendingFertilize) {
     applyFertilizer(index);
+    return;
+  }
+
+  if (state.selectedTool === "clean") {
+    if (plot.pest || plot.weed) {
+      const what = (plot.pest && plot.weed) ? "蟲害和雜草" : plot.pest ? "蟲害" : "雜草";
+      if (plot.hazardSince) { plot.pausedMs = (plot.pausedMs || 0) + (Date.now() - plot.hazardSince); plot.hazardSince = 0; }
+      plot.pest = false; plot.weed = false;
+      saveState(); render(); toast("清除了" + what + "，作物恢復生長 🌱");
+    } else {
+      toast("這格沒有蟲害或雜草。");
+    }
     return;
   }
 
@@ -4306,6 +4382,10 @@ function plantPlot(index) {
     typhoonHalf: false,
     stolenPct: 0,
     thief: null,
+    pest: false,
+    weed: false,
+    pausedMs: 0,
+    hazardSince: 0,
     watered: state.weather === "rain",
   };
   toast(`${crop.name} 已播種。`);
@@ -4379,14 +4459,15 @@ function harvestPlot(index) {
   const season = plot.season || 0;
   const seasons = crop.seasons || 1;
   if (season + 1 < seasons) {
-    state.plots[index] = { ...plot, plantedAt: Date.now(), season: season + 1, soakMs: 0, frostMs: 0, typhoonHalf: false, watered: false };
+    state.plots[index] = { ...plot, plantedAt: Date.now(), season: season + 1, soakMs: 0, frostMs: 0, typhoonHalf: false, pest: false, weed: false, pausedMs: 0, hazardSince: 0, watered: false };
     toast(`${crop.name} 收成 ${amount} 個，還會再長第 ${season + 2} 季。${penaltyNote}`);
   } else {
-    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, thief: null, watered: false };
+    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, thief: null, pest: false, weed: false, pausedMs: 0, hazardSince: 0, watered: false };
     toast(`${crop.name} 收成 ${amount} 個。${penaltyNote}`);
   }
   saveState();
   render();
+  if (fbUser) publishProfile(true);
 }
 
 function restOneDay() {
@@ -4612,8 +4693,9 @@ function getPlotProgress(plot) {
   if (!plot.crop) {
     return 0;
   }
-
-  return Math.min(1, (Date.now() - plot.plantedAt) / getPlotDuration(plot));
+  let elapsed = Date.now() - plot.plantedAt - (plot.pausedMs || 0);
+  if (plot.hazardSince) elapsed -= (Date.now() - plot.hazardSince);   // 蟲害/雜草期間凍結
+  return Math.min(1, Math.max(0, elapsed) / getPlotDuration(plot));
 }
 
 function getPlotStage(plot, progress) {
@@ -5006,9 +5088,9 @@ function pointInPoly(x, y, poly) {
   }
   return inside;
 }
-function randPaddock() {
+function randPaddock(rangeName) {
   const ops = loadRanchOpenings();
-  const region = ops.find((o) => o.n === currentRangeName());
+  const region = ops.find((o) => o.n === (rangeName || currentRangeName()));
   if (region && region.p && region.p.length >= 3) {
     const xs = region.p.map((q) => q[0]), ys = region.p.map((q) => q[1]);
     const minx = Math.min.apply(null, xs), maxx = Math.max.apply(null, xs);
@@ -5027,6 +5109,7 @@ function randPaddock() {
 function renderRanchAnimals() {
   const frame = document.querySelector(".field-frame");
   if (!frame) return;
+  if (visiting) return;   // 參觀中由 renderVisitingRanch/Farm 管理動物層
   let box = frame.querySelector("#ranchAnimals");
   if (state.scene !== "ranch") { if (box) box.remove(); return; }
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
@@ -5141,6 +5224,7 @@ function harvestRanchAnimals() {
   if (!n) { toast("還沒有可收成的產物。"); return; }
   saveState(); render();
   toast(`收成 ${n} 份產物，已放進牧場倉。記得幫動物洗澡。`);
+  if (fbUser) publishProfile(true);
 }
 
 function openAnimalShop() {
@@ -5329,13 +5413,14 @@ function onRanchAnimalClick(id) {
     if (!a.dirty) { toast(cfg.name + " 不需要洗澡。"); return; }
     a.dirty = false; saveState(); renderRanchAnimals(); toast("幫" + cfg.name + "洗好澡了。");
   } else if (tool === "harvest") {
+    if (a.dirty) { toast(cfg.name + "髒了 💩，要先洗澡才能收成。"); return; }
     if (!ready) { toast(a.fedAt ? (cfg.name + " 還沒生產完。") : (cfg.name + " 還沒餵飼料。")); return; }
     const yieldN = 3 + Math.floor(Math.random() * 3);
     state.ranchProducts = state.ranchProducts || {};
     state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + yieldN;
     a.produced = (a.produced || 0) + 1;
     a.fedAt = 0; a.dirty = true;
-    saveState(); render(); toast("收成 " + yieldN + " 份" + cfg.product + "，放進牧場倉。");
+    saveState(); render(); toast("收成 " + yieldN + " 份" + cfg.product + "，放進牧場倉。"); if (fbUser) publishProfile(true);
   }
 }
 
