@@ -18,10 +18,10 @@ const PLOT_UNLOCKS = [
 
 // 各田標桿位置（GM 校正匯出；% 為標桿中心相對該田）
 const STAKE_POS = {
-  0: [19.0, 64.8], 1: [20.6, 64.8], 2: [21.8, 64.8], 3: [22.9, 64.8],
-  4: [18.5, 55.2], 5: [19.3, 55.2], 6: [19.4, 55.2], 7: [18.2, 55.2],
-  8: [19.5, 49.0], 9: [20.3, 46.1], 10: [17.2, 47.8], 11: [15.6, 47.8],
-  12: [21.0, 45.4], 13: [10.5, 43.1], 14: [15.5, 44.0], 15: [13.7, 38.2],
+  0: [20.2, 62.3], 1: [20.6, 64.8], 2: [21.8, 64.8], 3: [22.9, 64.8],
+  4: [15.9, 39.7], 5: [15.5, 34.9], 6: [19.8, 34.9], 7: [24.9, 30.1],
+  8: [16.1, 45.9], 9: [17.3, 44.6], 10: [20.9, 42.0], 11: [23.6, 43.3],
+  12: [13.6, 47.2], 13: [3.1, 48.2], 14: [21.5, 49.2], 15: [26.7, 48.2],
 };
 
 const CLOUD_POS = { 0: [51.4, 6.3], 1: [35.1, 10.9] };
@@ -350,9 +350,9 @@ const ORDER_BIG_XP = 1;
 /* 動物設定需在 init/render 前定義，避免 TDZ */
 const RANCH_ANIMALS = {
   chicken: { name: "雞", emoji: "🐔", img: "./assets/ranch/animal-chicken.png", price: 200,  product: "蛋",   productEmoji: "🥚", value: 20,  growMs: 100000 },
-  sheep:   { name: "羊", emoji: "🐑", price: 600,  product: "羊毛", productEmoji: "🧶", value: 60, growMs: 240000 },
+  sheep:   { name: "羊", emoji: "🐑", img: "./assets/ranch/animal-sheep.png", price: 600,  product: "羊毛", productEmoji: "🧶", value: 60, growMs: 240000 },
   pig:     { name: "豬", emoji: "🐖", img: "./assets/ranch/animal-pig.png", price: 900,  product: "豬肉", productEmoji: "🥓", value: 100, growMs: 360000 },
-  cow:     { name: "牛", emoji: "🐄", price: 1500, product: "牛奶", productEmoji: "🥛", value: 167, growMs: 500000 },
+  cow:     { name: "牛", emoji: "🐄", img: "./assets/ranch/animal-cow.png", price: 1500, product: "牛奶", productEmoji: "🥛", value: 167, growMs: 500000 },
 };
 
 const RANCH_LEVEL_NAMES = { 1: "小牧場", 2: "大牧場", 3: "超大牧場" };
@@ -392,6 +392,10 @@ let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTime
 let visiting = null;
 let visitTool = "";
 let visitScene = "farm";
+let stockOpen = false;
+let stockSel = 0;
+let stockTimer = null;
+let stockRange = "all"; let stockReturnScene = ""; let stockQty = {}; let stockPanelMode = "buy";
 let shopQty = {};
 let spinning = false;
 let pendingWeatherCard = false;
@@ -1575,6 +1579,390 @@ function gmSetItem(id, v) {
   render();
 }
 
+/* ===== 股市（種子式、全玩家一致；Phase 1：行情檢視） ===== */
+const STOCKS = [
+  { code: "HAPPY", name: "開心農場控股", base: 10, vol: 0.011 },
+  { code: "COW",   name: "金牧畜產",     base: 10, vol: 0.015 },
+  { code: "SEED",  name: "豐收種苗",     base: 10, vol: 0.019 },
+  { code: "CLOUD", name: "雲端科技",     base: 10, vol: 0.023 },
+  { code: "SUN",   name: "暖陽能源",     base: 10, vol: 0.016 },
+  { code: "STORM", name: "雷雨重工",     base: 10, vol: 0.029 },
+  { code: "HONEY", name: "蜜豐食品",     base: 10, vol: 0.012 },
+];
+const STOCK_EPOCH = Date.UTC(2026, 5, 1) / 86400000;  // 走勢起點(天)
+function stkHash(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function stkRng(seed) { let a = seed >>> 0; return function () { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function dayNumber(d) { return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000); }
+const _closeCache = {};
+function stockClose(stock, dayNum) {
+  const key = stock.code + ":" + dayNum;
+  if (_closeCache[key] != null) return _closeCache[key];
+  let price = stock.base;
+  for (let d = STOCK_EPOCH + 1; d <= dayNum; d++) {
+    const rr = stkRng(stkHash(stock.code + "|" + d));
+    let ret = (rr() * 2 - 1) * (stock.vol * 2.0);   // 每日總漲跌幅
+    if (rr() > 0.88) {                              // ~12% 大波動日：朝同方向暴衝
+      const dir = ret >= 0 ? 1 : -1;
+      ret = dir * (0.06 + rr() * 0.045);
+    }
+    ret = Math.max(-0.10, Math.min(0.10, ret));     // 台股 ±10% 漲跌停
+    price = Math.max(1, price * (1 + ret));
+  }
+  _closeCache[key] = price;
+  return price;
+}
+function stockOpenPrice(stock, dayNum) {
+  const prev = stockClose(stock, dayNum - 1);
+  const prev2 = stockClose(stock, dayNum - 2);
+  const yReturn = prev2 > 0 ? (prev / prev2 - 1) : 0;        // 前一天總漲跌幅
+  const jitter = (stkRng(stkHash(stock.code + "open" + dayNum))() * 2 - 1) * 0.01;
+  let gap = yReturn * 0.8 + jitter;                          // 偏向昨日方向
+  gap = Math.max(-0.04, Math.min(0.04, gap));                // 限 ±4%
+  return prev * (1 + gap);
+}
+const SESSION_MIN = 565;  // 9:00-13:25(265)+19:00-24:00(300)
+function stockPath(stock, dayNum) {
+  const key = "p" + stock.code + ":" + dayNum;
+  if (_closeCache[key]) return _closeCache[key];
+  const open = stockOpenPrice(stock, dayNum);
+  const close = stockClose(stock, dayNum);
+  const prevC = stockClose(stock, dayNum - 1);
+  const limHi = prevC * 1.1, limLo = prevC * 0.9;
+  const N = SESSION_MIN;
+  const rng = stkRng(stkHash(stock.code + "path" + dayNum));
+  const noise = [0]; let acc = 0;
+  for (let i = 1; i <= N; i++) { acc += (rng() * 2 - 1) * stock.vol; noise.push(acc); }
+  const end = noise[N];
+  const path = [];
+  for (let i = 0; i <= N; i++) {
+    const lin = open + (close - open) * (i / N);
+    const bridged = noise[i] - end * (i / N);  // 兩端歸零的布朗橋
+    path.push(Math.max(limLo, Math.min(limHi, lin + open * bridged)));
+  }
+  _closeCache[key] = path;
+  return path;
+}
+function sessionIndexNow() {
+  const d = new Date();
+  const mod = d.getHours() * 60 + d.getMinutes();
+  if (mod < 540) return { state: "pre", idx: 0 };                   // 9:00前 休市(昨收)
+  if (mod <= 805) return { state: "open", idx: mod - 540 };         // 9:00-13:25
+  if (mod < 1140) return { state: "lunch", idx: 265 };              // 13:25-19:00 休息
+  if (mod < 1440) return { state: "open", idx: 265 + (mod - 1140) };// 19:00-24:00
+  return { state: "open", idx: SESSION_MIN };
+}
+function stockInfo(stock) {
+  const d = new Date();
+  const dayNum = dayNumber(d);
+  const s = sessionIndexNow();
+  const prevClose = stockClose(stock, dayNum - 1);
+  let price, path, shown;
+  if (s.state === "pre") { price = prevClose; path = []; shown = 0; }
+  else { path = stockPath(stock, dayNum); shown = s.idx; price = path[Math.min(shown, SESSION_MIN)]; }
+  const chg = price - prevClose;
+  const chgPct = prevClose > 0 ? (chg / prevClose * 100) : 0;
+  let limit = "";
+  if (chgPct >= 9.9) limit = "up";
+  else if (chgPct <= -9.9) limit = "down";
+  return { price, prevClose, chg, chgPct, path, shown, state: s.state, limit };
+}
+function stockStatusText(state) {
+  if (state === "pre") return "休市・早上 9:00 開盤";
+  if (state === "lunch") return "休息・晚上 7:00 續盤";
+  return "盤中交易";
+}
+
+function enterStock() {
+  if (visiting) exitVisit();
+  stockReturnScene = state.scene;          // 記住從農場/牧場進來
+  if (state.scene === "ranch") { state.scene = ""; saveState(); }
+  stockOpen = true;
+  document.body.classList.add("is-stock");
+  renderStock();
+  if (stockTimer) clearInterval(stockTimer);
+  stockTimer = setInterval(function () { renderStock(); refreshStockBuyPrices(); }, 15000);
+}
+function exitStock() {
+  stockOpen = false;
+  document.body.classList.remove("is-stock");
+  closeStockBuy();
+  if (stockTimer) { clearInterval(stockTimer); stockTimer = null; }
+  ["#stockView", "#stockBuyPanel", "#stockBuyBackdrop"].forEach((sel) => {
+    const el = document.querySelector(sel); if (el) el.remove();
+  });
+  if (stockReturnScene === "ranch" && state.scene !== "ranch") { state.scene = "ranch"; saveState(); }
+  render();
+}
+
+function stockHold(code) {
+  state.stocks = state.stocks || {};
+  if (!state.stocks[code]) state.stocks[code] = { sh: 0, cost: 0 };
+  return state.stocks[code];
+}
+function stockQtyOf(code) { const n = Math.floor(stockQty[code]); return n >= 1 ? n : 1; }
+function stockPnl(code, price) {
+  const h = stockHold(code);
+  if (h.sh <= 0) return null;
+  const value = Math.round(price * h.sh), diff = value - Math.round(h.cost);
+  const pct = h.cost > 0 ? (diff / h.cost * 100) : 0;
+  return { value: value, diff: diff, pct: pct, up: diff >= 0 };
+}
+function pnlText(p) { return (p.up ? "+" : "") + p.diff.toLocaleString() + " (" + (p.up ? "+" : "") + p.pct.toFixed(1) + "%)"; }
+
+function openStockBuy(mode) {
+  if (mode) stockPanelMode = mode;
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  let bd = frame.querySelector("#stockBuyBackdrop");
+  if (!bd) {
+    bd = document.createElement("div"); bd.id = "stockBuyBackdrop";
+    bd.addEventListener("click", closeStockBuy); frame.appendChild(bd);
+  }
+  let panel = frame.querySelector("#stockBuyPanel");
+  if (!panel) { panel = document.createElement("div"); panel.id = "stockBuyPanel"; frame.appendChild(panel); }
+  bd.classList.add("is-open");
+  panel.classList.add("is-open");
+  renderStockBuy();
+}
+function closeStockBuy() {
+  const p = document.querySelector("#stockBuyPanel");
+  const b = document.querySelector("#stockBuyBackdrop");
+  if (p) p.classList.remove("is-open");
+  if (b) b.classList.remove("is-open");
+}
+function toggleStockBuy(mode) {
+  const p = document.querySelector("#stockBuyPanel");
+  if (p && p.classList.contains("is-open") && stockPanelMode === mode) { closeStockBuy(); return; }
+  openStockBuy(mode);
+}
+
+function renderStockBuy() {
+  const panel = document.querySelector("#stockBuyPanel");
+  if (!panel || !panel.classList.contains("is-open")) return;
+  const isSell = stockPanelMode === "sell";
+  const rows = STOCKS.map(function (s, i) {
+    const info = stockInfo(s);
+    const price = info.price;
+    const hold = stockHold(s.code);
+    const lots = Math.floor(hold.sh / 1000), odd = hold.sh % 1000;
+    const n = stockQtyOf(s.code);
+    const costLot = Math.round(price * n * 1000), costOdd = Math.round(price * n);
+    const cls = info.chg > 0 ? "up" : info.chg < 0 ? "down" : "";
+    const nowTag = i === stockSel ? '<span class="sbr-now">當前瀏覽</span>' : '';
+    return '<article class="sbr' + (i === stockSel ? ' is-now' : '') + '" data-row="' + i + '">' +
+      '<div class="sbr-head"><strong>' + s.name + '</strong>' + nowTag +
+        '<span class="sbr-price ' + cls + '">$' + price.toFixed(2) + '</span></div>' +
+      '<div class="sbr-have"><span>持有 ' + lots + ' 張 ' + odd + ' 股</span>' +
+        '<span class="sbr-value" data-val="' + s.code + '">市值 $' + Math.round(price * hold.sh).toLocaleString() +
+          (function(){ const p = stockPnl(s.code, price); return p ? ' <span class="sbr-pnl ' + (p.up ? 'up' : 'down') + '">' + pnlText(p) + '</span>' : ''; })() +
+        '</span></div>' +
+      '<div class="sbr-ctrl">' +
+        '<span class="sell-stepper">' +
+          '<button class="qty-btn" type="button" data-sq-dec="' + s.code + '" aria-label="減">−</button>' +
+          '<input class="qty-num" type="number" inputmode="numeric" min="1" data-sq="' + s.code + '" value="' + n + '" />' +
+          '<button class="qty-btn" type="button" data-sq-inc="' + s.code + '" aria-label="加">＋</button>' +
+        '</span>' +
+        '<button class="sbr-clear" type="button" data-sqclr="' + s.code + '">清空</button>' +
+        (isSell
+          ? '<button class="sbr-buy sell-lot" type="button" data-selllot="' + s.code + '">賣出整張</button>' +
+            '<button class="sbr-buy sell-odd" type="button" data-sellodd="' + s.code + '">賣出零股</button>'
+          : '<button class="sbr-buy lot" type="button" data-buylot="' + s.code + '">購買整張</button>' +
+            '<button class="sbr-buy odd" type="button" data-buyodd="' + s.code + '">購買零股</button>') +
+      '</div>' +
+      '<div class="sbr-cost" data-cost="' + s.code + '">' + (isSell ? '可得 ' : '') +
+        '整張 ' + n + ' 張＝$' + costLot.toLocaleString() + '　·　零股 ' + n + ' 股＝$' + costOdd.toLocaleString() + '</div>' +
+    '</article>';
+  }).join("");
+  panel.innerHTML =
+    '<div class="sbp-head"><h2>' + (isSell ? '賣股票' : '買股票') + '</h2>' +
+      '<span class="sbp-coin">金幣 ' + state.coins.toLocaleString() + '</span>' +
+      '<button class="sbp-close" type="button" id="sbpClose" aria-label="關閉">✕</button></div>' +
+    '<div class="sbp-list">' + rows + '</div>';
+  panel.querySelector("#sbpClose").addEventListener("click", closeStockBuy);
+  const nowRow = panel.querySelector('.sbr.is-now');
+  const list = panel.querySelector('.sbp-list');
+  if (nowRow && list) {
+    const rowTop = nowRow.offsetTop - list.offsetTop;               // 列在清單內容中的位置
+    const target = rowTop - (list.clientHeight - nowRow.clientHeight) / 2;  // 置中
+    list.scrollTop = Math.max(0, target);
+  }
+  function setQty(code, v) { stockQty[code] = Math.max(1, Math.floor(v) || 1); updateCostRow(code); }
+  function updateCostRow(code) {
+    const stk = STOCKS.find((x) => x.code === code);
+    const price = stockInfo(stk).price, n = stockQtyOf(code);
+    const el = panel.querySelector('[data-cost="' + code + '"]');
+    const inp = panel.querySelector('[data-sq="' + code + '"]');
+    if (inp) inp.value = n;
+    if (el) el.textContent = (stockPanelMode === "sell" ? "可得 " : "") + "整張 " + n + " 張＝$" + Math.round(price * n * 1000).toLocaleString() +
+      "　·　零股 " + n + " 股＝$" + Math.round(price * n).toLocaleString();
+  }
+  panel.querySelectorAll("[data-sq-dec]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqDec, stockQtyOf(b.dataset.sqDec) - 1)));
+  panel.querySelectorAll("[data-sq-inc]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqInc, stockQtyOf(b.dataset.sqInc) + 1)));
+  panel.querySelectorAll("[data-sq]").forEach((inp) => inp.addEventListener("input", () => setQty(inp.dataset.sq, Number(inp.value))));
+  panel.querySelectorAll("[data-sqclr]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqclr, 1)));
+  panel.querySelectorAll("[data-buylot]").forEach((b) => b.addEventListener("click", () => buyStock(b.dataset.buylot, stockQtyOf(b.dataset.buylot) * 1000)));
+  panel.querySelectorAll("[data-buyodd]").forEach((b) => b.addEventListener("click", () => buyStock(b.dataset.buyodd, stockQtyOf(b.dataset.buyodd))));
+  panel.querySelectorAll("[data-selllot]").forEach((b) => b.addEventListener("click", () => sellStock(b.dataset.selllot, stockQtyOf(b.dataset.selllot) * 1000)));
+  panel.querySelectorAll("[data-sellodd]").forEach((b) => b.addEventListener("click", () => sellStock(b.dataset.sellodd, stockQtyOf(b.dataset.sellodd))));
+}
+
+function refreshStockBuyPrices() {
+  const panel = document.querySelector("#stockBuyPanel");
+  if (!panel || !panel.classList.contains("is-open")) return;
+  STOCKS.forEach(function (s, i) {
+    const info = stockInfo(s), price = info.price, n = stockQtyOf(s.code);
+    const pe = panel.querySelector('.sbr[data-row="' + i + '"] .sbr-price');
+    if (pe) { pe.textContent = "$" + price.toFixed(2); pe.className = "sbr-price " + (info.chg > 0 ? "up" : info.chg < 0 ? "down" : ""); }
+    const ce = panel.querySelector('[data-cost="' + s.code + '"]');
+    if (ce) ce.textContent = (stockPanelMode === "sell" ? "可得 " : "") + "整張 " + n + " 張＝$" + Math.round(price * n * 1000).toLocaleString() +
+      "　·　零股 " + n + " 股＝$" + Math.round(price * n).toLocaleString();
+    const ve = panel.querySelector('[data-val="' + s.code + '"]');
+    if (ve) {
+      const p = stockPnl(s.code, price);
+      ve.innerHTML = "市值 $" + Math.round(price * stockHold(s.code).sh).toLocaleString() +
+        (p ? ' <span class="sbr-pnl ' + (p.up ? "up" : "down") + '">' + pnlText(p) + "</span>" : "");
+    }
+  });
+}
+
+function buyStock(code, shares) {
+  const stk = STOCKS.find((x) => x.code === code);
+  if (!stk || shares < 1) return;
+  const price = stockInfo(stk).price;
+  const cost = Math.round(price * shares);
+  if (state.coins < cost) { toast("金幣不夠，需要 $" + cost.toLocaleString() + "。"); return; }
+  state.coins -= cost;
+  const hold = stockHold(code);
+  hold.sh += shares; hold.cost += cost;
+  saveState();
+  renderHeader();
+  renderStockBuy();
+  const unit = shares >= 1000 && shares % 1000 === 0 ? (shares / 1000 + " 張") : (shares + " 股");
+  toast("買進 " + stk.name + " " + unit + "（$" + cost.toLocaleString() + "）");
+}
+
+function sellStock(code, shares) {
+  const stk = STOCKS.find((x) => x.code === code);
+  if (!stk || shares < 1) return;
+  const hold = stockHold(code);
+  if (hold.sh < shares) { toast("持股不足，目前 " + hold.sh + " 股。"); return; }
+  const price = stockInfo(stk).price;
+  const proceeds = Math.round(price * shares);
+  const costRemoved = hold.sh > 0 ? Math.round(hold.cost * shares / hold.sh) : 0;
+  const gain = proceeds - costRemoved;
+  state.coins += proceeds;
+  hold.sh -= shares; hold.cost -= costRemoved;
+  if (hold.sh <= 0) { hold.sh = 0; hold.cost = 0; }
+  saveState();
+  renderHeader();
+  renderStockBuy();
+  const unit = shares >= 1000 && shares % 1000 === 0 ? (shares / 1000 + " 張") : (shares + " 股");
+  const tail = gain >= 0 ? "賺 $" + gain.toLocaleString() : "賠 $" + Math.abs(gain).toLocaleString();
+  toast("賣出 " + stk.name + " " + unit + "（$" + proceeds.toLocaleString() + "，" + tail + "）");
+}
+
+function renderStock() {
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  let view = frame.querySelector("#stockView");
+  if (!view) { view = document.createElement("div"); view.id = "stockView"; frame.appendChild(view); }
+  const stock = STOCKS[stockSel] || STOCKS[0];
+  const info = stockInfo(stock);
+  const up = info.chg >= 0;
+  const sign = up ? "+" : "";
+  const tabs = STOCKS.map((s, i) => `<button type="button" class="stk-tab${i === stockSel ? " is-active" : ""}" data-stk="${i}">${s.name}</button>`).join("");
+  view.innerHTML =
+    '<div class="stk-tabs">' + tabs + '</div>' +
+    '<div class="stk-head">' +
+      '<div class="stk-name">' + stock.name + ' <small>' + stock.code + '</small></div>' +
+      '<div class="stk-price ' + (up ? "up" : "down") + '">' + info.price.toFixed(2) +
+        ' <span class="stk-chg">' + sign + info.chg.toFixed(2) + ' (' + sign + info.chgPct.toFixed(2) + '%)</span></div>' +
+      (info.limit === "up" ? '<div class="stk-limit up">🔴 漲停</div>' : info.limit === "down" ? '<div class="stk-limit down">🟢 跌停</div>' : '') +
+      '<div class="stk-status">' + stockStatusText(info.state) + '　昨收 ' + info.prevClose.toFixed(2) + '</div>' +
+    '</div>' +
+    '<div class="stk-body"><canvas id="stkChart" class="stk-chart"></canvas>' +
+    '<div class="stk-actions" id="stkActions">' +
+      ['all','am','pm'].map(function(r){var L={all:'全日',am:'早盤',pm:'夜盤'};return '<button type="button" class="stk-range'+(stockRange===r?' is-active':'')+'" data-stk-range="'+r+'">'+L[r]+'</button>';}).join('') +
+    '</div></div>';
+  view.querySelectorAll("[data-stk]").forEach((b) => b.addEventListener("click", () => { stockSel = Number(b.dataset.stk); renderStock(); }));
+  view.querySelectorAll("[data-stk-range]").forEach((b) => b.addEventListener("click", () => { stockRange = b.dataset.stkRange; renderStock(); }));
+  drawStockChart(stock, info);
+}
+
+function pointClock(i) { return i <= 265 ? (540 + i) : (1140 + (i - 265)); }
+function fmtClock(m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(Math.round(m) % 60).padStart(2, "0"); }
+function drawStockChart(stock, info) {
+  const cv = document.querySelector("#stkChart");
+  if (!cv) return;
+  const w = cv.clientWidth || 600, h = cv.clientHeight || 260;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  let tStart, tEnd, tick;
+  if (stockRange === "am") { tStart = 540; tEnd = 810; tick = 30; }
+  else if (stockRange === "pm") { tStart = 1140; tEnd = 1440; tick = 30; }
+  else { tStart = 540; tEnd = 1440; tick = 60; }
+  // 收集此時段、已發生的價格點
+  const pts = [];
+  if (info.path.length) {
+    for (let i = 0; i <= Math.min(info.shown, SESSION_MIN); i++) {
+      const c = pointClock(i);
+      if (c >= tStart && c <= tEnd) pts.push({ c: c, v: info.path[i] });
+    }
+  }
+  const padL = 48, padR = 10, padT = 10, padB = 22;
+  const x0 = padL, x1 = w - padR, y0 = padT, y1 = h - padB;
+  const x = (c) => x0 + (x1 - x0) * ((c - tStart) / (tEnd - tStart));
+  // Y 軸固定：跌停(-10%)~漲停(+10%)，平盤(昨收)置中
+  const lo = info.prevClose * 0.90, hi = info.prevClose * 1.10;
+  const y = (v) => y0 + (y1 - y0) * (1 - (v - lo) / Math.max(0.0001, hi - lo));
+  ctx.font = "10px sans-serif";
+  // Y 格線 + 左側價格
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + (hi - lo) * k / 4, py = y(v);
+    const isLim = (k === 0 || k === 4), isMid = (k === 2);
+    ctx.strokeStyle = isLim ? "#f0d2cf" : "#eef1f3"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, py); ctx.lineTo(x1, py); ctx.stroke();
+    ctx.fillStyle = k === 4 ? "#e0352b" : k === 0 ? "#1aa260" : "#7a7f85";
+    ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(v.toFixed(2), x0 - 4, py);
+  }
+  // X 時間格線 + 標籤
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  for (let t = tStart; t <= tEnd; t += tick) {
+    const px = x(t);
+    ctx.strokeStyle = "#f2f4f6"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, y1); ctx.stroke();
+    ctx.fillStyle = "#7a7f85"; ctx.fillText(tick >= 60 ? String(Math.floor(t / 60)) : fmtClock(t), px, h - 6);
+  }
+  // 昨收虛線
+  ctx.strokeStyle = "#b0b6bb"; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(x0, y(info.prevClose)); ctx.lineTo(x1, y(info.prevClose)); ctx.stroke(); ctx.setLineDash([]);
+  // L 軸線
+  ctx.strokeStyle = "#5f6368"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y1); ctx.lineTo(x1, y1); ctx.stroke();
+  if (!pts.length) {
+    ctx.fillStyle = "#9aa0a6"; ctx.font = "13px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("此時段尚無資料", (x0 + x1) / 2, (y0 + y1) / 2);
+    return;
+  }
+  // 價格線（紅漲綠跌；中午休市處斷開）
+  const up = info.chg >= 0;
+  ctx.strokeStyle = up ? "#e0352b" : "#1aa260"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.beginPath();
+  let prevC = null;
+  pts.forEach((p) => {
+    const px = x(p.c), py = y(p.v);
+    if (prevC === null || p.c - prevC > 40) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    prevC = p.c;
+  });
+  ctx.stroke();
+  // 現價點 + 浮動標籤
+  const last = pts[pts.length - 1];
+  const lastX = x(last.c), lastY = y(last.v);
+  ctx.fillStyle = up ? "#e0352b" : "#1aa260"; ctx.beginPath(); ctx.arc(lastX, lastY, 3.5, 0, 7); ctx.fill();
+  const tag = last.v.toFixed(2);
+  ctx.font = "11px sans-serif"; const tw = ctx.measureText(tag).width + 10;
+  const tagX = Math.min(lastX + 6, x1 - tw);
+  ctx.fillStyle = up ? "#e0352b" : "#1aa260"; ctx.fillRect(tagX, lastY - 9, tw, 18);
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tag, tagX + tw / 2, lastY);
+}
+
 function bindBgm() {
   const btn = document.querySelector("#bgmToggle");
   if (!btn) return;
@@ -1710,6 +2098,10 @@ function bindStaticEvents() {
         openLeaderboard();
         return;
       }
+      if (button.dataset.menuAction === "stock") {
+        enterStock();
+        return;
+      }
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
       button.classList.add("is-active");
       const labels = {
@@ -1770,6 +2162,12 @@ function bindStaticEvents() {
   const friendsClose = document.querySelector("#friendsClose");
   if (friendsClose) friendsClose.addEventListener("click", closeFriends);
   document.querySelector("#leaderboardClose")?.addEventListener("click", () => { const b = document.querySelector("#leaderboardBox"); if (b) b.hidden = true; });
+  document.querySelector('[data-action="stock-exit"]')?.addEventListener("click", exitStock);
+  document.querySelectorAll("[data-stock-act]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.stockAct === "buy") { toggleStockBuy("buy"); return; }
+    if (b.dataset.stockAct === "sell") { toggleStockBuy("sell"); return; }
+    toast("定期定額／收益情形會在下一階段開放。");
+  }));
   document.querySelectorAll("[data-visit-tool]").forEach((b) => b.addEventListener("click", () => {
     visitTool = (visitTool === b.dataset.visitTool) ? "" : b.dataset.visitTool;
     updateVisitToolUI();
@@ -3231,9 +3629,7 @@ function renderFarm() {
       if (!plot.unlocked) {
         return `
           <button class="plot locked" type="button" data-plot="${index}" data-slot="${index + 1}" title="未開墾">
-            <span class="plot-stake"${stakeStyle(index)} aria-hidden="true">🚩</span>
-            ${ICONS.lock}
-            <span class="plot-label">未開墾</span>
+            <span class="plot-stake plot-sign"${stakeStyle(index)} aria-hidden="true"><img src="./assets/sign-uncultivated.png" alt="" /></span>
           </button>
         `;
       }
@@ -4441,9 +4837,9 @@ function cropCardVisual(id) {
 /* ===== 牧場窗門四點框選器（GM + 牧場模式才出現）===== */
 const RANCH_OPENINGS_DEFAULT = [
   { n: "中央門", p: [[46.3,18.2],[53.8,18.2],[53.8,31.4],[46.4,31.3]] },
-  { n: "小牧場動物移動範圍", p: [[36.7,39],[62.6,39.5],[67.2,49],[32.1,49]] },
-  { n: "大牧場動物移動範圍", p: [[36.9,38.5],[62.8,39],[73.1,63.8],[26.8,63.4]] },
-  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[89.3,54.4],[10.8,55]] },
+  { n: "小牧場動物移動範圍", p: [[36.7,39],[62.3,39.3],[66.4,47.2],[32.9,47.7]] },
+  { n: "大牧場動物移動範圍", p: [[36.9,38.5],[62.8,39],[71.2,60.9],[27.5,60.9]] },
+  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[87.2,51.9],[12,51.9]] },
 ];
 function currentRangeName() {
   return (RANCH_LEVEL_NAMES[state.ranchLevel || 1] || "小牧場") + "動物移動範圍";
@@ -4647,6 +5043,7 @@ function renderRanchAnimals() {
       el = document.createElement("div");
       el.className = "ranch-animal";
       el.dataset.id = a.id;
+      el.dataset.type = a.type;
       const p = randPaddock();
       el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; el.style.zIndex = Math.round(p[1] * 10);
       el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
@@ -4751,8 +5148,8 @@ function openAnimalShop() {
   if (old) old.remove();
   const m = document.createElement("div");
   m.id = "animalShop"; m.className = "gm-box";
-  const cards = [["chicken", RANCH_ANIMALS.chicken], ["pig", RANCH_ANIMALS.pig]].map(([k, c]) =>
-    `<button type="button" class="animal-buy" data-buy="${k}"><span class="ab-emoji">${c.emoji}</span><span class="ab-name">${c.name}</span><span class="ab-info">產${c.product}・${c.value}金</span><span class="ab-price">🪙 ${c.price}</span></button>`
+  const cards = [["chicken", RANCH_ANIMALS.chicken], ["pig", RANCH_ANIMALS.pig], ["sheep", RANCH_ANIMALS.sheep], ["cow", RANCH_ANIMALS.cow]].map(([k, c]) =>
+    `<button type="button" class="animal-buy" data-buy="${k}"><span class="ab-top"><span class="ab-emoji">${c.img ? '<img src="' + c.img + '" alt="">' : c.emoji}</span><span class="ab-text"><span class="ab-name">${c.name}</span><span class="ab-info">產${c.product}・${c.value}金</span></span></span><span class="ab-price">🪙 ${c.price}</span></button>`
   ).join("");
   m.innerHTML = `<div class="animal-shop-card"><h2>🐄 買動物</h2><div class="animal-shop-grid">${cards}</div><p class="animal-shop-hint">買來會放進格柵內。流程：餵飼料 → 等產出 → 收成 → 洗澡 → 再餵。</p><button type="button" class="gm-close" id="animalShopClose">關閉</button></div>`;
   document.body.appendChild(m);

@@ -3009,8 +3009,8 @@ body {
 
 /* GM 標桿校正讀數 */
 .gm-stake-readout {
-  position: fixed;
-  top: 8px;
+  position: absolute;
+  top: 6%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
@@ -3342,12 +3342,15 @@ body.is-ranch .wfx-sky {
 .animal-shop-card { background: #fffaf0; border-radius: 14px; padding: 18px; max-width: 430px; width: 90%; box-shadow: 0 18px 50px rgba(0,0,0,0.35); }
 .animal-shop-card h2 { margin: 0 0 4px; }
 .animal-shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
-.animal-buy { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+.animal-buy { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
 .animal-buy:hover { background: #fff6e0; border-color: #e8b94a; }
-.ab-emoji { font-size: 30px; line-height: 1; }
+.ab-top { display: flex; align-items: center; gap: 10px; width: 100%; }
+.ab-emoji { font-size: 30px; line-height: 1; flex: none; }
+.ab-emoji img { width: 48px; height: 48px; object-fit: contain; display: block; }
+.ab-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .ab-name { font-weight: 900; }
 .ab-info { font-size: 0.72rem; color: var(--muted); }
-.ab-price { font-weight: 800; color: #b8841f; }
+.ab-price { font-weight: 800; color: #b8841f; text-align: center; border-top: 1px solid var(--line); padding-top: 6px; }
 .animal-shop-hint { font-size: 0.74rem; color: var(--muted); margin: 6px 0 12px; line-height: 1.4; }
 
 /* 倉庫出售數量步進器（內嵌在名稱與數量之間）*/
@@ -3493,3 +3496,80 @@ body.is-visiting.is-visit-ranch .bottom-tool-row .visit-tool-ranch { display: in
 /* 好友排行榜 */
 .lb-rank { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:#e3b53f; color:#2a2113; font-weight:900; flex:none; }
 .friend-row.lb-me { background: rgba(227,181,63,0.18); border-radius:10px; }
+
+/* 未開墾立牌（取代紅旗，依田大小縮放；GM 仍可拖曳/匯出） */
+.plot.locked { overflow: visible; clip-path: none; }
+/* 立牌大小：同一排一致、前後排依田大小放大（cqw 相對田框寬度） */
+.field-frame { container-type: inline-size; }
+.plot-stake.plot-sign { height: auto; overflow: visible; width: 3.4cqw; }   /* 第1排(後) */
+.plot-sign img { width: 100%; height: auto; display: block; }
+.farm-grid .plot:nth-child(n+5):nth-child(-n+8) .plot-sign { width: 3.9cqw; }    /* 第2排 */
+.farm-grid .plot:nth-child(n+9):nth-child(-n+12) .plot-sign { width: 4.5cqw; } /* 第3排 */
+.farm-grid .plot:nth-child(n+13) .plot-sign { width: 5.1cqw; }                  /* 第4排(前) */
+.plot-sign img { width: 100%; height: auto; display: block; }
+
+/* 牛放大 15% */
+.ranch-animal[data-type="cow"] .animal-img { width: clamp(38px, 4.83vw, 59px); }
+
+/* 股市場景 */
+body.is-stock #farmGrid { display: none; }
+body:not(.is-stock) #stockView, body:not(.is-stock) #stockBuyPanel, body:not(.is-stock) #stockBuyBackdrop { display: none !important; }
+body.is-stock .bottom-tool-row .farm-tool,
+body.is-stock .bottom-tool-row .ranch-tool,
+body.is-stock .bottom-tool-row .visit-tool-farm,
+body.is-stock .bottom-tool-row .visit-tool-ranch { display: none; }
+.bottom-tool-row .stock-tool { display: none; }
+body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
+#stockView { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; gap: 6px; padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: rgba(255,255,255,0.96); box-sizing: border-box; }
+.stk-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.stk-tab { flex: none; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: #f3ecd9; color: #5a4a22; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.stk-tab.is-active { background: #e3b53f; color: #2a2113; border-color: #e3b53f; }
+.stk-head { display: flex; flex-direction: column; gap: 2px; }
+.stk-name { font-weight: 900; font-size: 1.05rem; color: #2d281b; }
+.stk-name small { color: var(--muted); font-weight: 700; font-size: 0.7rem; }
+.stk-price { font-size: 1.5rem; font-weight: 900; }
+.stk-price.up { color: #e0352b; } .stk-price.down { color: #1aa260; }
+.stk-limit { display:inline-block; font-weight:900; font-size:0.85rem; }
+.stk-limit.up { color:#e0352b; } .stk-limit.down { color:#1aa260; }
+.stk-chg { font-size: 0.85rem; font-weight: 800; }
+.stk-status { font-size: 0.78rem; color: var(--muted); }
+.stk-body { flex: 1; display: flex; gap: 8px; min-height: 160px; }
+.stk-chart { flex: 1; height: 100%; min-width: 0; }
+.stk-actions { flex: none; width: clamp(80px, 22%, 130px); display: flex; flex-direction: column; gap: 8px; padding: 4px 0 4px 8px; border-left: 1px solid var(--line); }
+.stk-actions-hint { color: var(--muted); font-size: 0.78rem; text-align: center; }
+.stk-range { padding: 8px 4px; border: 1px solid var(--line); border-radius: 8px; background: #f3ecd9; color: #5a4a22; font-weight: 800; font-size: 0.85rem; cursor: pointer; }
+.stk-range.is-active { background: #e3b53f; color: #2a2113; border-color: #e3b53f; }
+
+/* ===== 股市：買進面板（左側跳窗，仿種子背包） ===== */
+#stockBuyBackdrop { position: absolute; inset: 0; z-index: 9; background: rgba(0,0,0,0.28); opacity: 0; pointer-events: none; transition: opacity .18s; }
+#stockBuyBackdrop.is-open { opacity: 1; pointer-events: auto; }
+#stockBuyPanel { position: absolute; z-index: 10; top: max(8px, env(safe-area-inset-top)); bottom: max(8px, env(safe-area-inset-bottom)); right: max(8px, env(safe-area-inset-right));
+  width: min(360px, 78%); background: #fffdf6; border: 2px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; overflow: hidden; transform: translateX(115%); transition: transform .2s ease; box-sizing: border-box; }
+#stockBuyPanel.is-open { transform: translateX(0); }
+.sbp-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: #f5ecd8; }
+.sbp-head h2 { margin: 0; font-size: 0.98rem; }
+.sbp-coin { margin-left: auto; font-size: 0.8rem; font-weight: 800; color: #b8860b; }
+.sbp-close { width: 26px; height: 26px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-weight: 900; cursor: pointer; color: var(--ink); padding: 0; }
+.sbp-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch; }
+.sbr { border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; background: #fff; }
+.sbr-head { display: flex; align-items: baseline; gap: 6px; }
+.sbr-head strong { font-size: 0.9rem; }
+.sbr-now { font-size: 0.66rem; font-weight: 800; color: #e0352b; border: 1px solid #f0bdb9; background: #fdeceb; border-radius: 6px; padding: 1px 5px; margin-left: 5px; }
+.sbr.is-now { border-color: #e3b53f; box-shadow: 0 0 0 2px #f7e6b8 inset; }
+.sbr-price { margin-left: auto; font-weight: 800; font-size: 0.86rem; color: #5f6368; }
+.sbr-price.up { color: #e0352b; }
+.sbr-price.down { color: #1aa260; }
+.sbr-have { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 0.74rem; color: var(--muted); margin: 3px 0 5px; }
+.sbr-value { font-weight: 800; color: #b8860b; }
+.sbr-pnl { font-weight: 800; margin-left: 2px; }
+.sbr-pnl.up { color: #e0352b; }
+.sbr-pnl.down { color: #1aa260; }
+.sbr-ctrl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sbr-buy { flex: 1 1 auto; min-width: 76px; height: 28px; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; font-size: 0.78rem; cursor: pointer; color: var(--ink); padding: 0 6px; }
+.sbr-buy.lot { background: #ffe7a8; }
+.sbr-buy.odd { background: #e7f0ff; }
+.sbr-buy.sell-lot { background: #ffd9d4; }
+.sbr-buy.sell-odd { background: #ffe9e6; }
+.sbr-clear { flex: 0 0 auto; height: 28px; border: 1px solid var(--line); border-radius: 8px; background: #f1efe9; font-weight: 800; font-size: 0.76rem; cursor: pointer; color: var(--ink); padding: 0 9px; }
+.sbr-cost { margin-top: 5px; font-size: 0.72rem; color: #555; text-align: center; }

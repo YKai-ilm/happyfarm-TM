@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-051" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-079" />
   </head>
   <body>
     <div class="farm-app">
@@ -24,6 +24,7 @@
           <button class="nav-button" type="button" data-menu-action="notice">常見問題</button>
           <button class="nav-button" type="button" data-menu-action="redeem">兌換碼</button>
           <button class="nav-button" type="button" data-menu-action="leaderboard">好友排行榜</button>
+          <button class="nav-button" type="button" data-menu-action="stock">股市</button>
         </nav>
 
         <div class="brand">
@@ -162,6 +163,7 @@
           </div>
 
           <div class="field-frame">
+            <div id="gmStakeReadout" class="gm-stake-readout" hidden>GM：拖曳田裡的標桿來校正位置</div>
             <div id="farmGrid" class="farm-grid"></div>
             <div id="weatherFx" class="wfx" aria-hidden="true">
               <img id="bld-windmill" class="scene-decor" src="./assets/decor/windmill-anim.webp" alt="" />
@@ -242,6 +244,11 @@
             <button class="tool-button visit-tool-ranch" data-visit-tool="rhelp" type="button" title="幫忙">🤝 幫忙</button>
             <button class="tool-button visit-tool-ranch" data-visit-tool="spray" type="button" title="亂噴水">💦 亂噴水</button>
             <button class="tool-button visit-tool-ranch" data-action="visit-exit" type="button" title="回家">回家</button>
+            <button class="tool-button stock-tool" data-action="stock-exit" type="button" title="離開股市">離開股市</button>
+            <button class="tool-button stock-tool" data-stock-act="buy" type="button" title="買股票">📈 買</button>
+            <button class="tool-button stock-tool" data-stock-act="sell" type="button" title="賣股票">📉 賣</button>
+            <button class="tool-button stock-tool" data-stock-act="dca" type="button" title="定期定額">🔁 定期定額</button>
+            <button class="tool-button stock-tool" data-stock-act="pnl" type="button" title="收益情形">💰 收益情形</button>
           </div>
         </section>
 
@@ -279,7 +286,6 @@
       <audio id="aud-fog" loop preload="auto" src="./assets/audio/weather-fog2.mp3"></audio>
       <audio id="aud-cloud" loop preload="auto" src="./assets/audio/weather-cloud.mp3"></audio>
       <audio id="aud-scorch" loop preload="auto" src="./assets/audio/weather-scorch.mp3"></audio>
-      <div id="gmStakeReadout" class="gm-stake-readout" hidden>GM：拖曳田裡的標桿來校正位置</div>
     </div>
 
     <div id="saveBox" class="save-box" hidden>
@@ -493,7 +499,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-051"></script>
+    <script src="./game.js?v=20260624-claude-079"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
