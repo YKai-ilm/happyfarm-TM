@@ -3633,3 +3633,12 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .slot-new { margin-top: 4px; }
 .slot-cancel { width: 100%; margin-top: 10px; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: #f1efe9; font-weight: 800; cursor: pointer; color: var(--ink); }
 #saveAsBtn { background: #cdebd2; }
+
+/* 選擇存檔：防溢出，下方輸入/按鈕換行 */
+.slot-new { flex-wrap: wrap; gap: 8px; }
+.slot-new #newSlotName { flex: 1 1 100%; min-width: 0; box-sizing: border-box; }
+.slot-new button { flex: 1 1 0; min-width: 0; white-space: nowrap; }
+.slot-row { flex-wrap: wrap; }
+.slot-info { flex: 1 1 100%; min-width: 0; }
+.slot-row .slot-use, .slot-row .slot-over, .slot-row .slot-del { flex: 1 1 auto; padding: 0 8px; }
+.slot-card { max-width: calc(100vw - 28px); }
