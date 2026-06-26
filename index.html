@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-096" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-098" />
   </head>
   <body>
     <div class="farm-app">
@@ -367,6 +367,10 @@
               <input id="addFriendInput" type="text" maxlength="20" placeholder="輸入好友碼或莊園名稱" />
               <button id="addFriendBtn" type="button">加好友</button>
             </div>
+            <div class="cf-all">
+              <div class="cf-all-head"><strong>所有玩家</strong><button id="loadAllPlayers" type="button" class="friend-visit">重新整理</button></div>
+              <div id="allPlayersList" class="friends-list"></div>
+            </div>
           </div>
         </div>
         <hr class="cf-sep" />
@@ -501,7 +505,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-096"></script>
+    <script src="./game.js?v=20260624-claude-098"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

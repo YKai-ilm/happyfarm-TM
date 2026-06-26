@@ -388,7 +388,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "621025441541",
   appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
 };
-let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false;
+let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0;
 let visiting = null; let visitRefreshTimer = null; let visitPendingBug = {}; let visitPendingSpray = {};
 let visitTool = "";
 let visitScene = "farm";
@@ -509,6 +509,7 @@ function loadState() {
 }
 
 function saveState() {
+  state.rev = Math.max(state.rev || 0, lastCloudRev || 0) + 1;
   state.savedAt = Date.now();
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   if (typeof cloudSync === "function") cloudSync();
@@ -575,11 +576,13 @@ async function cloudLoadAndMerge() {
   try {
     const ref = fbDb.collection("saves").doc(fbUser.uid);
     const snap = await ref.get();
-    const localAt = state.savedAt || 0;
+    const localRev = state.rev || 0;
+    let cloudExists = false, cloudRev = -1;
     if (snap.exists) {
       const data = snap.data() || {};
-      const cloudAt = data.savedAt || 0;
-      if (data.stateJson && cloudAt > localAt) {
+      cloudExists = true;
+      cloudRev = data.rev || 0;
+      if (data.stateJson && cloudRev > localRev) {   // 只有雲端版本較新才載入
         let cloud = null;
         try { cloud = JSON.parse(data.stateJson); } catch (_) {}
         if (cloud) {
@@ -591,25 +594,28 @@ async function cloudLoadAndMerge() {
       }
     }
     cloudReady = true;
-    cloudSaveNow();
+    lastCloudRev = Math.max(cloudRev, state.rev || 0);
+    // 關鍵：只有「雲端尚無存檔」或「本機版本較新」才上傳；剛開啟的舊資料不會覆蓋雲端
+    if (!cloudExists || (state.rev || 0) > cloudRev) cloudSaveNow();
     publishProfile(true);
     reconcileFriendEvents();
     if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
     if (!saveListener) {
       saveListener = ref.onSnapshot((s) => {
         if (!s.exists) return;
-        if (s.metadata.hasPendingWrites) return;   // 自己剛寫、伺服器還沒確認 → 跳過
+        if (s.metadata.hasPendingWrites) return;     // 自己剛寫、伺服器還沒確認 → 跳過
         const d = s.data() || {};
         if (!d.stateJson) return;
-        if ((d.savedAt || 0) === lastSelfSavedAt) return;  // 自己這筆的伺服器回音 → 跳過
-        if (pendingLocalSave) return;               // 本機有未存的改動，先別被覆蓋
-        if (visiting || stockOpen) return;          // 操作中不打斷，稍後再同步
-        // 走到這裡 = 另一台裝置寫到伺服器的最新版本 → 載入（最後寫入者為準，與裝置時鐘無關）
+        const incomingRev = d.rev || 0;
+        if (incomingRev <= (state.rev || 0)) return; // 核心保護：不比本機新就絕不覆蓋
+        if (pendingLocalSave) return;                // 本機有未存的改動，先別被覆蓋
+        if (visiting || stockOpen) return;           // 操作中不打斷
         try {
           const cloud = JSON.parse(d.stateJson);
           if (cloud) {
             localStorage.setItem(SAVE_KEY, JSON.stringify(cloud));
             state = loadState();
+            lastCloudRev = incomingRev;
             render();
             toast("已同步另一台裝置的最新進度。");
           }
@@ -633,8 +639,10 @@ async function cloudSaveNow() {
     await fbDb.collection("saves").doc(fbUser.uid).set({
       stateJson: JSON.stringify(state),
       savedAt: lastSelfSavedAt,
+      rev: state.rev || 0,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
+    lastCloudRev = state.rev || 0;
     pendingLocalSave = false;        // 已同步到雲端
   } catch (e) { console.warn("雲端儲存失敗", e); }
   publishProfile();  // 節流更新公開快照，讓好友拜訪看到接近即時的農場
@@ -739,6 +747,54 @@ function renderCloudAdd() {
   panel.hidden = false;
   const codeEl = document.querySelector("#myFriendCode");
   if (codeEl) codeEl.textContent = state.friendCode || "產生中…";
+  const loadBtn = document.querySelector("#loadAllPlayers");
+  if (loadBtn && !loadBtn.dataset.bound) { loadBtn.dataset.bound = "1"; loadBtn.addEventListener("click", listAllPlayers); }
+  listAllPlayers();
+}
+
+async function listAllPlayers() {
+  const list = document.querySelector("#allPlayersList");
+  if (!list) return;
+  if (!fbDb || !fbUser) { list.innerHTML = '<p class="item-empty">登入後顯示所有玩家。</p>'; return; }
+  list.innerHTML = '<p class="item-empty">載入中…</p>';
+  try {
+    const snap = await fbDb.collection("profiles").limit(50).get();
+    const mine = new Set((state.cloudFriends || []).map((f) => f.uid));
+    const rows = [];
+    snap.forEach((doc) => {
+      const d = doc.data() || {};
+      const uid = doc.id;
+      if (uid === fbUser.uid) return;
+      const name = (d.farmName || "農友");
+      const lv = d.level || 1;
+      const safeName = name.replace(/"/g, "");
+      const already = mine.has(uid);
+      rows.push('<div class="friend-row"><span class="friend-ava" aria-hidden="true">☁️</span>' +
+        '<span class="friend-name">' + name + ' · Lv.' + lv + '</span>' +
+        (already
+          ? '<span class="friend-visit" style="opacity:.55">已加</span>'
+          : '<button class="friend-visit" type="button" data-addp="' + uid + '" data-addn="' + safeName + '">加好友</button>') +
+        '</div>');
+    });
+    list.innerHTML = rows.length ? rows.join("") : '<p class="item-empty">目前沒有其他玩家。</p>';
+    list.querySelectorAll("[data-addp]").forEach((b) => b.addEventListener("click", () => addCloudFriendByUid(b.dataset.addp, b.dataset.addn)));
+  } catch (e) {
+    console.warn("列出玩家失敗", e);
+    list.innerHTML = '<p class="item-empty">讀取玩家清單失敗（可能權限不足）。</p>';
+  }
+}
+
+function addCloudFriendByUid(uid, name) {
+  if (!fbUser) { toast("請先登入。"); return; }
+  if (uid === fbUser.uid) { toast("這是你自己啦 😄"); return; }
+  state.cloudFriends = state.cloudFriends || [];
+  if (state.cloudFriends.some((f) => f.uid === uid)) { toast("已經是好友了。"); return; }
+  state.cloudFriends.push({ uid: uid, name: name || "農友" });
+  saveState();
+  renderCloudFriends();
+  listAllPlayers();
+  writeFriendEvent(uid, { type: "friendadd" });   // 雙向：對方也自動加回
+  toast("已加好友：" + (name || "農友") + "（對方也會自動看到你）");
 }
 
 function renderCloudFriends() {

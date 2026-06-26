@@ -3607,3 +3607,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
     text-overflow: ellipsis;
   }
 }
+
+/* 邀請好友：所有玩家清單 */
+.cf-all { margin-top: 10px; }
+.cf-all-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cf-all #allPlayersList, #allPlayersList { max-height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
