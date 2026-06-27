@@ -1762,6 +1762,22 @@ function gmApplyInv(s) {
   state.inventory = JSON.parse(JSON.stringify(s.inventory || {}));
   state.ranchProducts = JSON.parse(JSON.stringify(s.ranchProducts || {}));
 }
+function gmInvMax() {
+  Object.keys(CROPS).forEach((id) => { state.inventory[id] = 999; });
+  state.ranchProducts = state.ranchProducts || {};
+  Object.keys(RANCH_ANIMALS).forEach((t) => { state.ranchProducts[t] = 999; });
+  saveState(); render(); buildGmInvList(); toast("庫存全部調到最大。");
+}
+function gmSeedMax() {
+  state.seeds = state.seeds || {};
+  Object.keys(CROPS).forEach((id) => { state.seeds[id] = 999; });
+  saveState(); render(); buildGmSeedList(); toast("種子全部調到最大。");
+}
+function gmItemMax() {
+  state.items = state.items || {};
+  GM_ITEMS.forEach(([id]) => { state.items[id] = 999; });
+  saveState(); render(); buildGmItemList(); toast("道具全部調到最大。");
+}
 function gmInvConfirm() {
   gmInvSnap = gmCaptureInv();
   saveState();
@@ -2433,6 +2449,12 @@ function bindStaticEvents() {
       if (button.dataset.action === "ranch-sell") {
         openSellAnimal();
       }
+      if (button.dataset.action === "one-farm") {
+        oneClickFarm();
+      }
+      if (button.dataset.action === "one-ranch") {
+        oneClickRanch();
+      }
     });
   });
 
@@ -2621,18 +2643,21 @@ function bindStaticEvents() {
   }));
   document.querySelector("#gmInvOpen")?.addEventListener("click", () => { gmInvSnap = gmCaptureInv(); buildGmInvList(); hideGmBox("#gmEdit"); showGmBox("#gmInvBox"); });
   document.querySelector("#gmInvConfirm")?.addEventListener("click", gmInvConfirm);
+  document.querySelector("#gmInvMax")?.addEventListener("click", gmInvMax);
   document.querySelector("#gmInvRevert")?.addEventListener("click", gmInvRevert);
   document.querySelector("#gmInvBack")?.addEventListener("click", gmInvBack);
   const gmInvBox = document.querySelector("#gmInvBox");
   if (gmInvBox) gmInvBox.addEventListener("click", (e) => { if (e.target === gmInvBox) gmInvDismiss(); });
   document.querySelector("#gmItemOpen")?.addEventListener("click", () => { gmItemSnap = gmCaptureItems(); buildGmItemList(); hideGmBox("#gmEdit"); showGmBox("#gmItemBox"); });
   document.querySelector("#gmItemConfirm")?.addEventListener("click", gmItemConfirm);
+  document.querySelector("#gmItemMax")?.addEventListener("click", gmItemMax);
   document.querySelector("#gmItemRevert")?.addEventListener("click", gmItemRevert);
   document.querySelector("#gmItemBack")?.addEventListener("click", gmItemBack);
   const gmItemBox = document.querySelector("#gmItemBox");
   if (gmItemBox) gmItemBox.addEventListener("click", (e) => { if (e.target === gmItemBox) gmItemDismiss(); });
   document.querySelector("#gmSeedOpen")?.addEventListener("click", () => { gmSeedSnap = gmCaptureSeeds(); buildGmSeedList(); hideGmBox("#gmEdit"); showGmBox("#gmSeedBox"); });
   document.querySelector("#gmSeedConfirm")?.addEventListener("click", gmSeedConfirm);
+  document.querySelector("#gmSeedMax")?.addEventListener("click", gmSeedMax);
   document.querySelector("#gmSeedRevert")?.addEventListener("click", gmSeedRevert);
   document.querySelector("#gmSeedBack")?.addEventListener("click", gmSeedBack);
   const gmSeedBox = document.querySelector("#gmSeedBox");
@@ -2648,6 +2673,8 @@ function bindStaticEvents() {
     if (inp) inp.value = "";
   });
   document.querySelector("#slotCancel")?.addEventListener("click", cancelSlotPicker);
+  // 工作面板內容點擊不冒泡到「點空白關閉面板」，避免買一個就關閉
+  if (elements.tabContent) elements.tabContent.addEventListener("click", (e) => e.stopPropagation());
   document.querySelector("#switchSlotBtn")?.addEventListener("click", () => {
     if (!fbUser) { toast("請先登入。"); return; }
     if (!accountData) { toast("雲端載入中，稍候再試。"); return; }
@@ -4489,7 +4516,7 @@ function renderOrders() {
     .join("");
 
   elements.tabContent.querySelectorAll("[data-complete-order]").forEach((button) => {
-    button.addEventListener("click", () => completeOrder(button.dataset.completeOrder));
+    button.addEventListener("click", (e) => { e.stopPropagation(); completeOrder(button.dataset.completeOrder); });
   });
 }
 
@@ -4779,16 +4806,18 @@ function waterPlot(index) {
 
 function harvestPlot(index) {
   const plot = state.plots[index];
-  if (!plot.crop) {
-    toast("這格還沒有作物。");
-    return;
-  }
+  if (!plot.crop) { toast("這格還沒有作物。"); return; }
+  if (getPlotProgress(plot) < 1) { toast("再等一下，作物還沒成熟。"); return; }
+  const msg = doHarvest(index);
+  saveState();
+  render();
+  if (fbUser) publishProfile(true);
+  if (msg) toast(msg);
+}
 
-  if (getPlotProgress(plot) < 1) {
-    toast("再等一下，作物還沒成熟。");
-    return;
-  }
-
+function doHarvest(index) {
+  const plot = state.plots[index];
+  if (!plot.crop) return "";
   const crop = CROPS[plot.crop];
   const bonus = plot.watered && Math.random() < 0.24 ? 1 : 0;
   const soakMin = (plot.soakMs || 0) / 60000;
@@ -4816,14 +4845,69 @@ function harvestPlot(index) {
   const seasons = crop.seasons || 1;
   if (season + 1 < seasons) {
     state.plots[index] = { ...plot, plantedAt: Date.now(), season: season + 1, soakMs: 0, frostMs: 0, typhoonHalf: false, pest: false, weed: false, pestUsed: false, pausedMs: 0, hazardSince: 0, watered: false };
-    toast(`${crop.name} 收成 ${amount} 個，還會再長第 ${season + 2} 季。${penaltyNote}`);
-  } else {
-    state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, thief: null, pest: false, weed: false, pausedMs: 0, hazardSince: 0, watered: false };
-    toast(`${crop.name} 收成 ${amount} 個。${penaltyNote}`);
+    return `${crop.name} 收成 ${amount} 個，還會再長第 ${season + 2} 季。${penaltyNote}`;
   }
-  saveState();
-  render();
+  state.plots[index] = { ...plot, crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, stolenPct: 0, thief: null, pest: false, weed: false, pestUsed: false, pausedMs: 0, hazardSince: 0, watered: false };
+  return `${crop.name} 收成 ${amount} 個。${penaltyNote}`;
+}
+
+function oneClickFarm() {
+  if (state.scene === "ranch" || visiting) { toast("請在農場模式使用。"); return; }
+  let count = 0;
+  (state.plots || []).forEach((p) => {
+    if (!p.unlocked || !p.crop) return;
+    if (p.pest || p.weed) count++;
+    if (getPlotProgress(p) >= 1) count++;
+    else if (!p.watered) count++;
+  });
+  if (!count) { toast("目前沒有可一鍵完成的動作。"); return; }
+  const cost = count * 20;
+  if (state.coins < cost) { toast("金幣不夠，一鍵完成需要 " + cost + " 金幣。"); return; }
+  if (!window.confirm("一鍵完成 " + count + " 個動作（除蟲拔草／澆水／收成），共收 " + cost + " 金幣，確定？")) return;
+  state.coins -= cost;
+  (state.plots || []).forEach((p, i) => {
+    if (!p.unlocked || !p.crop) return;
+    if (p.pest || p.weed) {
+      if (p.hazardSince) { p.pausedMs = (p.pausedMs || 0) + (Date.now() - p.hazardSince); p.hazardSince = 0; }
+      p.pest = false; p.weed = false; p.pestBy = null;
+    }
+    if (getPlotProgress(p) >= 1) { doHarvest(i); }
+    else if (!p.watered) { p.watered = true; }
+  });
+  saveState(); render();
   if (fbUser) publishProfile(true);
+  toast("一鍵完成 " + count + " 個動作，花了 " + cost + " 金幣。");
+}
+
+function oneClickRanch() {
+  if (state.scene !== "ranch" || visiting) { toast("請在牧場模式使用。"); return; }
+  const list = state.ranchAnimals || [];
+  const now = Date.now();
+  let count = 0;
+  list.forEach((a) => {
+    const cfg = RANCH_ANIMALS[a.type]; if (!cfg) return;
+    if (a.dirty) count++;
+    else if (a.fedAt && now - a.fedAt >= cfg.growMs) count++;
+    else if (!a.fedAt) count++;
+  });
+  if (!count) { toast("目前沒有可一鍵完成的動作。"); return; }
+  const cost = count * 20;
+  if (state.coins < cost) { toast("金幣不夠，一鍵完成需要 " + cost + " 金幣。"); return; }
+  if (!window.confirm("一鍵完成 " + count + " 個動作（餵食／洗澡／收成），共收 " + cost + " 金幣，確定？")) return;
+  state.coins -= cost;
+  list.forEach((a) => {
+    const cfg = RANCH_ANIMALS[a.type]; if (!cfg) return;
+    if (a.dirty) { a.dirty = false; a.dirtyBy = null; }
+    else if (a.fedAt && now - a.fedAt >= cfg.growMs) {
+      const y = 3 + Math.floor(Math.random() * 3);
+      state.ranchProducts = state.ranchProducts || {};
+      state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + y;
+      a.produced = (a.produced || 0) + 1; a.fedAt = 0; a.dirty = true; a.dirtyBy = "system";
+    } else if (!a.fedAt) { a.fedAt = now; }
+  });
+  saveState(); render();
+  if (fbUser) publishProfile(true);
+  toast("一鍵完成 " + count + " 個動作，花了 " + cost + " 金幣。");
 }
 
 function restOneDay() {

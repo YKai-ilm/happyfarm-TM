@@ -3642,3 +3642,4 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .slot-info { flex: 1 1 100%; min-width: 0; }
 .slot-row .slot-use, .slot-row .slot-over, .slot-row .slot-del { flex: 1 1 auto; padding: 0 8px; }
 .slot-card { max-width: calc(100vw - 28px); }
+.gm-foot-max { background: #cfe6d3; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; cursor: pointer; color: var(--ink); }

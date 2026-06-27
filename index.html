@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-104" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-106" />
   </head>
   <body>
     <div class="farm-app">
@@ -208,6 +208,7 @@
               <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
               換種子
             </button>
+            <button class="tool-button farm-tool" data-action="one-farm" type="button" title="一鍵完成">⚡ 一鍵完成</button>
             <button class="tool-button ranch-tool" data-action="ranch-exit" type="button" title="回農場">
               回農場
             </button>
@@ -227,6 +228,7 @@
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               買動物
             </button>
+            <button class="tool-button ranch-tool" data-action="one-ranch" type="button" title="一鍵完成">⚡ 一鍵完成</button>
             <button class="tool-button ranch-tool" data-action="ranch-sell" type="button" title="賣動物">
               <span class="button-icon" aria-hidden="true" data-icon="coin"></span>
               賣動物
@@ -500,6 +502,7 @@
         <div class="gm-foot">
           <button id="gmInvConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmInvRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmInvMax" type="button" class="gm-foot-max">最大</button>
           <button id="gmInvBack" type="button" class="gm-foot-back">返回</button>
         </div>
       </div>
@@ -512,6 +515,7 @@
         <div class="gm-foot">
           <button id="gmItemConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmItemRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmItemMax" type="button" class="gm-foot-max">最大</button>
           <button id="gmItemBack" type="button" class="gm-foot-back">返回</button>
         </div>
       </div>
@@ -524,6 +528,7 @@
         <div class="gm-foot">
           <button id="gmSeedConfirm" type="button" class="gm-foot-ok">確定</button>
           <button id="gmSeedRevert" type="button" class="gm-foot-undo">回復</button>
+          <button id="gmSeedMax" type="button" class="gm-foot-max">最大</button>
           <button id="gmSeedBack" type="button" class="gm-foot-back">返回</button>
         </div>
       </div>
@@ -532,7 +537,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-104"></script>
+    <script src="./game.js?v=20260624-claude-106"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
