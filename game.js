@@ -6267,14 +6267,22 @@ function renderMailSend() {
   const box = document.querySelector("#mailBox"); if (!box) return;
   const admin = isAdmin();
   const friendOpts = (state.cloudFriends || []).map((f) => '<option value="' + (f.name || "").replace(/"/g, "") + '">' + (f.name || "好友") + '</option>').join("");
-  const adminSel = admin ? (
-    '<div class="mail-row"><label>類型</label><select id="mailType">' +
-    '<option value="player"' + (mailRecipientType === "player" ? " selected" : "") + '>一般收件人</option>' +
-    '<option value="admin"' + (mailRecipientType === "admin" ? " selected" : "") + '>管-玩家</option>' +
-    '<option value="broadcast"' + (mailRecipientType === "broadcast" ? " selected" : "") + '>全服公告</option>' +
-    '</select></div>') : "";
-  const toRow = '<div class="mail-row"><label>收件人</label><input id="mailTo" type="text" maxlength="20" placeholder="輸入玩家名稱" />' +
-    '<select id="mailToPick"><option value="">好友…</option>' + friendOpts + '</select></div>';
+  const adminSel = "";
+  let toRow;
+  if (admin) {
+    // 管理員：收件人那排＝類型下拉 + 名稱(公告時隱藏)
+    toRow = '<div class="mail-row"><label>收件人</label>' +
+      '<select id="mailType">' +
+        '<option value="player"' + (mailRecipientType === "player" ? " selected" : "") + '>一般收件人</option>' +
+        '<option value="admin"' + (mailRecipientType === "admin" ? " selected" : "") + '>管-玩家</option>' +
+        '<option value="broadcast"' + (mailRecipientType === "broadcast" ? " selected" : "") + '>全服公告</option>' +
+      '</select>' +
+      '<input id="mailTo" type="text" maxlength="20" placeholder="玩家名稱"' + (mailRecipientType === "broadcast" ? ' style="display:none"' : '') + ' /></div>';
+  } else {
+    toRow = '<div class="mail-row"><label>收件人</label>' +
+      '<input id="mailTo" type="text" maxlength="20" placeholder="輸入玩家名稱" />' +
+      '<select id="mailToPick"><option value="">好友…</option>' + friendOpts + '</select></div>';
+  }
   const rewardBox = admin ? (
     '<button type="button" id="mailRewardToggle" class="mail-reward-toggle">＋ 附加獎勵／兌換碼</button>' +
     '<div id="mailRewardArea" class="mail-reward-area"' + (mailRewardOpen ? "" : " hidden") + '>' +
@@ -6282,8 +6290,7 @@ function renderMailSend() {
       '<div class="mail-row"><label>兌換碼</label><input id="mailRwCode" type="text" placeholder="可填現有兌換碼" /></div>' +
     '</div>') : "";
   box.innerHTML = '<div class="mail-card"><h2>✉️ 寄信</h2>' +
-    adminSel +
-    '<div id="mailToWrap">' + toRow + '</div>' +
+    toRow +
     '<div class="mail-row"><label>主旨</label><input id="mailSubject" type="text" maxlength="40" placeholder="主旨" /></div>' +
     '<textarea id="mailBody" maxlength="500" placeholder="信件內容…"></textarea>' +
     rewardBox +
@@ -6294,8 +6301,7 @@ function renderMailSend() {
   const pick = box.querySelector("#mailToPick");
   if (pick) pick.addEventListener("change", () => { const v = pick.value; if (v) { const to = box.querySelector("#mailTo"); if (to) to.value = v; } });
   const typeSel = box.querySelector("#mailType");
-  if (typeSel) typeSel.addEventListener("change", () => { mailRecipientType = typeSel.value; const tw = box.querySelector("#mailToWrap"); if (tw) tw.style.display = mailRecipientType === "broadcast" ? "none" : ""; });
-  if (typeSel) { const tw = box.querySelector("#mailToWrap"); if (tw) tw.style.display = mailRecipientType === "broadcast" ? "none" : ""; }
+  if (typeSel) typeSel.addEventListener("change", () => { mailRecipientType = typeSel.value; const to = box.querySelector("#mailTo"); if (to) to.style.display = mailRecipientType === "broadcast" ? "none" : ""; });
   const rt = box.querySelector("#mailRewardToggle");
   if (rt) rt.addEventListener("click", () => { mailRewardOpen = !mailRewardOpen; const a = box.querySelector("#mailRewardArea"); if (a) a.hidden = !mailRewardOpen; });
 }
