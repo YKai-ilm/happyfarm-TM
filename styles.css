@@ -1422,7 +1422,7 @@ body {
 .work-panel {
   width: min(430px, 42vw);
 }
-.work-panel[data-tab="upgrades"] { width: min(560px, 88vw); }
+.work-panel[data-tab="upgrades"] { width: min(700px, 94vw); }
 
 .work-panel .tabs {
   display: none;
@@ -2366,12 +2366,17 @@ body {
 /* ===== GM / 金手指模式 ===== */
 .gm-box {
   position: fixed; inset: 0; z-index: 70;
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px; background: rgba(18, 28, 18, 0.62);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(18, 28, 18, 0.62);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
+.gm-box > .gm-card, .gm-box > .animal-shop-card { margin: auto; }
+.animal-shop-card { max-height: none; }
+.animal-shop-grid { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .gm-box[hidden] { display: none; }
 .gm-card {
-  width: min(420px, 94vw); background: #20302a; color: #eef3ee;
+  width: min(520px, 96vw); background: #20302a; color: #eef3ee;
   border: 2px solid #e8b94a; border-radius: 16px; padding: 20px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
 }
@@ -3230,10 +3235,14 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 .thief-person {
-  font-size: clamp(28px, 8vw, 46px);
-  line-height: 1;
+  display: block;
+  width: 5cqw;        /* 第1排(後) */
+  height: auto;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
 }
+.farm-grid .plot:nth-child(n+5):nth-child(-n+8) .thief-person { width: 5.8cqw; }   /* 第2排 */
+.farm-grid .plot:nth-child(n+9):nth-child(-n+12) .thief-person { width: 6.6cqw; }  /* 第3排 */
+.farm-grid .plot:nth-child(n+13) .thief-person { width: 7.4cqw; }                  /* 第4排(前) */
 @keyframes thief-bob { 0%, 100% { transform: translate(-50%, -100%); } 50% { transform: translate(-50%, -106%); } }
 .plot.has-thief { box-shadow: inset 0 0 0 2px rgba(176, 58, 46, 0.7); }
 
@@ -3268,6 +3277,7 @@ body {
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
+  touch-action: none;
   z-index: 0;
 }
 
@@ -3306,6 +3316,8 @@ body.is-ranch { --scene-image: url("./assets/ranch/ranch-s-feed-grass.jpg"); }
 /* 進牧場後清空農場上的東西 */
 body.is-ranch #farmGrid { display: none; }
 body.is-ranch #bld-windmill { display: none !important; }
+body.is-ranch #bld-doghouse { display: none !important; }
+#bld-doghouse { width: 8.2%; left: 68.2%; top: 35%; }
 /* 牧場內關閉穀倉「進入牧場」熱區 */
 body.is-ranch .barn-hotspot { display: none !important; }
 /* 牧場：天氣差底圖已夠暗，中央門不再加壓頂烏雲變暗 */
@@ -3418,7 +3430,7 @@ body.gm-noselect #gmStakeReadout { display: none !important; }
 
 /* 開發：農地建設 / 牧場建設 兩欄 */
 .build-split .inv-col { display: flex; flex-direction: column; gap: 10px; }
-.build-split .ranchbuild-col { border-left: 1px solid var(--line); padding-left: 10px; }
+.build-split .ranchbuild-col, .build-split .farmbuild-col { border-left: 1px solid var(--line); padding-left: 10px; }
 .build-split .panel-head h2 { margin: 0 0 2px; font-size: 1rem; }
 @media (max-width: 640px) {
   .build-split { flex-direction: column; }
@@ -3428,7 +3440,7 @@ body.gm-noselect #gmStakeReadout { display: none !important; }
 /* GM 牧場底圖切換 */
 .gm-ranch-toggle { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: rgba(255,255,255,0.06); border-radius: 10px; }
 .gm-ranch-label { color: #f4e9c9; font-weight: 800; font-size: 0.9rem; }
-.gm-mini { flex: 1; padding: 8px 0; border: 1px solid rgba(255,244,213,0.35); border-radius: 8px; background: rgba(40,60,40,0.6); color: #f4e9c9; font-weight: 800; cursor: pointer; }
+.gm-mini { flex: 1; min-width: 0; padding: 8px 4px; border: 1px solid rgba(255,244,213,0.35); border-radius: 8px; background: rgba(40,60,40,0.6); color: #f4e9c9; font-weight: 800; cursor: pointer; white-space: nowrap; font-size: 0.92rem; }
 .gm-mini:hover { background: rgba(60,90,60,0.7); }
 .gm-mini.is-active { background: #e3b53f; color: #2a2113; border-color: #e3b53f; }
 .gm-inv-divider { margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed rgba(255,244,213,0.3); color: #f4e9c9; font-weight: 800; font-size: 0.85rem; }
@@ -3643,3 +3655,42 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .slot-row .slot-use, .slot-row .slot-over, .slot-row .slot-del { flex: 1 1 auto; padding: 0 8px; }
 .slot-card { max-width: calc(100vw - 28px); }
 .gm-foot-max { background: #cfe6d3; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; cursor: pointer; color: var(--ink); }
+
+/* 一鍵完成等：自訂確認框（靠近底部工具列，非瀏覽器置中） */
+#actConfirm { position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px calc(108px + env(safe-area-inset-bottom)); background: rgba(0,0,0,0.28); }
+.act-confirm-card { width: min(340px, 92%); background: #fffdf6; border: 2px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: 0 12px 34px rgba(0,0,0,0.3); text-align: center; }
+.act-confirm-card p { margin: 0 0 12px; font-weight: 700; line-height: 1.5; }
+.act-confirm-card b { color: #b8860b; }
+.act-confirm-btns { display: flex; gap: 10px; }
+.act-confirm-btns button { flex: 1 1 0; height: 40px; border: 1px solid var(--line); border-radius: 10px; font-weight: 800; cursor: pointer; color: var(--ink); }
+#actYes { background: #e8b94a; }
+#actNo { background: #f1efe9; }
+
+/* 狗窩 / 養狗面板 */
+.dog-card { width: min(380px, 94vw); margin: auto; background: #fffdf6; border-radius: 16px; padding: 16px; box-shadow: 0 18px 44px rgba(0,0,0,0.3); box-sizing: border-box; }
+.dog-card h2 { margin: 0 0 8px; }
+.dog-empty-hint { color: var(--muted); font-size: 0.86rem; margin: 0 0 10px; }
+.dog-reqs { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-weight: 700; font-size: 0.86rem; }
+.dog-primary { width: 100%; height: 42px; border: 0; border-radius: 10px; background: #e8b94a; color: #2a2113; font-weight: 800; cursor: pointer; margin-bottom: 8px; }
+.dog-primary:disabled { opacity: 0.55; cursor: default; }
+.dog-close { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: #f1efe9; font-weight: 800; cursor: pointer; color: var(--ink); margin-top: 10px; }
+.dog-main { display: flex; gap: 12px; align-items: center; }
+.dog-portrait { flex: 0 0 auto; width: 110px; height: 110px; border: 2px solid var(--line); border-radius: 14px; background: #f3ecd9; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.dog-portrait img { width: 100%; height: 100%; object-fit: contain; }
+.dog-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.dog-name-row { display: flex; gap: 6px; }
+.dog-name-row input { flex: 1 1 auto; min-width: 0; height: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font-weight: 700; }
+.dog-name-row button { flex: 0 0 auto; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: #ffe7a8; font-weight: 800; cursor: pointer; padding: 0 10px; }
+.dog-bar { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+.dog-bar-label { flex: 0 0 auto; width: 3.2em; color: #555; font-weight: 700; }
+.dog-bar-track { flex: 1 1 auto; height: 12px; background: #eee1c4; border-radius: 999px; overflow: hidden; }
+.dog-bar-fill { display: block; height: 100%; border-radius: 999px; }
+.dog-bar-fill.sat { background: #e0a035; }
+.dog-bar-fill.hap { background: #5fb36a; }
+.dog-bar-num { flex: 0 0 auto; width: 2.6em; text-align: right; font-weight: 800; }
+.dog-actions { display: flex; gap: 8px; margin-top: 14px; }
+.dog-actions button { flex: 1 1 0; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #f5ecd8; font-weight: 800; cursor: pointer; color: var(--ink); }
+
+/* GM 狗窩列：可換行 + 對照說明 */
+.gm-dog-toggle { flex-wrap: wrap; row-gap: 5px; }
+.gm-dog-legend { margin: 4px 0 0; font-size: 0.68rem; line-height: 1.5; color: #cdbf9a; }

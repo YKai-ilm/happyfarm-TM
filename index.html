@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-106" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-142" />
   </head>
   <body>
     <div class="farm-app">
@@ -166,7 +166,8 @@
             <div id="gmStakeReadout" class="gm-stake-readout" hidden>GM：拖曳田裡的標桿來校正位置</div>
             <div id="farmGrid" class="farm-grid"></div>
             <div id="weatherFx" class="wfx" aria-hidden="true">
-              <img id="bld-windmill" class="scene-decor" src="./assets/decor/windmill-anim.webp" alt="" />
+              <img id="bld-windmill" class="scene-decor" src="./assets/decor/windmill-anim.webp" alt="" draggable="false" />
+              <img id="bld-doghouse" class="scene-decor" src="./assets/decor/doghouse.png" alt="" draggable="false" />
               <div class="wfx-sky">
               <span class="wfx-clouds"></span>
               <span class="wfx-puffs"><i></i><i></i><i></i><i></i><i></i></span>
@@ -228,11 +229,11 @@
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               買動物
             </button>
-            <button class="tool-button ranch-tool" data-action="one-ranch" type="button" title="一鍵完成">⚡ 一鍵完成</button>
             <button class="tool-button ranch-tool" data-action="ranch-sell" type="button" title="賣動物">
               <span class="button-icon" aria-hidden="true" data-icon="coin"></span>
               賣動物
             </button>
+            <button class="tool-button ranch-tool" data-action="one-ranch" type="button" title="一鍵完成">⚡ 一鍵完成</button>
             <button class="tool-button visit-tool-farm" data-visit-go="ranch" type="button" title="參觀牧場">參觀牧場</button>
             <button class="tool-button visit-tool-farm" data-visit-tool="steal" type="button" title="偷菜">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
@@ -449,6 +450,17 @@
             <button type="button" class="gm-mini" data-ranch-set="2">大</button>
             <button type="button" class="gm-mini" data-ranch-set="3">超大</button>
           </div>
+          <div class="gm-ranch-toggle gm-dog-toggle" role="group" aria-label="狗窩圖">
+            <span class="gm-ranch-label">狗窩</span>
+            <button type="button" class="gm-mini" data-dog-set="none">清空</button>
+            <button type="button" class="gm-mini" data-dog-set="empty">空</button>
+            <button type="button" class="gm-mini" data-dog-set="wait">等待</button>
+            <button type="button" class="gm-mini" data-dog-set="sleep">睡覺</button>
+            <button type="button" class="gm-mini" data-dog-set="enemy">敵人</button>
+            <button type="button" class="gm-mini" data-dog-set="walk">散步</button>
+            <button type="button" class="gm-mini" data-dog-set="">自動</button>
+          </div>
+          <p class="gm-dog-legend">清空＝沒買狗窩｜空＝有狗窩未養狗｜等待＝飽食度&gt;0｜睡覺＝飽食度=0｜敵人＝有小偷｜散步＝(待設計)｜自動＝依實際狀態</p>
           <button id="gmExitBtn" type="button" class="gm-danger">關閉 GM 模式</button>
         </div>
         <button id="gmPanelClose" type="button" class="gm-close">開/關視窗（保留 GM）</button>
@@ -537,7 +549,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-106"></script>
+    <script src="./game.js?v=20260624-claude-142"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
