@@ -583,10 +583,11 @@ const GM_PASSWORDS = ["70629", "ykai"];
   ["initFirebase", initFirebase],
   ["render", render],
   ["fitToolbar", fitToolbar],
+  ["fitField", fitField],
   ["setupCloudDrag", setupCloudDrag],
   ["setupBuildingDrag", setupBuildingDrag],
 ].forEach(([nm, fn]) => { try { fn(); } catch (e) { console.error("初始化失敗:", nm, e); } });
-if (window.addEventListener) window.addEventListener("resize", fitToolbar);
+if (window.addEventListener) window.addEventListener("resize", function(){ fitToolbar(); fitField(); });
 window.setInterval(tick, 1000);
 window.setInterval(wanderRanchAnimals, 500);
 
@@ -1283,7 +1284,7 @@ function renderVisitingRanch() {
       el.dataset.id = "v" + i;
       el.dataset.type = a.type;
       const p = randPaddock(rangeName);
-      el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; el.style.zIndex = Math.round(p[1] * 10);
+      el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; setAnimalZ(el, p[1]);
       el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
       el.addEventListener("click", () => handleVisitRanchClick(i));
       box.appendChild(el);
@@ -5807,6 +5808,14 @@ function randPaddock(rangeName) {
   return [Number(x.toFixed(1)), Number(y.toFixed(1))];
 }
 
+function setAnimalZ(el, topPct) {
+  // 以「腳底(底緣)」決定前後：底緣越下面 z 越大(越前面)，避免大隻動物(牛/羊)壓到前面小動物
+  let half = 0;
+  const fr = document.querySelector(".field-frame");
+  if (el.offsetHeight && fr && fr.offsetHeight) half = (el.offsetHeight / 2) / fr.offsetHeight * 100;
+  el.style.zIndex = Math.round((topPct + half) * 10);
+}
+
 function renderRanchAnimals() {
   const frame = document.querySelector(".field-frame");
   if (!frame) return;
@@ -5862,12 +5871,13 @@ function wanderRanchAnimals() {
   }
   const now = Date.now();
   box.querySelectorAll(".ranch-animal").forEach((el) => {
+    setAnimalZ(el, parseFloat(el.style.top) || 50);   // 每次重算前後層級(含未移動者)
     let next = Number(el.dataset.nextMove || 0);
     if (!next) { el.dataset.nextMove = now + 300 + Math.random() * 3500; return; }  // 初次錯開
     if (now < next) return;
     const cur = parseFloat(el.style.left) || 50;
     const t = randPaddock(rangeName);
-    el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; el.style.zIndex = Math.round(t[1] * 10);
+    el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; setAnimalZ(el, t[1]);
     const face = el.querySelector(".animal-emoji, .animal-img");
     if (face) face.style.transform = (t[0] < cur) ? "scaleX(-1)" : "scaleX(1)";
     el.dataset.nextMove = now + RANCH_GLIDE_MS + ranchRestMs();  // 滑行完成 + 停頓後才能再滑行
@@ -6411,6 +6421,23 @@ function claimMailReward(reward, id, isBroadcast) {
 }
 
 /* ===== 上排工具列自動縮放字體以符合寬幅 ===== */
+function fitField() {
+  const f = document.querySelector(".field-frame");
+  if (!f) return;
+  const desktop = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (!desktop) { f.style.width = ""; f.style.height = ""; f.style.aspectRatio = ""; return; }
+  // 量可用格子大小：先撐滿再量
+  f.style.width = "100%"; f.style.height = "100%"; f.style.aspectRatio = "auto";
+  const aw = f.clientWidth, ah = f.clientHeight;
+  if (!aw || !ah) { f.style.width = ""; f.style.height = ""; f.style.aspectRatio = ""; return; }
+  const R = 1672 / 941;
+  let w = aw, h = w / R;
+  if (h > ah) { h = ah; w = h * R; }     // 先碰下緣→以高度為準；否則以寬度為準
+  f.style.width = Math.floor(w) + "px";
+  f.style.height = Math.floor(h) + "px";
+  f.style.aspectRatio = "";
+}
+
 function fitToolbar() {
   const bar = document.querySelector(".scene-toolbar-top");
   if (!bar) return;
