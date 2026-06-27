@@ -575,6 +575,7 @@ let lastTickTime = Date.now();
 let lastFriendSteal = Date.now();
 let giftSectionOpen = { newbie: true, event: false, friend: false };
 const GM_PASSWORDS = ["70629", "ykai"];
+if (!window.__SIM_HOST__) {
 [
   ["maybeRefreshOrders", maybeRefreshOrders],
   ["hydrateIcons", hydrateIcons],
@@ -590,6 +591,7 @@ const GM_PASSWORDS = ["70629", "ykai"];
 if (window.addEventListener) window.addEventListener("resize", function(){ fitToolbar(); fitField(); });
 window.setInterval(tick, 1000);
 window.setInterval(wanderRanchAnimals, 500);
+}
 
 function createDefaultState() {
   return {
@@ -6424,6 +6426,7 @@ function claimMailReward(reward, id, isBroadcast) {
 function fitField() {
   const f = document.querySelector(".field-frame");
   if (!f) return;
+  if (window.self !== window.top) { f.style.width = ""; f.style.height = ""; f.style.aspectRatio = ""; return; }
   const desktop = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   if (!desktop) { f.style.width = ""; f.style.height = ""; f.style.aspectRatio = ""; return; }
   // 量可用格子大小：先撐滿再量
