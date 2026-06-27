@@ -5905,6 +5905,7 @@ function addRanchHandleDrag(h, gi, pi, frame) {
     if (!drag) return; drag = false;
     try { h.releasePointerCapture(e.pointerId); } catch (_) {}
     saveRanchOpenings();
+    clampRanchAnimalsInRange();
   };
   h.addEventListener("pointerup", end);
   h.addEventListener("pointercancel", end);
@@ -5938,6 +5939,7 @@ function addRanchBodyDrag(poly, gi, frame) {
     if (!drag) return; drag = false;
     try { poly.releasePointerCapture(e.pointerId); } catch (_) {}
     saveRanchOpenings();
+    clampRanchAnimalsInRange();
   };
   poly.addEventListener("pointerup", end);
   poly.addEventListener("pointercancel", end);
@@ -6024,6 +6026,25 @@ function renderRanchAnimals() {
       else { b.textContent = ""; b.className = "animal-badge"; }
     }
   });
+  clampRanchAnimalsInRange();
+}
+
+function clampRanchAnimalsInRange(rangeName) {
+  const box = document.querySelector("#ranchAnimals");
+  if (!box) return;
+  const region = loadRanchOpenings().find((o) => o.n === (rangeName || currentRangeName()));
+  if (!region || !region.p || region.p.length < 3) return;
+  const now = Date.now();
+  box.querySelectorAll(".ranch-animal").forEach((el) => {
+    const cx = parseFloat(el.style.left) || 50, cy = parseFloat(el.style.top) || 50;
+    if (!pointInPoly(cx, cy, region.p)) {
+      const t = randPaddock(rangeName);
+      el.style.transition = "none";
+      el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; setAnimalZ(el, t[1]);
+      void el.offsetWidth; el.style.transition = "";
+      el.dataset.nextMove = now + RANCH_GLIDE_MS + ranchRestMs();
+    }
+  });
 }
 
 // 滑行 5.5s，每次抵達後強制停頓 1.5-2.5s（期間僅原地抖動），不連續滑行
@@ -6041,8 +6062,21 @@ function wanderRanchAnimals() {
     rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
   }
   const now = Date.now();
+  const region = loadRanchOpenings().find((o) => o.n === (rangeName || currentRangeName()));
   box.querySelectorAll(".ranch-animal").forEach((el) => {
     setAnimalZ(el, parseFloat(el.style.top) || 50);   // 每次重算前後層級(含未移動者)
+    // 即時自我修正：腳底若已不在圈選範圍內(例如剛調整範圍)，立刻無滑行拉回範圍內
+    if (region && region.p && region.p.length >= 3) {
+      const cx = parseFloat(el.style.left) || 50, cy = parseFloat(el.style.top) || 50;
+      if (!pointInPoly(cx, cy, region.p)) {
+        const t = randPaddock(rangeName);
+        el.style.transition = "none";
+        el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; setAnimalZ(el, t[1]);
+        void el.offsetWidth; el.style.transition = "";
+        el.dataset.nextMove = now + RANCH_GLIDE_MS + ranchRestMs();
+        return;
+      }
+    }
     let next = Number(el.dataset.nextMove || 0);
     if (!next) { el.dataset.nextMove = now + 300 + Math.random() * 3500; return; }  // 初次錯開
     if (now < next) return;
