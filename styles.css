@@ -80,6 +80,8 @@ button {
   border: 1px solid rgba(112, 54, 41, 0.22);
 }
 
+
+.brand-mark .brand-img { width: 100%; height: 100%; object-fit: cover; border-radius: 22%; display: block; }
 .brand-mark svg,
 .button-icon svg,
 .stat-icon svg,
@@ -1422,7 +1424,8 @@ body {
 .work-panel {
   width: min(430px, 42vw);
 }
-.work-panel[data-tab="upgrades"] { width: min(700px, 94vw); }
+.work-panel[data-tab="upgrades"] { width: min(805px, 94vw); right: clamp(82px, 8.5vw, 124px); }
+.work-panel[data-tab="shop"] { width: min(800px, 94vw); right: clamp(82px, 8.5vw, 124px); }
 
 .work-panel .tabs {
   display: none;
@@ -1599,7 +1602,7 @@ body {
   .work-panel {
     width: min(340px, 46vw);
   }
-  .work-panel[data-tab="upgrades"] { width: min(520px, 80vw); }
+  .work-panel[data-tab="upgrades"] { width: min(805px, 94vw); }
 }
 
 /* Mobile scale and right-side tool rail */
@@ -3202,9 +3205,21 @@ body {
 .set-row input { flex: 1; height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font-size: 0.9rem; background: #fff; }
 .set-val { font-weight: 800; color: #3f7d3a; }
 .avatar-pick { display: flex; flex-wrap: wrap; gap: 6px; }
-.avatar-btn { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+/* 角色設定：照片格(顯示目前頭像) + 右側頭像選擇 */
+.profile-avatar-row { gap: 12px; align-items: flex-start; }
+.profile-photo { flex: 0 0 auto; width: 88px; height: 88px; border: 2px solid #e8b94a; border-radius: 20px; background: #fff6e0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.profile-photo .avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.profile-photo-emoji { font-size: 52px; line-height: 1; }
+.profile-avatar-row .avatar-pick { flex: 1 1 auto; min-width: 0; align-content: flex-start; }
+
+.avatar-btn { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 11px; background: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 .avatar-btn.is-on { border-color: #e8b94a; background: #fff6e0; box-shadow: inset 0 0 0 2px #e8b94a; }
 .set-sub { margin: 12px 0 8px; font-size: 0.92rem; color: #5a4a22; }
+/* 角色名稱列：窄輸入格 + 其他設定小鈕 */
+.set-row .role-name-input { flex: 1 1 auto; min-width: 0; }
+.set-more-btn { flex: 0 0 auto; font-size: 0.74rem; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #f5ecd8; color: var(--ink); font-weight: 800; white-space: nowrap; cursor: pointer; }
+.set-more-btn:hover { background: #ecdfc0; }
+
 .stat-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
 .stat-line { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; background: #f7f3e6; border-radius: 8px; font-size: 0.82rem; }
 .stat-line span { color: var(--muted); }
@@ -3341,7 +3356,20 @@ body.is-ranch .wfx-sky {
 .avatar-btn { position: relative; overflow: hidden; }
 .avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-add { font-size: 22px; color: #5e8c46; font-weight: 900; }
-.avatar-del { position: absolute; top: 0; right: 0; width: 15px; height: 15px; line-height: 15px; font-size: 9px; text-align: center; background: rgba(176,64,42,0.92); color: #fff; border-bottom-left-radius: 7px; }
+.avatar-del { position: absolute; top: 0; right: 0; width: 15px; height: 15px; line-height: 15px; font-size: 9px; text-align: center; background: rgba(176,64,42,0.92); color: #fff; border-radius: 0 0 0 7px; }
+/* 頭像裁切器 */
+.crop-card { text-align: center; }
+.crop-hint { font-size: 0.76rem; color: #6b5a30; margin: 2px 0 6px; }
+.crop-viewport { position: relative; width: min(200px, 44vh, 76vw); height: min(200px, 44vh, 76vw); margin: 4px auto; border-radius: 24px; overflow: hidden; background: #1d241d; box-shadow: 0 0 0 3px #e8b94a, 0 0 0 9999px rgba(0,0,0,0.04); touch-action: none; cursor: grab; }
+.crop-viewport:active { cursor: grabbing; }
+.crop-img { position: absolute; left: 50%; top: 50%; transform-origin: center center; will-change: transform; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.crop-controls { display: flex; align-items: center; gap: 10px; margin: 8px 6px 10px; font-weight: 800; color: #5a4a22; font-size: 0.86rem; }
+.crop-controls input[type="range"] { flex: 1; }
+.crop-actions { display: flex; gap: 10px; justify-content: center; }
+.crop-cancel, .crop-confirm { padding: 9px 20px; border-radius: 8px; font-weight: 800; cursor: pointer; border: 1px solid var(--line); }
+.crop-cancel { background: #f5ecd8; color: var(--ink); }
+.crop-confirm { background: #5e8c46; color: #fff; border-color: #5e8c46; }
+
 
 /* ===== 牧場動物 ===== */
 #ranchAnimals { position: absolute; inset: 0; z-index: 3; pointer-events: none; contain: layout style; }
@@ -3429,7 +3457,52 @@ body.gm-noselect #gmStakeReadout { display: none !important; }
 
 
 /* 開發：農地建設 / 牧場建設 兩欄 */
-.build-split .inv-col { display: flex; flex-direction: column; gap: 10px; }
+.build-split .inv-col { display: flex; flex-direction: column; gap: 0; }
+
+/* ===== 倉庫／開發：三欄各自捲動，抬頭固定（捲動軸在抬頭下方） ===== */
+/* 倉庫 */
+.inventory-panel.is-open { display: flex; flex-direction: column; overflow: hidden; }
+.inventory-panel .inv-split { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+.inventory-panel .inv-col { display: flex; flex-direction: column; min-height: 0; }
+.inventory-panel .inv-col .inventory-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px;
+}
+/* 開發 */
+.work-panel.is-open[data-tab="upgrades"] { display: flex; flex-direction: column; overflow: hidden; }
+.work-panel[data-tab="upgrades"] .tab-content { flex: 1 1 auto; min-height: 0; display: flex; }
+.work-panel[data-tab="upgrades"] .build-split { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+.work-panel[data-tab="upgrades"] .build-split .inv-col { min-height: 0; }
+.work-panel[data-tab="upgrades"] .build-split .build-col-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+/* 行囊：種子 / 道具 兩欄各自捲動 */
+.work-panel.is-open[data-tab="shop"] { display: flex; flex-direction: column; overflow: hidden; }
+.work-panel[data-tab="shop"] .tab-content { flex: 1 1 auto; min-height: 0; display: flex; }
+.work-panel[data-tab="shop"] .bag-split { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+.work-panel[data-tab="shop"] .bag-split .inv-col { display: flex; flex-direction: column; min-height: 0; box-sizing: border-box; }
+/* 種子欄＝合併前寬度；道具欄＝原本+15%（面板靠右固定） */
+.bag-split .bag-item-col { flex: 0 0 400px; }
+.bag-split .bag-seed-col { flex: 0 0 370px; border-left: 1px solid var(--line); padding-left: 10px; }
+.bag-split .bag-col-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* 三欄抬頭：固定等高、底線對齊 */
+.inventory-panel .inv-col .panel-head,
+.build-split .panel-head,
+.bag-split .panel-head {
+  flex: 0 0 auto;
+  height: 50px;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+/* 行囊／開發抬頭較矮（無按鈕） */
+.build-split .panel-head,
+.bag-split .panel-head { height: 35px; }
 .build-split .ranchbuild-col, .build-split .farmbuild-col { border-left: 1px solid var(--line); padding-left: 10px; }
 .build-split .panel-head h2 { margin: 0 0 2px; font-size: 1rem; }
 @media (max-width: 640px) {
@@ -3711,28 +3784,4 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .mail-row input, .mail-row select { flex: 1 1 auto; min-width: 0; height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 0 7px; font-size: 0.82rem; }
 .mail-row select { flex: 0 0 auto; max-width: 40%; }
 #mailBody { width: 100%; min-height: 76px; border: 1px solid var(--line); border-radius: 9px; padding: 7px; font-size: 0.86rem; box-sizing: border-box; resize: vertical; margin-bottom: 6px; }
-.mail-reward-toggle { width: 100%; border: 1px dashed var(--line); background: #fbf6e8; border-radius: 8px; padding: 6px; font-size: 0.74rem; font-weight: 700; color: #8a6d2a; cursor: pointer; margin-bottom: 6px; }
-.mail-reward-area { background: #fbf6e8; border-radius: 8px; padding: 6px; margin-bottom: 6px; }
-.mail-send-row { margin-top: 4px; }
-.mail-list { max-height: 56vh; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.mail-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; cursor: pointer; }
-.mail-item .mail-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
-.mail-item.is-unread .mail-dot { background: #e0352b; }
-.mail-item.is-read { opacity: 0.62; }
-.mail-item.is-read .mail-dot { background: transparent; border: 1px solid #bbb; }
-.mail-item-main { flex: 1 1 auto; min-width: 0; }
-.mail-item-top { display: flex; justify-content: space-between; gap: 8px; }
-.mail-item-top strong { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mail-item-time { flex: 0 0 auto; font-size: 0.7rem; color: #9aa0a6; }
-.mail-item-from { font-size: 0.74rem; color: #6a6f75; }
-.mail-read-meta { font-size: 0.78rem; color: #6a6f75; margin-bottom: 10px; }
-.mail-read-body { font-size: 0.92rem; line-height: 1.6; color: #2d281b; white-space: pre-wrap; word-break: break-word; min-height: 80px; margin-bottom: 12px; }
-.mail-reward-note { background: #fff3d6; border: 1px solid #e8d6a0; border-radius: 8px; padding: 8px; font-size: 0.82rem; font-weight: 700; color: #8a6d2a; margin-bottom: 10px; }
-
-/* 桌機：農場區由 JS 等比 contain，靠上水平置中 */
-@media (hover: hover) and (pointer: fine) {
-  .field-frame { justify-self: center; align-self: start; }
-}
-
-/* 信件卡片過高時可內捲 */
-.mail-card { max-height: calc(100vh - 24px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.mail-reward-toggle { width: 100%; border: 1px dashed var(-

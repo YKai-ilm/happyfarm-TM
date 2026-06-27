@@ -33,14 +33,13 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-157" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-185" />
   </head>
   <body>
     <div class="farm-app">
       <header class="topbar">
         <nav class="main-nav" aria-label="主選單">
-          <button class="nav-button is-active" type="button" data-menu-action="profile">角色設定</button>
-          <button class="nav-button" type="button" data-menu-action="farm">莊園設定</button>
+          <button class="nav-button is-active" type="button" data-menu-action="farm">莊園設定</button>
           <button class="nav-button" type="button" data-menu-action="invite">邀請好友</button>
           <button class="nav-button" type="button" data-tab="market">農民市集</button>
           <button class="nav-button" type="button" data-menu-action="save">存檔備份</button>
@@ -155,17 +154,13 @@
               <span class="button-icon" aria-hidden="true" data-icon="gift"></span>
               禮包
             </button>
-            <button class="scene-action" type="button" data-action="item">
-              <span class="button-icon" aria-hidden="true" data-icon="item"></span>
-              道具
-            </button>
             <button class="scene-action" type="button" data-panel-target="inventory">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
               倉庫
             </button>
             <button class="scene-action" type="button" data-tab="shop">
-              <span class="button-icon" aria-hidden="true" data-icon="seed"></span>
-              種子背包
+              <span class="button-icon" aria-hidden="true" data-icon="bag"></span>
+              行囊
             </button>
             <button class="scene-action" type="button" data-tab="orders">
               <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
@@ -444,8 +439,10 @@
     <div id="profileBox" class="gift-box" hidden>
       <div class="gift-card" role="dialog" aria-modal="true" aria-label="角色設定">
         <h2>👤 角色設定</h2>
-        <div class="set-row"><label>暱稱</label><input id="profileName" type="text" maxlength="12" placeholder="輸入暱稱" /></div>
-        <div class="set-row set-row-top"><label>頭像</label><div id="profileAvatars" class="avatar-pick"></div></div>
+        <div class="set-row set-row-top profile-avatar-row">
+          <div id="profilePhoto" class="profile-photo" aria-label="目前頭像"></div>
+          <div id="profileAvatars" class="avatar-pick"></div>
+        </div>
         <div class="set-row"><label>稱號</label><span id="profileTitle" class="set-val"></span></div>
         <h3 class="set-sub">遊戲統計</h3>
         <div id="profileStats" class="stat-list"></div>
@@ -453,10 +450,21 @@
       </div>
     </div>
 
+    <div id="avatarCropBox" class="gift-box" hidden>
+      <div class="gift-card crop-card" role="dialog" aria-modal="true" aria-label="調整頭像">
+        <h2>調整頭像</h2>
+        <p class="crop-hint">拖曳移動、滑動縮放，選好角度後按確定</p>
+        <div id="cropViewport" class="crop-viewport"><img id="cropImg" class="crop-img" alt="" draggable="false" /></div>
+        <div class="crop-controls"><span>縮放</span><input id="cropZoom" type="range" min="1" max="4" step="0.01" value="1" /></div>
+        <div class="crop-actions"><button id="cropCancel" type="button" class="crop-cancel">取消</button><button id="cropConfirm" type="button" class="crop-confirm">確定</button></div>
+      </div>
+    </div>
+
     <div id="farmBox" class="gift-box" hidden>
       <div class="gift-card" role="dialog" aria-modal="true" aria-label="莊園設定">
         <h2>🏡 莊園設定</h2>
         <div class="set-row"><label>莊園名稱</label><input id="farmNameInput" type="text" maxlength="14" placeholder="輸入莊園名稱" /></div>
+        <div class="set-row"><label>角色名稱</label><input id="roleNameInput" class="role-name-input" type="text" maxlength="12" placeholder="輸入角色名稱" /><button id="roleMoreBtn" type="button" class="set-more-btn">其他設定</button></div>
         <h3 class="set-sub">農場統計</h3>
         <div id="farmStats" class="stat-list"></div>
         <button id="farmClose" type="button" class="gift-close">關閉</button>
@@ -576,7 +584,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-157"></script>
+    <script src="./game.js?v=20260624-claude-185"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
@@ -586,3 +594,4 @@
     </script>
   </body>
 </html>
+                                                                                                                                                                                                                 

@@ -127,12 +127,16 @@ function applyBuildings() {
   }
   const wm = fx.querySelector("#bld-windmill");
   if (wm) {
-    const active = (state.upgrades && state.upgrades.windmill || 0) >= 1 && state.scene !== "ranch";
+    let active;
+    if (visiting) active = visiting.kind === "cloud" && visitScene !== "ranch" && (visiting.windmill || 0) >= 1;
+    else active = (state.upgrades && state.upgrades.windmill || 0) >= 1 && state.scene !== "ranch";
     wm.style.display = active ? "block" : "none";
-    const pos = gmBuildingPos.windmill || BUILDING_POS.windmill;
-    if (pos) { wm.style.left = pos[0] + "%"; wm.style.top = pos[1] + "%"; }
-    wm.style.pointerEvents = (state.gm && active) ? "auto" : "none";
-    wm.style.cursor = state.gm ? "grab" : "default";
+    if (active) {
+      const pos = visiting ? BUILDING_POS.windmill : (gmBuildingPos.windmill || BUILDING_POS.windmill);
+      if (pos) { wm.style.left = pos[0] + "%"; wm.style.top = pos[1] + "%"; }
+      wm.style.pointerEvents = (!visiting && state.gm) ? "auto" : "none";
+      wm.style.cursor = (!visiting && state.gm) ? "grab" : "default";
+    }
   }
   const dh = fx.querySelector("#bld-doghouse");
   if (dh) {
@@ -403,6 +407,7 @@ const ICONS = {
   wind: `<svg viewBox="0 0 24 24"><path d="M4 8h11a3 3 0 1 0-3-3M4 13h15a3 3 0 1 1-3 3M4 18h7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   star: `<svg viewBox="0 0 24 24"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z" fill="#f0c64a" stroke="#9a6b1e" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
   gift: `<svg viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="1" fill="#d96b6b" stroke="#8a3b3b" stroke-width="1.4"/><rect x="3.5" y="7" width="17" height="3.4" rx="1" fill="#e88a8a" stroke="#8a3b3b" stroke-width="1.3"/><path d="M12 7v13" stroke="#ffd98a" stroke-width="1.8"/><path d="M12 7C9.5 7 8 4 9.6 3.3 11.2 2.6 12 5.4 12 7zm0 0c2.5 0 4-3 2.4-3.7C12.8 2.6 12 5.4 12 7z" fill="#ffd98a" stroke="#8a3b3b" stroke-width="0.9" stroke-linejoin="round"/></svg>`,
+  bag: `<svg viewBox="0 0 24 24"><path d="M6 8h12l1 12H5z" fill="#c79a5b" stroke="#7a5a2e" stroke-width="1.5" stroke-linejoin="round"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="#7a5a2e" stroke-width="1.7" stroke-linecap="round"/><path d="M5 12h14" stroke="#f4c66a" stroke-width="1.4" stroke-linecap="round"/></svg>`,
   item: `<svg viewBox="0 0 24 24"><path d="M10 3.2h4v4.3l3.4 8.2a2 2 0 0 1-1.85 2.8H8.45a2 2 0 0 1-1.85-2.8L10 7.5z" fill="#8fc6e0" stroke="#37657d" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 3.2h6" stroke="#37657d" stroke-width="1.7" stroke-linecap="round"/><path d="M7.6 14.5h8.8" stroke="#37657d" stroke-width="1.2"/><circle cx="11" cy="16.5" r="1" fill="#fff"/><circle cx="13.6" cy="17.6" r="0.8" fill="#fff"/></svg>`,
   feed: `<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5" fill="#f0c44a"/><circle cx="12.6" cy="4.8" r="1.5" fill="#e8b23a"/><circle cx="15.6" cy="6.3" r="1.4" fill="#f0c44a"/><path d="M5 8.2h14l-1.6 11.2a1 1 0 0 1-1 .86H7.6a1 1 0 0 1-1-.86z" fill="#c79a5b" stroke="#7a5a2e" stroke-width="1.4" stroke-linejoin="round"/><path d="M4.4 8.2h15.2" stroke="#7a5a2e" stroke-width="1.7" stroke-linecap="round"/></svg>`,
   bath: `<svg viewBox="0 0 24 24"><path d="M12 3.5c3.2 4.2 5.2 6.8 5.2 9.4a5.2 5.2 0 0 1-10.4 0c0-2.6 2-5.2 5.2-9.4z" fill="#7fc7e8" stroke="#3a7fa0" stroke-width="1.3" stroke-linejoin="round"/><path d="M10 12.5c0 1.6 0.9 2.7 2.2 3" fill="none" stroke="#eaf6fc" stroke-width="1.3" stroke-linecap="round"/><circle cx="17.6" cy="6.6" r="1.7" fill="#cdeafa" stroke="#3a7fa0" stroke-width="0.9"/><circle cx="6.6" cy="9" r="1.2" fill="#cdeafa" stroke="#3a7fa0" stroke-width="0.8"/></svg>`,
@@ -1021,6 +1026,8 @@ async function publishProfile(force) {
       coins: state.coins || 0,
       dogGuard: dogWorking(),
       dogState: dogStateForProfile(),
+      windmill: (state.upgrades && state.upgrades.windmill) || 0,
+      weather: state.weather || "clear",
       friendCode: state.friendCode || "",
       farmSnapshot: (state.plots || []).map((p) => {
         if (!p.unlocked) return { s: "locked" };
@@ -2595,6 +2602,10 @@ function bindStaticEvents() {
       if (workPanel) workPanel.setAttribute("data-tab", nextTab);  // 先設好寬度再定位，避免首次開啟跑版
       if (isSameOpen) {
         openPanel("");
+      } else if (nextTab === "shop" || nextTab === "upgrades") {
+        // 行囊／開發：寬面板靠右(用 CSS)，不依按鈕定位，清掉前一個面板留下的 inline 位置
+        if (workPanel) { workPanel.style.left = ""; workPanel.style.right = ""; workPanel.style.top = ""; }
+        openPanel("work");
       } else {
         openPanel("work", getPanelAnchor(button));
       }
@@ -2684,19 +2695,22 @@ function bindStaticEvents() {
         return;
       }
       if (button.dataset.menuAction === "stock") {
-        enterStock();
+        if (stockOpen) exitStock(); else enterStock();
         return;
       }
+      const wasActive = button.classList.contains("is-active");
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
-      button.classList.add("is-active");
-      const labels = {
-        profile: "角色設定會放頭像、稱號和玩家資料。",
-        farm: "莊園設定會放莊園名稱、佈景和公開狀態。",
-        invite: "邀請好友會放好友碼和拜訪連結。",
-        notice: "常見問題會放操作說明和版本資訊。",
-        redeem: "兌換碼之後可輸入序號領取獎勵，功能開發中。",
-      };
-      toast(labels[button.dataset.menuAction] || "功能準備中。");
+      if (!wasActive) {
+        button.classList.add("is-active");
+        const labels = {
+          profile: "角色設定會放頭像、稱號和玩家資料。",
+          farm: "莊園設定會放莊園名稱、佈景和公開狀態。",
+          invite: "邀請好友會放好友碼和拜訪連結。",
+          notice: "常見問題會放操作說明和版本資訊。",
+          redeem: "兌換碼之後可輸入序號領取獎勵，功能開發中。",
+        };
+        toast(labels[button.dataset.menuAction] || "功能準備中。");
+      }
     });
   });
 
@@ -2787,6 +2801,11 @@ function bindStaticEvents() {
   if (profileBox) profileBox.addEventListener("click", (e) => { if (e.target === profileBox) closeProfile(); });
   const farmNameInput = document.querySelector("#farmNameInput");
   if (farmNameInput) farmNameInput.addEventListener("input", () => { state.farmName = farmNameInput.value; saveState(); applyFarmTitle(); });
+  const roleNameInput = document.querySelector("#roleNameInput");
+  if (roleNameInput) roleNameInput.addEventListener("input", () => { state.nickname = roleNameInput.value; saveState(); });
+  const roleMoreBtn = document.querySelector("#roleMoreBtn");
+  if (roleMoreBtn) roleMoreBtn.addEventListener("click", () => { closeFarmSettings(); openProfile(); });
+  setupCropper();
   const farmClose = document.querySelector("#farmClose");
   if (farmClose) farmClose.addEventListener("click", closeFarmSettings);
   const farmBox = document.querySelector("#farmBox");
@@ -2935,10 +2954,26 @@ function bindStaticEvents() {
   document.querySelector("#sellAllRanchButton")?.addEventListener("click", sellAllRanchProducts);
 }
 
+const HOUSE_BRAND_SVG = '<svg viewBox="0 0 64 64" role="img"><path d="M8 28 32 10l24 18v28H8z" fill="#cf4b3f"/><path d="M8 28 32 10l24 18" fill="none" stroke="#703629" stroke-width="4" stroke-linejoin="round"/><path d="M24 56V36h16v20" fill="#f4c66a"/><path d="M18 56V42h8v14M38 56V42h8v14" fill="#ffe09a" opacity=".8"/><path d="M29 20h6v9h-6z" fill="#f7efe3"/></svg>';
+
+function brandMarkInner() {
+  const a = state.avatar;
+  const changed = a && a !== "\uD83D\uDC68\u200D\uD83C\uDF3E"; // 預設(👨‍🌾)視為未變更
+  if (!changed) return HOUSE_BRAND_SVG;
+  if (/^(data:|https?:|blob:)/.test(a)) return `<img class="brand-img" src="${a}" alt="" />`;
+  return `<svg viewBox="0 0 64 64"><text x="32" y="34" font-size="46" text-anchor="middle" dominant-baseline="central">${a}</text></svg>`;
+}
+
+function updateBrandMark() {
+  const inner = brandMarkInner();
+  document.querySelectorAll(".brand .brand-mark, .scene-brand .brand-mark").forEach((el) => { el.innerHTML = inner; });
+}
+
 function applyFarmTitle() {
   const name = (state.farmName || "").trim();
   const title = name ? name + "莊園" : "開心農場";
   document.querySelectorAll(".js-farm-title").forEach((el) => { el.textContent = title; });
+  updateBrandMark();
 }
 
 function applyScene() {
@@ -3319,10 +3354,11 @@ function closeItems() {
   pendingWeatherCard = false;
   const box = document.querySelector("#itemBox");
   if (box) box.hidden = true;
+  if (state.activeTab === "shop") openPanel("");   // 行囊整合：使用道具後關面板
 }
 
 function renderItemList() {
-  const list = document.querySelector("#itemList");
+  const list = document.querySelector("#bagItemBody") || document.querySelector("#itemList");
   if (!list) return;
   if (pendingWeatherCard) {
     list.innerHTML = `
@@ -3373,6 +3409,7 @@ function renderItemList() {
         <strong>🃏 解凍卡 ×${thaw}</strong>
         <span class="gift-contents">在「災損作物」清單對凍傷作物使用，完全返還 50 個</span>
       </div>
+      <button class="gift-claim" type="button" disabled title="請到倉庫「災損作物」清單使用">使用</button>
     </div>`;
   }
   const guard = (state.items && state.items.guardCard) || 0;
@@ -3910,7 +3947,8 @@ function helpFriend(friendId, idx) {
   render();
 }
 
-const AVATARS = ["👨‍🌾", "👩‍🌾", "🧑‍🌾", "🧔", "👩‍🦰", "🧒"];
+const HOUSE_AVATAR = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#f3e4c3"/><path d="M8 28 32 10l24 18v28H8z" fill="#cf4b3f"/><path d="M8 28 32 10l24 18" fill="none" stroke="#703629" stroke-width="4" stroke-linejoin="round"/><path d="M24 56V36h16v20" fill="#f4c66a"/><path d="M18 56V42h8v14M38 56V42h8v14" fill="#ffe09a" opacity=".8"/><path d="M29 20h6v9h-6z" fill="#f7efe3"/></svg>');
+const AVATARS = [HOUSE_AVATAR, "👨‍🌾", "👩‍🌾", "🧑‍🌾", "🧔", "👩‍🦰", "🧒"];
 
 function playerTitle() {
   const lv = state.level;
@@ -3933,33 +3971,131 @@ function addCustomAvatar() {
     const file = inp.files && inp.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const size = 256;
-        const canvas = document.createElement("canvas");
-        canvas.width = size; canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        const scale = Math.max(size / img.width, size / img.height);
-        const w = img.width * scale, h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        let url;
-        try { url = canvas.toDataURL("image/jpeg", 0.92); } catch (e) { url = reader.result; }
-        state.customAvatars = state.customAvatars || [];
-        if (state.customAvatars.length >= 6) state.customAvatars.shift();
-        state.customAvatars.push(url);
-        state.avatar = url;
-        saveState();
-        renderProfile();
-        toast("已新增頭像。");
-      };
-      img.src = reader.result;
-    };
+    reader.onload = () => openAvatarCrop(reader.result);
     reader.readAsDataURL(file);
   });
   inp.click();
+}
+
+let cropState = null;
+
+function openAvatarCrop(dataUrl) {
+  const box = document.querySelector("#avatarCropBox");
+  const img = document.querySelector("#cropImg");
+  const vp = document.querySelector("#cropViewport");
+  const zoom = document.querySelector("#cropZoom");
+  if (!box || !img || !vp) return;
+  const probe = new Image();
+  probe.onload = () => {
+    const VP = vp.clientWidth || 240;
+    const s0 = Math.max(VP / probe.width, VP / probe.height);
+    img.src = dataUrl;
+    img.style.width = (probe.width * s0) + "px";
+    img.style.height = (probe.height * s0) + "px";
+    cropState = { VP: VP, s0: s0, natW: probe.width, natH: probe.height, z: 1, tx: 0, ty: 0, url: dataUrl, _pd: 0 };
+    if (zoom) zoom.value = "1";
+    applyCropTransform();
+    box.hidden = false;
+  };
+  probe.src = dataUrl;
+}
+
+function clampCrop() {
+  const c = cropState; if (!c) return;
+  const imgW = c.natW * c.s0 * c.z, imgH = c.natH * c.s0 * c.z;
+  const maxX = Math.max(0, (imgW - c.VP) / 2), maxY = Math.max(0, (imgH - c.VP) / 2);
+  c.tx = Math.min(maxX, Math.max(-maxX, c.tx));
+  c.ty = Math.min(maxY, Math.max(-maxY, c.ty));
+}
+
+function applyCropTransform() {
+  const c = cropState; if (!c) return;
+  clampCrop();
+  const img = document.querySelector("#cropImg");
+  if (img) img.style.transform = `translate(-50%, -50%) translate(${c.tx}px, ${c.ty}px) scale(${c.z})`;
+}
+
+function setupCropper() {
+  const vp = document.querySelector("#cropViewport");
+  const zoom = document.querySelector("#cropZoom");
+  const box = document.querySelector("#avatarCropBox");
+  if (!vp || vp._wired) return;
+  vp._wired = true;
+  if (zoom) zoom.addEventListener("input", () => { if (!cropState) return; cropState.z = parseFloat(zoom.value) || 1; applyCropTransform(); });
+  let drag = null;
+  const pts = new Map();
+  vp.addEventListener("pointerdown", (e) => {
+    if (!cropState) return;
+    try { vp.setPointerCapture(e.pointerId); } catch (err) {}
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, tx: cropState.tx, ty: cropState.ty };
+  });
+  vp.addEventListener("pointermove", (e) => {
+    if (!cropState || !pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size >= 2) {
+      const arr = [...pts.values()];
+      const d = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+      if (cropState._pd) {
+        cropState.z = Math.min(4, Math.max(1, cropState.z * (d / cropState._pd)));
+        if (zoom) zoom.value = String(cropState.z);
+        applyCropTransform();
+      }
+      cropState._pd = d;
+    } else if (drag) {
+      cropState.tx = drag.tx + (e.clientX - drag.x);
+      cropState.ty = drag.ty + (e.clientY - drag.y);
+      applyCropTransform();
+    }
+  });
+  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2 && cropState) cropState._pd = 0; if (pts.size === 0) drag = null; };
+  vp.addEventListener("pointerup", up);
+  vp.addEventListener("pointercancel", up);
+  vp.addEventListener("wheel", (e) => {
+    if (!cropState) return;
+    e.preventDefault();
+    cropState.z = Math.min(4, Math.max(1, cropState.z + (e.deltaY < 0 ? 0.12 : -0.12)));
+    if (zoom) zoom.value = String(cropState.z);
+    applyCropTransform();
+  }, { passive: false });
+  document.querySelector("#cropCancel")?.addEventListener("click", closeAvatarCrop);
+  if (box) box.addEventListener("click", (e) => { if (e.target === box) closeAvatarCrop(); });
+  document.querySelector("#cropConfirm")?.addEventListener("click", confirmAvatarCrop);
+}
+
+function closeAvatarCrop() {
+  const box = document.querySelector("#avatarCropBox");
+  if (box) box.hidden = true;
+  cropState = null;
+}
+
+function confirmAvatarCrop() {
+  const c = cropState; if (!c) return;
+  const out = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = out; canvas.height = out;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  const disp = c.s0 * c.z;
+  const srcSize = c.VP / disp;
+  const natCx = c.natW / 2 - c.tx / disp;
+  const natCy = c.natH / 2 - c.ty / disp;
+  const sx = natCx - srcSize / 2, sy = natCy - srcSize / 2;
+  const probe = new Image();
+  probe.onload = () => {
+    ctx.drawImage(probe, sx, sy, srcSize, srcSize, 0, 0, out, out);
+    let url;
+    try { url = canvas.toDataURL("image/jpeg", 0.92); } catch (e) { url = c.url; }
+    state.customAvatars = state.customAvatars || [];
+    if (state.customAvatars.length >= 6) state.customAvatars.shift();
+    state.customAvatars.push(url);
+    state.avatar = url;
+    saveState();
+    closeAvatarCrop();
+    renderProfile();
+    toast("已新增頭像。");
+  };
+  probe.src = c.url;
 }
 
 function removeCustomAvatar(url) {
@@ -3977,10 +4113,18 @@ function renderProfile() {
   if (nameInput) nameInput.value = state.nickname || "";
   const titleEl = document.querySelector("#profileTitle");
   if (titleEl) titleEl.textContent = playerTitle();
+  const photo = document.querySelector("#profilePhoto");
+  if (photo) {
+    const a = state.avatar || "";
+    photo.innerHTML = /^(data:|https?:|blob:)/.test(a)
+      ? `<img class="avatar-img" src="${a}" alt="" />`
+      : `<span class="profile-photo-emoji">${a}</span>`;
+  }
   const av = document.querySelector("#profileAvatars");
   if (av) {
     const sel = state.avatar;
-    let html = AVATARS.map((e) => `<button type="button" class="avatar-btn ${sel === e ? "is-on" : ""}" data-avatar="${e}">${e}</button>`).join("");
+    const isImgAvatar = (a) => /^(data:|https?:|blob:)/.test(a);
+    let html = AVATARS.map((e) => `<button type="button" class="avatar-btn ${isImgAvatar(e) ? "avatar-custom" : ""} ${sel === e ? "is-on" : ""}" data-avatar="${e}">${isImgAvatar(e) ? `<img class="avatar-img" src="${e}" alt="" />` : e}</button>`).join("");
     html += (state.customAvatars || []).map((u) => `<button type="button" class="avatar-btn avatar-custom ${sel === u ? "is-on" : ""}" data-avatar="${u}"><img class="avatar-img" src="${u}" alt="" /><span class="avatar-del" data-avatar-del="${u}" title="移除">✕</span></button>`).join("");
     html += `<button type="button" class="avatar-btn avatar-add" data-avatar-add="1" title="新增頭像">＋</button>`;
     av.innerHTML = html;
@@ -4013,6 +4157,8 @@ function closeFarmSettings() { const b = document.querySelector("#farmBox"); if 
 function renderFarmSettings() {
   const nameInput = document.querySelector("#farmNameInput");
   if (nameInput) nameInput.value = state.farmName || "";
+  const roleInput = document.querySelector("#roleNameInput");
+  if (roleInput) roleInput.value = state.nickname || "";
   const plots = state.plots || [];
   const unlocked = plots.filter((p) => p.unlocked && !p.broken).length;
   const growing = plots.filter((p) => p.crop && getPlotProgress(p) < 1).length;
@@ -4052,7 +4198,8 @@ function updateWeatherFx() {
   if (!fx) return;
   // 超大牧場：關掉中央門的天氣粒子特效（保留天氣差底圖與音效）
   const hugeRanch = state.scene === "ranch" && (state.ranchLevel || 1) === 3;
-  const w = (!hugeRanch && ["rain", "storm", "snow", "typhoon", "scorch", "breeze", "fog", "cloud"].includes(state.weather)) ? state.weather : "";
+  const curWeather = (visiting && visiting.weather) ? visiting.weather : state.weather;
+  const w = (!hugeRanch && ["rain", "storm", "snow", "typhoon", "scorch", "breeze", "fog", "cloud"].includes(curWeather)) ? curWeather : "";
   fx.className = "wfx" + (w ? " " + w : "");
   applyClouds();
   applyBuildings();
@@ -4173,11 +4320,12 @@ function applyTyphoonDamage() {
     [growing[k], growing[j]] = [growing[j], growing[k]];
   }
   growing.slice(0, 3).forEach(({ i }) => { state.plots[i].typhoonHalf = true; });
-  const first = state.plots.findIndex((p) => p.unlocked && !p.broken);
-  if (first >= 0) {
-    state.plots[first] = { ...state.plots[first], crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, watered: false, broken: true };
+  const breakable = state.plots.map((p, i) => ({ p, i })).filter(({ p }) => p.unlocked && !p.broken);
+  if (breakable.length) {
+    const pick = breakable[Math.floor(Math.random() * breakable.length)].i;
+    state.plots[pick] = { ...state.plots[pick], crop: null, plantedAt: 0, season: 0, soakMs: 0, frostMs: 0, typhoonHalf: false, watered: false, broken: true };
   }
-  toast("颱風來襲！第一塊農地被吹壞，隨機三格作物收成減半。");
+  toast("颱風來襲！隨機吹壞一塊農地，另有三格作物收成減半。");
 }
 
 function repairPlot() {
@@ -4540,8 +4688,8 @@ function renderTabs() {
   const wpEl = document.querySelector(".work-panel");
   if (wpEl) wpEl.setAttribute("data-tab", state.activeTab);
   if (elements.workPanelTitle) {
-    const titles = { shop: "種子", market: "農民市集", orders: "訂單", upgrades: "開發" };
-    if (state.activeTab === "upgrades") {
+    const titles = { shop: "行囊", market: "農民市集", orders: "訂單", upgrades: "開發" };
+    if (state.activeTab === "upgrades" || state.activeTab === "shop") {
       elements.workPanelTitle.style.display = "none";
     } else {
       elements.workPanelTitle.style.display = "";
@@ -4569,7 +4717,7 @@ function renderTabContent() {
 }
 
 function renderShop() {
-  elements.tabContent.innerHTML = Object.entries(CROPS)
+  const bagSeedCards = Object.entries(CROPS)
     .map(([id, crop]) => {
       const locked = crop.unlock > state.level;
       const selected = state.selectedSeed === id;
@@ -4604,6 +4752,19 @@ function renderShop() {
       `;
     })
     .join("");
+
+  elements.tabContent.innerHTML = `
+    <div class="inv-split bag-split">
+      <div class="inv-col bag-item-col">
+        <div class="panel-head"><h2>道具</h2></div>
+        <div class="bag-col-body inventory-list" id="bagItemBody"></div>
+      </div>
+      <div class="inv-col bag-seed-col">
+        <div class="panel-head"><h2>種子</h2></div>
+        <div class="bag-col-body" id="bagSeedBody">${bagSeedCards}</div>
+      </div>
+    </div>`;
+  renderItemList();
 
   elements.tabContent.querySelectorAll("[data-seed-choice]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4837,15 +4998,15 @@ function renderUpgrades() {
     <div class="inv-split build-split">
       <div class="inv-col facbuild-col">
         <div class="panel-head"><h2>設施建設</h2></div>
-        ${facilityHtml}
+        <div class="build-col-body">${facilityHtml}</div>
       </div>
       <div class="inv-col farmbuild-col">
         <div class="panel-head"><h2>農地建設</h2></div>
-        ${farmHtml}
+        <div class="build-col-body">${farmHtml}</div>
       </div>
       <div class="inv-col ranchbuild-col">
         <div class="panel-head"><h2>牧場建設</h2></div>
-        ${ranchHtml}
+        <div class="build-col-body">${ranchHtml}</div>
       </div>
     </div>
   `;
