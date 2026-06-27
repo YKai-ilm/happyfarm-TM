@@ -18,14 +18,14 @@ const PLOT_UNLOCKS = [
 
 // 各田標桿位置（GM 校正匯出；% 為標桿中心相對該田）
 const STAKE_POS = {
-  0: [20.2, 62.3], 1: [20.6, 64.8], 2: [21.8, 64.8], 3: [22.9, 64.8],
+  0: [20.8, 61.2], 1: [21.2, 63.5], 2: [22.4, 63.5], 3: [23.4, 63.5],
   4: [15.9, 39.7], 5: [15.5, 34.9], 6: [19.8, 34.9], 7: [24.9, 30.1],
   8: [16.1, 45.9], 9: [17.3, 44.6], 10: [20.9, 42.0], 11: [23.6, 43.3],
-  12: [13.6, 47.2], 13: [3.1, 48.2], 14: [21.5, 49.2], 15: [26.7, 48.2],
+  12: [13.6, 47.2], 13: [3.1, 48.2], 14: [21.5, 49.2], 15: [26.0, 49.2],
 };
 
 const CLOUD_POS = { 0: [51.4, 6.3], 1: [35.1, 10.9] };
-const BUILDING_POS = { windmill: [54.7, 25.1], doghouse: [68.2, 35.0] };
+const BUILDING_POS = { windmill: [54.7, 25.1], doghouse: [67.0, 31.5] };
 
 function applyClouds() {
   const fx = document.querySelector("#weatherFx");
@@ -86,6 +86,7 @@ const DOG_HAPPY_MS = 8 * 3600 * 1000;   // 開心度 8 小時歸零
 function dogSatiety() { if (!state.dog) return 0; return Math.max(0, Math.min(100, 100 - (Date.now() - (state.dog.fedAt || 0)) / DOG_SAT_MS * 100)); }
 function dogHappiness() { if (!state.dog) return 0; return Math.max(0, Math.min(100, 100 - (Date.now() - (state.dog.happyAt || 0)) / DOG_HAPPY_MS * 100)); }
 function dogWorking() { return !!(state.dog && dogSatiety() > 0); }   // 飽食度>0 才工作(顧家趕小偷)
+function dogStateForProfile() { if (!state.doghouseBought) return "none"; if (!state.dog) return "empty"; return dogSatiety() > 0 ? "wait" : "sleep"; }
 const DOG_CATCH = 0.9;
 const DOG_IMG = {
   empty: "./assets/decor/doghouse.png",
@@ -136,17 +137,25 @@ function applyBuildings() {
   const dh = fx.querySelector("#bld-doghouse");
   if (dh) {
     try {
-      const active = gmDogOverride !== "none" && state.scene !== "ranch" && (state.doghouseBought || !!gmDogOverride || state.gm);
+      let active = false, imgKey = null;
+      if (visiting) {
+        // 參觀好友農場：顯示好友的狗窩(依公開檔 dogState)，只在農場場景
+        if (visiting.kind === "cloud" && visitScene !== "ranch" && visiting.dogState && visiting.dogState !== "none") {
+          active = true; imgKey = visiting.dogState;
+        }
+      } else {
+        active = gmDogOverride !== "none" && state.scene !== "ranch" && (state.doghouseBought || !!gmDogOverride || state.gm);
+      }
       dh.style.display = active ? "block" : "none";
       if (active) {
-        const want = doghouseImg();
+        const want = imgKey ? (DOG_IMG[imgKey] || DOG_IMG.empty) : doghouseImg();
         if (dh.getAttribute("src") !== want) dh.setAttribute("src", want);
+        let dp = visiting ? null : gmBuildingPos.doghouse;
+        if (!(dp && (dp[0] > 2 || dp[1] > 8))) dp = BUILDING_POS.doghouse;
+        dh.style.left = dp[0] + "%"; dh.style.top = dp[1] + "%";
+        dh.style.pointerEvents = visiting ? "none" : "auto";   // 參觀好友的狗窩不可拖/點
+        dh.style.cursor = (state.gm && !visiting) ? "grab" : "default";
       }
-      let dp = gmBuildingPos.doghouse;
-      if (!(dp && (dp[0] > 2 || dp[1] > 8))) dp = BUILDING_POS.doghouse;
-      if (dp) { dh.style.left = dp[0] + "%"; dh.style.top = dp[1] + "%"; }
-      dh.style.pointerEvents = active ? "auto" : "none";
-      dh.style.cursor = state.gm ? "grab" : "pointer";
     } catch (e) { console.error("doghouse render err", e); }
   }
 }
@@ -168,6 +177,8 @@ function setupBuildingDrag() {
     return null;
   }
   document.addEventListener("pointerdown", (e) => {
+    if (visiting) { cur = null; return; }   // 參觀好友時不互動建築
+    if (e.target && e.target.closest && e.target.closest(".work-panel, .inventory-panel, .panel, .gm-box, .save-box, .slot-box, .gift-box, #dogBox, #stockView, .main-nav, .topbar, .scene-toolbar, .bottom-tool-row, button, input, a")) { cur = null; return; }
     const h = hitTest(e.clientX, e.clientY);
     if (!h) { cur = null; return; }
     cur = h.el; key = h.k; label = h.lb; openable = h.op; moved = false; sx = e.clientX; sy = e.clientY;
@@ -546,7 +557,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "621025441541",
   appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
 };
-let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0;
+let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0; let mailTimer = null;
 const SLOT_KEY = "happy-farm-active-slot";
 let activeSlot = ""; let accountData = null; let idleTimer = null; let lastActivity = Date.now(); let slotReady = false; const IDLE_MS = 600000;
 let visiting = null; let visitRefreshTimer = null; let visitPendingBug = {}; let visitPendingSpray = {};
@@ -604,6 +615,9 @@ function createDefaultState() {
     friends: [],
     friendCode: "",
     cloudFriends: [],
+    mailReadBroadcast: [],
+    mailClaimed: [],
+    mailNonFriendLog: [],
     doghouseBought: false,
     dog: null,
     candidates: makeBuiltinCandidates(),
@@ -741,6 +755,7 @@ function stopCloudTimers() {
   if (reconcileTimer) { clearInterval(reconcileTimer); reconcileTimer = null; }
   if (saveListener) { saveListener(); saveListener = null; }
   if (idleTimer) { clearInterval(idleTimer); idleTimer = null; }
+  if (mailTimer) { clearInterval(mailTimer); mailTimer = null; }
 }
 
 async function startSlotFlow() {
@@ -887,6 +902,8 @@ async function deleteSlot(slotId) {
 function startCloudTimers() {
   if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
   if (!idleTimer) idleTimer = setInterval(idleCheck, 30000);
+  if (!mailTimer) mailTimer = setInterval(() => { if (fbUser) loadMail(); }, 25000);
+  loadMail();
   attachSaveListener();
 }
 
@@ -1000,6 +1017,7 @@ async function publishProfile(force) {
       level: state.level || 1,
       coins: state.coins || 0,
       dogGuard: dogWorking(),
+      dogState: dogStateForProfile(),
       friendCode: state.friendCode || "",
       farmSnapshot: (state.plots || []).map((p) => {
         if (!p.unlocked) return { s: "locked" };
@@ -2620,6 +2638,9 @@ function bindStaticEvents() {
       if (button.dataset.action === "one-ranch") {
         oneClickRanch();
       }
+      if (button.dataset.action === "mail") {
+        openMail();
+      }
     });
   });
 
@@ -2925,6 +2946,12 @@ function applyScene() {
   updateRanchEditor();
   updateFarmExportBtn();
   applyRanchBg();
+  const gmRo = document.querySelector("#gmStakeReadout");
+  if (gmRo && state.gm) {
+    gmRo.textContent = state.scene === "ranch"
+      ? "GM：點圈選範圍角落點來校正效果發生範圍"
+      : "GM：拖曳田裡的標桿來校正位置";
+  }
 }
 
 function updateFarmExportBtn() {
@@ -4332,7 +4359,6 @@ function exportStakePos() {
     const y = ((sr.top + sr.height / 2 - pr.top) / pr.height * 100).toFixed(1);
     out.push(`${plot.dataset.plot}:${x},${y}`);
   });
-  if (!out.length) { toast("目前畫面沒有標桿可匯出（未開墾／損壞田才有）。"); return; }
   const fx = document.querySelector("#weatherFx");
   const cl = [];
   if (fx) {
@@ -4367,7 +4393,8 @@ function exportStakePos() {
       }
     }
   }
-  const text = out.join(" | ") + (cl.length ? "\n雲： " + cl.join(" | ") : "") + (bl.length ? "\n建築： " + bl.join(" | ") : "");
+  if (!out.length && !cl.length && !bl.length) { toast("目前畫面沒有可匯出的座標。"); return; }
+  const text = (out.length ? out.join(" | ") : "(無標桿)") + (cl.length ? "\n雲： " + cl.join(" | ") : "") + (bl.length ? "\n建築： " + bl.join(" | ") : "");
   try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
   try { console.log("STAKE_POS:", text); } catch (e) {}
   try { window.prompt("已複製，貼到對話給 Claude 即可：", text); } catch (e) {}
@@ -4380,10 +4407,6 @@ function setupGmStakes() {
   if (!state.gm || !elements.farmGrid) return;
   if (!Object.keys(gmStakePos).length) {
     try { gmStakePos = JSON.parse(localStorage.getItem("gm-stake-pos") || "{}") || {}; } catch (e) { gmStakePos = {}; }
-  }
-  if (readout && !readout.dataset.init) {
-    readout.dataset.init = "1";
-    readout.textContent = "GM：拖曳田裡的標桿來校正位置";
   }
   elements.farmGrid.querySelectorAll(".plot-stake").forEach((stake) => {
     const plot = stake.closest(".plot");
@@ -5115,27 +5138,32 @@ function oneClickRanch() {
   if (state.scene !== "ranch" || visiting) { toast("請在牧場模式使用。"); return; }
   const list = state.ranchAnimals || [];
   const now = Date.now();
+  // 乾跑計算：洗澡→收成→(收成後再)洗澡→餵食，只算會發生效果的
   let count = 0;
   list.forEach((a) => {
     const cfg = RANCH_ANIMALS[a.type]; if (!cfg) return;
-    if (a.dirty) count++;
-    else if (a.fedAt && now - a.fedAt >= cfg.growMs) count++;
-    else if (!a.fedAt) count++;
+    let dirty = a.dirty, fedAt = a.fedAt;
+    if (dirty) { count++; dirty = false; }
+    if (fedAt && now - fedAt >= cfg.growMs) { count++; fedAt = 0; dirty = true; }
+    if (dirty) { count++; dirty = false; }
+    if (!fedAt) { count++; }
   });
   if (!count) { toast("目前沒有可一鍵完成的動作。"); return; }
   const cost = count * 20;
   if (state.coins < cost) { toast("金幣不夠，一鍵完成需要 " + cost + " 金幣。"); return; }
-  showActionConfirm("一鍵完成 " + count + " 個動作<br>（餵食／洗澡／收成），共收 <b>" + cost + "</b> 金幣？", () => {
+  showActionConfirm("一鍵完成 " + count + " 個動作<br>（洗澡／收成／餵食），共收 <b>" + cost + "</b> 金幣？", () => {
     state.coins -= cost;
     list.forEach((a) => {
       const cfg = RANCH_ANIMALS[a.type]; if (!cfg) return;
-      if (a.dirty) { a.dirty = false; a.dirtyBy = null; }
-      else if (a.fedAt && now - a.fedAt >= cfg.growMs) {
+      if (a.dirty) { a.dirty = false; a.dirtyBy = null; }                        // 1.洗澡(原有髒污/被噴)
+      if (a.fedAt && now - a.fedAt >= cfg.growMs) {                              // 2.收成
         const y = 3 + Math.floor(Math.random() * 3);
         state.ranchProducts = state.ranchProducts || {};
         state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + y;
         a.produced = (a.produced || 0) + 1; a.fedAt = 0; a.dirty = true; a.dirtyBy = "system";
-      } else if (!a.fedAt) { a.fedAt = now; }
+      }
+      if (a.dirty) { a.dirty = false; a.dirtyBy = null; }                        // 3.收成後再洗澡
+      if (!a.fedAt) { a.fedAt = now; }                                          // 4.餵食
     });
     saveState(); render();
     if (fbUser) publishProfile(true);
@@ -6166,6 +6194,221 @@ function redeemCode(input) {
   toast("兌換成功：" + parts.join("、") + "。");
 }
 
+
+/* ===== 信件系統 ===== */
+const ADMIN_UIDS = ["Ozb3FwBxDlZiUjdCKEi3zbXkdiw2"];
+function isAdmin() { return !!(fbUser && ADMIN_UIDS.includes(fbUser.uid)); }
+let mailInbox = [], mailBroadcast = [], mailRecipientType = "player", mailRewardOpen = false;
+
+function myDisplayName() { return String(state.farmName || state.nickname || (fbUser && fbUser.displayName) || "農友").slice(0, 20); }
+function tsMillis(t) { try { return t && t.toMillis ? t.toMillis() : (typeof t === "number" ? t : 0); } catch (e) { return 0; } }
+function fmtMailTime(t) { const ms = tsMillis(t); if (!ms) return "剛剛"; const d = new Date(ms); const p = (n) => String(n).padStart(2, "0"); return (d.getMonth() + 1) + "/" + d.getDate() + " " + p(d.getHours()) + ":" + p(d.getMinutes()); }
+
+function mailUnreadCount() {
+  let n = 0;
+  mailInbox.forEach((m) => { if (!m.read) n++; });
+  const rb = state.mailReadBroadcast || [];
+  mailBroadcast.forEach((b) => { if (!rb.includes(b.id)) n++; });
+  return n;
+}
+function updateMailBadge() {
+  const btn = document.querySelector('[data-action="mail"]');
+  if (!btn) return;
+  let b = btn.querySelector(".mail-badge");
+  const n = mailUnreadCount();
+  if (n > 0) { if (!b) { b = document.createElement("span"); b.className = "mail-badge"; btn.appendChild(b); } b.textContent = n > 99 ? "99+" : String(n); }
+  else if (b) { b.remove(); }
+}
+async function loadMail() {
+  if (!fbDb || !fbUser) return;
+  try {
+    const ms = await fbDb.collection("mail").doc(fbUser.uid).collection("items").limit(100).get();
+    mailInbox = ms.docs.map((d) => Object.assign({ id: d.id }, d.data())).sort((a, b) => tsMillis(b.at) - tsMillis(a.at));
+  } catch (e) { console.warn("讀個人信失敗", e); }
+  try {
+    const bs = await fbDb.collection("broadcast").limit(50).get();
+    mailBroadcast = bs.docs.map((d) => Object.assign({ id: d.id }, d.data())).sort((a, b) => tsMillis(b.at) - tsMillis(a.at));
+  } catch (e) { console.warn("讀公告失敗", e); }
+  updateMailBadge();
+}
+
+function openMail() {
+  if (!fbUser) { toast("登入 Google 後才能用信件功能。"); return; }
+  let box = document.querySelector("#mailBox");
+  if (!box) { box = document.createElement("div"); box.id = "mailBox"; box.className = "gm-box"; document.body.appendChild(box); box.addEventListener("click", (e) => { if (e.target === box) box.remove(); }); }
+  box.hidden = false;
+  loadMail().then(renderMailMenu);
+  renderMailMenu();
+}
+function closeMail() { const b = document.querySelector("#mailBox"); if (b) b.remove(); }
+
+function renderMailMenu() {
+  const box = document.querySelector("#mailBox"); if (!box) return;
+  const unread = mailUnreadCount();
+  box.innerHTML = '<div class="mail-card"><h2>📬 信件</h2>' +
+    '<button type="button" class="mail-big" id="mailGoSend">✉️ 寄信</button>' +
+    '<button type="button" class="mail-big" id="mailGoInbox">📥 收信' + (unread ? ' <span class="mail-inline-badge">' + unread + '</span>' : '') + '</button>' +
+    '<button type="button" class="mail-close" id="mailClose">關閉</button></div>';
+  box.querySelector("#mailGoSend").addEventListener("click", renderMailSend);
+  box.querySelector("#mailGoInbox").addEventListener("click", renderMailInbox);
+  box.querySelector("#mailClose").addEventListener("click", closeMail);
+}
+
+function renderMailSend() {
+  const box = document.querySelector("#mailBox"); if (!box) return;
+  const admin = isAdmin();
+  const friendOpts = (state.cloudFriends || []).map((f) => '<option value="' + (f.name || "").replace(/"/g, "") + '">' + (f.name || "好友") + '</option>').join("");
+  const adminSel = admin ? (
+    '<div class="mail-row"><label>類型</label><select id="mailType">' +
+    '<option value="player"' + (mailRecipientType === "player" ? " selected" : "") + '>一般收件人</option>' +
+    '<option value="admin"' + (mailRecipientType === "admin" ? " selected" : "") + '>管-玩家</option>' +
+    '<option value="broadcast"' + (mailRecipientType === "broadcast" ? " selected" : "") + '>全服公告</option>' +
+    '</select></div>') : "";
+  const toRow = '<div class="mail-row"><label>收件人</label><input id="mailTo" type="text" maxlength="20" placeholder="輸入玩家名稱" />' +
+    '<select id="mailToPick"><option value="">好友…</option>' + friendOpts + '</select></div>';
+  const rewardBox = admin ? (
+    '<button type="button" id="mailRewardToggle" class="mail-reward-toggle">＋ 附加獎勵／兌換碼</button>' +
+    '<div id="mailRewardArea" class="mail-reward-area"' + (mailRewardOpen ? "" : " hidden") + '>' +
+      '<div class="mail-row"><label>金幣</label><input id="mailRwCoins" type="number" min="0" placeholder="0" /></div>' +
+      '<div class="mail-row"><label>兌換碼</label><input id="mailRwCode" type="text" placeholder="可填現有兌換碼" /></div>' +
+    '</div>') : "";
+  box.innerHTML = '<div class="mail-card"><h2>✉️ 寄信</h2>' +
+    adminSel +
+    '<div id="mailToWrap">' + toRow + '</div>' +
+    '<div class="mail-row"><label>主旨</label><input id="mailSubject" type="text" maxlength="40" placeholder="主旨" /></div>' +
+    '<textarea id="mailBody" maxlength="500" placeholder="信件內容…"></textarea>' +
+    rewardBox +
+    '<div class="mail-send-row"><button type="button" id="mailSendBtn" class="mail-primary">寄送確認</button></div>' +
+    '<button type="button" class="mail-close" id="mailBack">返回</button></div>';
+  box.querySelector("#mailBack").addEventListener("click", renderMailMenu);
+  box.querySelector("#mailSendBtn").addEventListener("click", sendMail);
+  const pick = box.querySelector("#mailToPick");
+  if (pick) pick.addEventListener("change", () => { const v = pick.value; if (v) { const to = box.querySelector("#mailTo"); if (to) to.value = v; } });
+  const typeSel = box.querySelector("#mailType");
+  if (typeSel) typeSel.addEventListener("change", () => { mailRecipientType = typeSel.value; const tw = box.querySelector("#mailToWrap"); if (tw) tw.style.display = mailRecipientType === "broadcast" ? "none" : ""; });
+  if (typeSel) { const tw = box.querySelector("#mailToWrap"); if (tw) tw.style.display = mailRecipientType === "broadcast" ? "none" : ""; }
+  const rt = box.querySelector("#mailRewardToggle");
+  if (rt) rt.addEventListener("click", () => { mailRewardOpen = !mailRewardOpen; const a = box.querySelector("#mailRewardArea"); if (a) a.hidden = !mailRewardOpen; });
+}
+
+function collectMailReward(box) {
+  const coins = parseInt((box.querySelector("#mailRwCoins") || {}).value || "0", 10) || 0;
+  const code = ((box.querySelector("#mailRwCode") || {}).value || "").trim();
+  if (coins <= 0 && !code) return null;
+  const rw = {};
+  if (coins > 0) rw.coins = coins;
+  if (code) rw.code = code;
+  return rw;
+}
+
+async function sendMail() {
+  const box = document.querySelector("#mailBox"); if (!box || !fbDb || !fbUser) return;
+  const subject = (box.querySelector("#mailSubject").value || "").trim().slice(0, 40) || "(無主旨)";
+  const body = (box.querySelector("#mailBody").value || "").trim().slice(0, 500);
+  if (!body) { toast("信件內容不能空白。"); return; }
+  const admin = isAdmin();
+  // 全服公告
+  if (admin && mailRecipientType === "broadcast") {
+    const payload = { fromName: "📢 管理員公告", subject: subject, body: body, at: firebase.firestore.FieldValue.serverTimestamp() };
+    const rw = collectMailReward(box); if (rw) payload.reward = rw;
+    try { await fbDb.collection("broadcast").add(payload); toast("已發送全服公告。"); renderMailMenu(); loadMail(); }
+    catch (e) { console.warn(e); toast("發送失敗（權限或網路）。"); }
+    return;
+  }
+  const name = (box.querySelector("#mailTo").value || "").trim();
+  if (!name) { toast("請輸入收件人。"); return; }
+  let uid = null, rname = name;
+  const fr = (state.cloudFriends || []).find((f) => f.name === name);
+  if (fr) { uid = fr.uid; rname = fr.name; }
+  else {
+    try { const q = await fbDb.collection("profiles").where("nameLower", "==", name.toLowerCase()).limit(1).get(); if (!q.empty) { uid = q.docs[0].id; rname = q.docs[0].data().farmName || name; } } catch (e) {}
+  }
+  if (!uid) { toast("找不到這位玩家（名稱要正確）。"); return; }
+  if (uid === fbUser.uid) { toast("不能寄給自己啦 😄"); return; }
+  const isFriend = (state.cloudFriends || []).some((f) => f.uid === uid);
+  if (!admin && !isFriend) {
+    const now = Date.now();
+    state.mailNonFriendLog = (state.mailNonFriendLog || []).filter((t) => now - t < 86400000);
+    if (state.mailNonFriendLog.length >= 5) { toast("對非好友一天最多寄 5 封，明天再寄。"); return; }
+  }
+  const kind = (admin && mailRecipientType === "admin") ? "admin" : "player";
+  const payload = { from: fbUser.uid, fromName: kind === "admin" ? "🛡️ 管理員" : myDisplayName(), subject: subject, body: body, at: firebase.firestore.FieldValue.serverTimestamp(), read: false, kind: kind };
+  if (admin) { const rw = collectMailReward(box); if (rw) payload.reward = rw; }
+  try {
+    await fbDb.collection("mail").doc(uid).collection("items").add(payload);
+    if (!admin && !isFriend) { state.mailNonFriendLog.push(Date.now()); saveState(); }
+    toast("信件已寄給 " + rname + "！");
+    renderMailMenu(); loadMail();
+  } catch (e) { console.warn(e); toast("寄送失敗（網路或權限）。"); }
+}
+
+function renderMailInbox() {
+  const box = document.querySelector("#mailBox"); if (!box) return;
+  const rb = state.mailReadBroadcast || [];
+  const list = []
+    .concat(mailBroadcast.map((b) => ({ kind: "broadcast", id: b.id, fromName: b.fromName || "📢 公告", subject: b.subject, body: b.body, at: b.at, reward: b.reward, read: rb.includes(b.id) })))
+    .concat(mailInbox.map((m) => ({ kind: m.kind || "player", id: m.id, fromName: m.fromName || "玩家", subject: m.subject, body: m.body, at: m.at, reward: m.reward, read: !!m.read })))
+    .sort((a, b) => tsMillis(b.at) - tsMillis(a.at));
+  const rows = list.length ? list.map((m, i) => {
+    return '<div class="mail-item ' + (m.read ? "is-read" : "is-unread") + '" data-mi="' + i + '">' +
+      '<span class="mail-dot"></span>' +
+      '<div class="mail-item-main"><div class="mail-item-top"><strong>' + (m.subject || "(無主旨)") + '</strong><span class="mail-item-time">' + fmtMailTime(m.at) + '</span></div>' +
+      '<div class="mail-item-from">' + m.fromName + '</div></div></div>';
+  }).join("") : '<p class="item-empty">沒有信件。</p>';
+  box.innerHTML = '<div class="mail-card"><h2>📥 收信</h2><div class="mail-list">' + rows + '</div>' +
+    '<button type="button" class="mail-close" id="mailBack">返回</button></div>';
+  box.querySelector("#mailBack").addEventListener("click", renderMailMenu);
+  box.querySelectorAll("[data-mi]").forEach((el) => el.addEventListener("click", () => openMailItem(list[Number(el.dataset.mi)])));
+}
+
+function openMailItem(m) {
+  if (!m) return;
+  // 標記已讀 + 領獎(一次)
+  if (m.kind === "broadcast") {
+    state.mailReadBroadcast = state.mailReadBroadcast || [];
+    const firstRead = !state.mailReadBroadcast.includes(m.id);
+    if (firstRead) { state.mailReadBroadcast.push(m.id); claimMailReward(m.reward, m.id, true); saveState(); }
+  } else {
+    const local = mailInbox.find((x) => x.id === m.id);
+    const firstRead = local && !local.read;
+    if (local) local.read = true;
+    if (firstRead) {
+      try { fbDb.collection("mail").doc(fbUser.uid).collection("items").doc(m.id).update({ read: true }); } catch (e) {}
+      claimMailReward(m.reward, m.id, false);
+      saveState();
+    }
+  }
+  updateMailBadge();
+  const box = document.querySelector("#mailBox"); if (!box) return;
+  let rewardHtml = "";
+  if (m.reward) {
+    const parts = [];
+    if (m.reward.coins) parts.push("金幣 " + m.reward.coins);
+    if (m.reward.code) parts.push("兌換碼：" + m.reward.code);
+    rewardHtml = '<div class="mail-reward-note">🎁 附帶獎勵：' + parts.join("、") + "（已自動領取）</div>";
+  }
+  box.innerHTML = '<div class="mail-card"><h2>' + (m.subject || "(無主旨)") + '</h2>' +
+    '<div class="mail-read-meta">寄件人：' + m.fromName + '　·　' + fmtMailTime(m.at) + '</div>' +
+    '<div class="mail-read-body">' + String(m.body || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>") + '</div>' +
+    rewardHtml +
+    '<button type="button" class="mail-primary" id="mailDone">閱讀完成</button>' +
+    '<button type="button" class="mail-close" id="mailBack">返回收信</button></div>';
+  box.querySelector("#mailDone").addEventListener("click", renderMailInbox);
+  box.querySelector("#mailBack").addEventListener("click", renderMailInbox);
+}
+
+function claimMailReward(reward, id, isBroadcast) {
+  if (!reward) return;
+  const claimed = state.mailClaimed || (state.mailClaimed = []);
+  const key = (isBroadcast ? "b:" : "m:") + id;
+  if (claimed.includes(key)) return;
+  claimed.push(key);
+  const parts = [];
+  if (reward.coins) { state.coins = (state.coins || 0) + reward.coins; parts.push(reward.coins + " 金幣"); }
+  saveState(); render();
+  if (reward.code) { redeemCode(reward.code); }      // 兌換碼用既有邏輯(含有效性/只能用一次)
+  if (parts.length) toast("領取獎勵：" + parts.join("、"));
+}
 
 /* ===== 上排工具列自動縮放字體以符合寬幅 ===== */
 function fitToolbar() {

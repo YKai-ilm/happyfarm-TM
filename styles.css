@@ -3596,13 +3596,14 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
   }
   .main-nav .nav-button {
     min-width: 0;
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 30px;
-    padding: 4px 4px;
-    font-size: clamp(0.58rem, 1.9vw, 0.8rem);
+    padding: 4px 7px;
+    font-size: clamp(0.58rem, 1.9vw, 0.82rem);
     white-space: nowrap;
     letter-spacing: -0.2px;
   }
+  .topbar > .main-nav { justify-content: flex-start; }
 }
 
 /* ===== 觸控裝置：股票分頁也平均分配、字體自適應、不橫向捲動 ===== */
@@ -3694,3 +3695,36 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 /* GM 狗窩列：可換行 + 對照說明 */
 .gm-dog-toggle { flex-wrap: wrap; row-gap: 5px; }
 .gm-dog-legend { margin: 4px 0 0; font-size: 0.68rem; line-height: 1.5; color: #cdbf9a; }
+
+/* ===== 信件系統 ===== */
+.scene-action { position: relative; }
+.mail-badge { position: absolute; top: -4px; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #e0352b; color: #fff; font-size: 0.62rem; font-weight: 800; line-height: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+.mail-card { width: min(380px, 94vw); margin: auto; background: #fffdf6; border-radius: 16px; padding: 16px; box-shadow: 0 18px 44px rgba(0,0,0,0.3); box-sizing: border-box; }
+.mail-card h2 { margin: 0 0 12px; font-size: 1.05rem; }
+.mail-big { width: 100%; height: 52px; border: 1px solid var(--line); border-radius: 12px; background: #f5ecd8; font-weight: 800; font-size: 1rem; cursor: pointer; color: var(--ink); margin-bottom: 10px; }
+.mail-inline-badge, .mail-item .mail-dot { }
+.mail-inline-badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: #e0352b; color: #fff; font-size: 0.72rem; font-weight: 800; }
+.mail-close { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: #f1efe9; font-weight: 800; cursor: pointer; color: var(--ink); margin-top: 8px; }
+.mail-primary { width: 100%; height: 44px; border: 0; border-radius: 10px; background: #e8b94a; color: #2a2113; font-weight: 800; cursor: pointer; }
+.mail-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mail-row label { flex: 0 0 3.5em; font-size: 0.82rem; font-weight: 700; color: #555; }
+.mail-row input, .mail-row select { flex: 1 1 auto; min-width: 0; height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font-size: 0.86rem; }
+.mail-row select { flex: 0 0 auto; max-width: 40%; }
+#mailBody { width: 100%; min-height: 110px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; font-size: 0.9rem; box-sizing: border-box; resize: vertical; margin-bottom: 8px; }
+.mail-reward-toggle { width: 100%; border: 1px dashed var(--line); background: #fbf6e8; border-radius: 8px; padding: 7px; font-size: 0.78rem; font-weight: 700; color: #8a6d2a; cursor: pointer; margin-bottom: 8px; }
+.mail-reward-area { background: #fbf6e8; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+.mail-send-row { margin-top: 4px; }
+.mail-list { max-height: 56vh; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.mail-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; cursor: pointer; }
+.mail-item .mail-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
+.mail-item.is-unread .mail-dot { background: #e0352b; }
+.mail-item.is-read { opacity: 0.62; }
+.mail-item.is-read .mail-dot { background: transparent; border: 1px solid #bbb; }
+.mail-item-main { flex: 1 1 auto; min-width: 0; }
+.mail-item-top { display: flex; justify-content: space-between; gap: 8px; }
+.mail-item-top strong { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-item-time { flex: 0 0 auto; font-size: 0.7rem; color: #9aa0a6; }
+.mail-item-from { font-size: 0.74rem; color: #6a6f75; }
+.mail-read-meta { font-size: 0.78rem; color: #6a6f75; margin-bottom: 10px; }
+.mail-read-body { font-size: 0.92rem; line-height: 1.6; color: #2d281b; white-space: pre-wrap; word-break: break-word; min-height: 80px; margin-bottom: 12px; }
+.mail-reward-note { background: #fff3d6; border: 1px solid #e8d6a0; border-radius: 8px; padding: 8px; font-size: 0.82rem; font-weight: 700; color: #8a6d2a; margin-bottom: 10px; }
