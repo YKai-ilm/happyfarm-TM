@@ -25,7 +25,7 @@ const STAKE_POS = {
 };
 
 const CLOUD_POS = { 0: [51.4, 6.3], 1: [35.1, 10.9] };
-const BUILDING_POS = { windmill: [54.7, 25.1], doghouse: [67.0, 31.5] };
+const BUILDING_POS = { windmill: [53.6, 25.0], doghouse: [65.1, 31.1] };
 
 function applyClouds() {
   const fx = document.querySelector("#weatherFx");
@@ -5623,9 +5623,9 @@ function cropCardVisual(id) {
 /* ===== 牧場窗門四點框選器（GM + 牧場模式才出現）===== */
 const RANCH_OPENINGS_DEFAULT = [
   { n: "中央門", p: [[46.3,18.2],[53.8,18.2],[53.8,31.4],[46.4,31.3]] },
-  { n: "小牧場動物移動範圍", p: [[36.7,39],[62.3,39.3],[66.4,47.2],[32.9,47.7]] },
-  { n: "大牧場動物移動範圍", p: [[36.9,38.5],[62.8,39],[71.2,60.9],[27.5,60.9]] },
-  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[87.2,51.9],[12,51.9]] },
+  { n: "小牧場動物移動範圍", p: [[36.4,38.4],[63.3,38.7],[69.9,53],[28.9,53]] },
+  { n: "大牧場動物移動範圍", p: [[36.5,37.7],[62.9,37.5],[75,66.8],[24.7,66.9]] },
+  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[90.4,58],[9,58]] },
 ];
 function currentRangeName() {
   return (RANCH_LEVEL_NAMES[state.ranchLevel || 1] || "小牧場") + "動物移動範圍";
@@ -5811,11 +5811,8 @@ function randPaddock(rangeName) {
 }
 
 function setAnimalZ(el, topPct) {
-  // 以「腳底(底緣)」決定前後：底緣越下面 z 越大(越前面)，避免大隻動物(牛/羊)壓到前面小動物
-  let half = 0;
-  const fr = document.querySelector(".field-frame");
-  if (el.offsetHeight && fr && fr.offsetHeight) half = (el.offsetHeight / 2) / fr.offsetHeight * 100;
-  el.style.zIndex = Math.round((topPct + half) * 10);
+  // 動物以腳底為錨點，topPct 即腳底位置：越下面 z 越大(越前面)
+  el.style.zIndex = Math.round(topPct * 10);
 }
 
 function renderRanchAnimals() {
