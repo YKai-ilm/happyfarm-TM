@@ -2203,7 +2203,7 @@ function stockOpenPrice(stock, dayNum) {
   gap = Math.max(-0.04, Math.min(0.04, gap));                // 限 ±4%
   return prev * (1 + gap);
 }
-const SESSION_MIN = 565;  // 9:00-13:25(265)+19:00-24:00(300)
+const SESSION_MIN = 892;  // 早9:00-13:25 / 午13:30-18:55 / 夜19:00-24:00（盤間留5分鐘）
 function stockPath(stock, dayNum) {
   const key = "p" + stock.code + ":" + dayNum;
   if (_closeCache[key]) return _closeCache[key];
@@ -2228,10 +2228,12 @@ function stockPath(stock, dayNum) {
 function sessionIndexNow() {
   const d = new Date();
   const mod = d.getHours() * 60 + d.getMinutes();
-  if (mod < 540) return { state: "pre", idx: 0 };                   // 9:00前 休市(昨收)
-  if (mod <= 805) return { state: "open", idx: mod - 540 };         // 9:00-13:25
-  if (mod < 1140) return { state: "lunch", idx: 265 };              // 13:25-19:00 休息
-  if (mod < 1440) return { state: "open", idx: 265 + (mod - 1140) };// 19:00-24:00
+  if (mod < 540) return { state: "pre", idx: 0 };                        // 9:00前 休市
+  if (mod <= 805) return { state: "open", idx: mod - 540 };              // 早盤 9:00-13:25
+  if (mod < 810) return { state: "closed", idx: 265 };                   // 13:25-13:30 預留禁交易
+  if (mod <= 1135) return { state: "open", idx: 266 + (mod - 810) };     // 午盤 13:30-18:55
+  if (mod < 1140) return { state: "closed", idx: 591 };                  // 18:55-19:00 預留禁交易
+  if (mod <= 1440) return { state: "open", idx: 592 + (mod - 1140) };    // 夜盤 19:00-24:00
   return { state: "open", idx: SESSION_MIN };
 }
 function stockInfo(stock) {
@@ -2252,6 +2254,7 @@ function stockInfo(stock) {
 function stockStatusText(state) {
   if (state === "pre") return "休市・早上 9:00 開盤";
   if (state === "lunch") return "休息・晚上 7:00 續盤";
+  if (state === "closed") return "暫停交易・盤間休息（預留5分鐘）";
   return "盤中交易";
 }
 
@@ -2411,7 +2414,9 @@ function refreshStockBuyPrices() {
 function buyStock(code, shares) {
   const stk = STOCKS.find((x) => x.code === code);
   if (!stk || shares < 1) return;
-  const price = stockInfo(stk).price;
+  const si = stockInfo(stk);
+  if (si.state !== "open") { toast("目前暫停交易（盤間休息／休市）。"); return; }
+  const price = si.price;
   const cost = Math.round(price * shares);
   if (state.coins < cost) { toast("金幣不夠，需要 $" + cost.toLocaleString() + "。"); return; }
   state.coins -= cost;
@@ -2427,6 +2432,7 @@ function buyStock(code, shares) {
 function sellStock(code, shares) {
   const stk = STOCKS.find((x) => x.code === code);
   if (!stk || shares < 1) return;
+  if (stockInfo(stk).state !== "open") { toast("目前暫停交易（盤間休息／休市）。"); return; }
   const hold = stockHold(code);
   if (hold.sh < shares) { toast("持股不足，目前 " + hold.sh + " 股。"); return; }
   const price = stockInfo(stk).price;
@@ -2465,14 +2471,18 @@ function renderStock() {
     '</div>' +
     '<div class="stk-body"><canvas id="stkChart" class="stk-chart"></canvas>' +
     '<div class="stk-actions" id="stkActions">' +
-      ['all','am','pm'].map(function(r){var L={all:'全日',am:'早盤',pm:'夜盤'};return '<button type="button" class="stk-range'+(stockRange===r?' is-active':'')+'" data-stk-range="'+r+'">'+L[r]+'</button>';}).join('') +
+      ['all','am','noon','pm'].map(function(r){var L={all:'全日',am:'早盤',noon:'午盤',pm:'夜盤'};return '<button type="button" class="stk-range'+(stockRange===r?' is-active':'')+'" data-stk-range="'+r+'">'+L[r]+'</button>';}).join('') +
     '</div></div>';
   view.querySelectorAll("[data-stk]").forEach((b) => b.addEventListener("click", () => { stockSel = Number(b.dataset.stk); renderStock(); }));
   view.querySelectorAll("[data-stk-range]").forEach((b) => b.addEventListener("click", () => { stockRange = b.dataset.stkRange; renderStock(); }));
   drawStockChart(stock, info);
 }
 
-function pointClock(i) { return i <= 265 ? (540 + i) : (1140 + (i - 265)); }
+function pointClock(i) {
+  if (i <= 265) return 540 + i;          // 早盤 9:00-13:25
+  if (i <= 591) return 810 + (i - 266);  // 午盤 13:30-18:55
+  return 1140 + (i - 592);               // 夜盤 19:00-24:00
+}
 function fmtClock(m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(Math.round(m) % 60).padStart(2, "0"); }
 function drawStockChart(stock, info) {
   const cv = document.querySelector("#stkChart");
@@ -2484,6 +2494,7 @@ function drawStockChart(stock, info) {
   ctx.clearRect(0, 0, w, h);
   let tStart, tEnd, tick;
   if (stockRange === "am") { tStart = 540; tEnd = 810; tick = 30; }
+  else if (stockRange === "noon") { tStart = 810; tEnd = 1140; tick = 30; }
   else if (stockRange === "pm") { tStart = 1140; tEnd = 1440; tick = 30; }
   else { tStart = 540; tEnd = 1440; tick = 60; }
   // 收集此時段、已發生的價格點
