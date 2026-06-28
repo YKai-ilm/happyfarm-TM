@@ -3019,7 +3019,7 @@ body {
 /* GM 標桿校正讀數 */
 .gm-stake-readout {
   position: absolute;
-  top: 6%;
+  top: 13%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
@@ -3215,6 +3215,13 @@ body {
 .avatar-btn { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 11px; background: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 .avatar-btn.is-on { border-color: #e8b94a; background: #fff6e0; box-shadow: inset 0 0 0 2px #e8b94a; }
 .set-sub { margin: 12px 0 8px; font-size: 0.92rem; color: #5a4a22; }
+/* 攻略頁 */
+.guide-card { max-width: 560px; width: 92%; max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+.guide-body { overflow-y: auto; text-align: left; padding-right: 4px; margin: 6px 0 10px; }
+.guide-body h3 { margin: 12px 0 4px; font-size: 0.98rem; color: #4a6b34; }
+.guide-body p { margin: 0 0 6px; font-size: 0.88rem; line-height: 1.55; color: #463a1f; }
+.guide-core { background: #fff3d6; border: 1px solid #e8c987; border-radius: 10px; padding: 8px 10px; }
+
 /* 角色名稱列：窄輸入格 + 其他設定小鈕 */
 .set-row .role-name-input { flex: 1 1 auto; min-width: 0; }
 .set-more-btn { flex: 0 0 auto; font-size: 0.74rem; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #f5ecd8; color: var(--ink); font-weight: 800; white-space: nowrap; cursor: pointer; }
@@ -3375,6 +3382,15 @@ body.is-ranch .wfx-sky {
 #ranchAnimals { position: absolute; inset: 0; z-index: 3; pointer-events: none; contain: layout style; }
 .ranch-animal { position: absolute; transform: translate(-50%, -100%); transition: left 5.5s linear, top 5.5s linear; font-size: clamp(15px, 2.25vw, 25px); line-height: 1; animation: animal-bob 4s ease-in-out infinite; will-change: transform; text-shadow: 0 1px 1px rgba(0,0,0,0.3); }
 .ranch-animal .animal-emoji { display: block; transition: transform 0.4s ease; }
+/* GM：動物移動基準點(腳底錨點)，關 GM 自動隱藏 */
+.ranch-animal .animal-anchor { display: none; }
+.farm-app.is-gm .ranch-animal .animal-anchor {
+  display: block; position: absolute; left: 50%; top: 100%;
+  width: 9px; height: 9px; transform: translate(-50%, -50%);
+  border-radius: 50%; background: #ff2d2d; border: 1.5px solid #fff;
+  box-shadow: 0 0 3px rgba(0,0,0,0.5); z-index: 6; pointer-events: none;
+}
+
 @keyframes animal-bob { 0%,100% { transform: translate(-50%,-100%) translateY(0); } 50% { transform: translate(-50%,-100%) translateY(-7%); } }
 .animal-badge { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 0.62em; margin-bottom: 2px; }
 .animal-prod { animation: prod-pop 1.1s ease-in-out infinite; }
@@ -3432,6 +3448,7 @@ body.is-ranch .wfx-sky {
 /* 上排工具列：不換行、高度固定；擠壓時自動縮小字體符合寬幅，真的放不下才左右滑 */
 .scene-action { white-space: nowrap; }
 .scene-action .button-icon { flex: none; }
+.one-click-icon { align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
 .scene-toolbar-top {
   flex-wrap: nowrap !important;
   overflow-x: auto;
@@ -3762,6 +3779,13 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .dog-bar-fill.sat { background: #e0a035; }
 .dog-bar-fill.hap { background: #5fb36a; }
 .dog-bar-num { flex: 0 0 auto; width: 2.6em; text-align: right; font-weight: 800; }
+
+/* 看門狗：防盜開關 */
+.dog-guard { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.dog-guard-cap { font-size: 0.78rem; font-weight: 800; color: #5a4a22; }
+.dog-guard-btn { width: 58px; height: 58px; border-radius: 14px; font-weight: 900; font-size: 1.15rem; cursor: pointer; border: 2px solid; }
+.dog-guard-btn.on { background: #e7f5e1; color: #2e7d32; border-color: #5e8c46; }
+.dog-guard-btn.off { background: #efe6dd; color: #9a6b1e; border-color: #c9a86a; }
 .dog-actions { display: flex; gap: 8px; margin-top: 14px; }
 .dog-actions button { flex: 1 1 0; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #f5ecd8; font-weight: 800; cursor: pointer; color: var(--ink); }
 

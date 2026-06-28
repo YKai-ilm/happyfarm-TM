@@ -85,8 +85,8 @@ const DOG_SAT_MS = 6 * 3600 * 1000;     // 飽食度 6 小時歸零
 const DOG_HAPPY_MS = 8 * 3600 * 1000;   // 開心度 8 小時歸零
 function dogSatiety() { if (!state.dog) return 0; return Math.max(0, Math.min(100, 100 - (Date.now() - (state.dog.fedAt || 0)) / DOG_SAT_MS * 100)); }
 function dogHappiness() { if (!state.dog) return 0; return Math.max(0, Math.min(100, 100 - (Date.now() - (state.dog.happyAt || 0)) / DOG_HAPPY_MS * 100)); }
-function dogWorking() { return !!(state.dog && dogSatiety() > 0); }   // 飽食度>0 才工作(顧家趕小偷)
-function dogStateForProfile() { if (!state.doghouseBought) return "none"; if (!state.dog) return "empty"; return dogSatiety() > 0 ? "wait" : "sleep"; }
+function dogWorking() { return !!(state.dog && state.dog.guardOn !== false && dogSatiety() > 0); }   // 防盜開+飽食度>0 才工作(顧家趕小偷)
+function dogStateForProfile() { if (!state.doghouseBought) return "none"; if (!state.dog) return "empty"; if (state.dog.guardOn === false) return "guardoff"; return dogSatiety() > 0 ? "wait" : "sleep"; }
 const DOG_CATCH = 0.9;
 const DOG_IMG = {
   empty: "./assets/decor/doghouse.png",
@@ -94,10 +94,12 @@ const DOG_IMG = {
   sleep: "./assets/decor/doghouse-sleep.png",
   enemy: "./assets/decor/doghouse-enemy.png",
   walk: "./assets/decor/dog.png",
+  guardoff: "./assets/decor/doghouse-guardoff.png",
 };
 function doghouseImg() {
   if (gmDogOverride) return DOG_IMG[gmDogOverride] || DOG_IMG.empty;
   if (!state.dog) return DOG_IMG.empty;
+  if (state.dog.guardOn === false) return DOG_IMG.guardoff;
   const sat = dogSatiety();
   const thief = (state.plots || []).some((p) => p.thief);
   if (sat > 0 && (thief || Date.now() < dogBarkUntil)) return DOG_IMG.enemy;
@@ -263,6 +265,7 @@ function renderDoghouse() {
     return;
   }
   const sat = Math.round(dogSatiety()), hap = Math.round(dogHappiness());
+  const guardOn = state.dog.guardOn !== false;
   box.innerHTML = '<div class="dog-card"><h2>🐶 我的看門狗</h2>' +
     '<div class="dog-main">' +
       '<div class="dog-portrait"><img src="./assets/decor/dog.png" alt="" /></div>' +
@@ -271,6 +274,7 @@ function renderDoghouse() {
         '<div class="dog-bar"><span class="dog-bar-label">飽食度</span><span class="dog-bar-track"><span class="dog-bar-fill sat" style="width:' + sat + '%"></span></span><span class="dog-bar-num">' + sat + '%</span></div>' +
         '<div class="dog-bar"><span class="dog-bar-label">開心度</span><span class="dog-bar-track"><span class="dog-bar-fill hap" style="width:' + hap + '%"></span></span><span class="dog-bar-num">' + hap + '%</span></div>' +
       '</div>' +
+      '<div class="dog-guard"><span class="dog-guard-cap">防盜</span><button type="button" id="dogGuardToggle" class="dog-guard-btn ' + (guardOn ? "on" : "off") + '">' + (guardOn ? "開" : "關") + '</button></div>' +
     '</div>' +
     '<div class="dog-actions"><button type="button" data-dog="feed">🍖 餵食</button><button type="button" data-dog="wash">🛁 洗澡</button><button type="button" data-dog="walk">🦮 散步</button></div>' +
     '<button type="button" id="dogClose" class="dog-close">關閉</button></div>';
@@ -278,6 +282,12 @@ function renderDoghouse() {
   box.querySelector("#dogRename").addEventListener("click", () => {
     const v = (box.querySelector("#dogName").value || "").trim().slice(0, 12);
     state.dog.name = v || "小狗"; saveState(); toast("改名成功：" + state.dog.name);
+  });
+  const gt = box.querySelector("#dogGuardToggle");
+  if (gt) gt.addEventListener("click", () => {
+    state.dog.guardOn = (state.dog.guardOn === false);
+    saveState(); render(); renderDoghouse();
+    toast(state.dog.guardOn ? "已開啟防盜，狗狗會趕小偷。" : "已關閉防盜，狗狗不趕小偷。");
   });
   box.querySelectorAll("[data-dog]").forEach((b) => b.addEventListener("click", () => dogAction(b.dataset.dog)));
 }
@@ -290,7 +300,7 @@ function adoptDog() {
     if (state.coins < cost) { toast("金幣不夠，養狗需要 " + cost + " 金幣。"); return; }
     state.coins -= cost;
   }
-  state.dog = { name: "小狗", fedAt: Date.now(), happyAt: Date.now() };
+  state.dog = { name: "小狗", fedAt: Date.now(), happyAt: Date.now(), guardOn: true };
   saveState(); render(); renderDoghouse();
   toast("養了一隻看門狗！記得餵食、洗澡、散步。");
 }
@@ -373,7 +383,7 @@ const UPGRADES = {
     name: "風車",
     icon: "wind",
     max: 10,
-    description: "每級讓作物成長時間縮短 2%。",
+    description: (lvl) => "每級讓作物成長時間縮短 2%，目前等級共增加 " + ((lvl || 0) * 2) + "%。",
     cost: (n) => 5000 + 2500 * n * (n + 1),
     reqLevel: () => 1,
     reqOrders: () => 0,
@@ -1294,7 +1304,7 @@ function renderVisitingRanch() {
       el.dataset.type = a.type;
       const p = randPaddock(rangeName);
       el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; setAnimalZ(el, p[1]);
-      el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
+      el.innerHTML = '<span class="animal-badge"></span><span class="animal-anchor" aria-hidden="true"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
       el.addEventListener("click", () => handleVisitRanchClick(i));
       box.appendChild(el);
     }
@@ -2819,6 +2829,10 @@ function bindStaticEvents() {
   setupCropper();
   const farmClose = document.querySelector("#farmClose");
   if (farmClose) farmClose.addEventListener("click", closeFarmSettings);
+  document.querySelector("#guideBtn")?.addEventListener("click", openGuide);
+  document.querySelector("#guideClose")?.addEventListener("click", closeGuide);
+  const guideBox = document.querySelector("#guideBox");
+  if (guideBox) guideBox.addEventListener("click", (e) => { if (e.target === guideBox) closeGuide(); });
   const farmBox = document.querySelector("#farmBox");
   if (farmBox) farmBox.addEventListener("click", (e) => { if (e.target === farmBox) closeFarmSettings(); });
   const friendFarmBox = document.querySelector("#friendFarmBox");
@@ -2996,10 +3010,13 @@ function applyScene() {
   updateFarmExportBtn();
   applyRanchBg();
   const gmRo = document.querySelector("#gmStakeReadout");
-  if (gmRo && state.gm) {
-    gmRo.textContent = state.scene === "ranch"
-      ? "GM：點圈選範圍角落點來校正效果發生範圍"
-      : "GM：拖曳田裡的標桿來校正位置";
+  if (gmRo) {
+    gmRo.hidden = !state.gm;                       // 關 GM 一律隱藏提示
+    if (state.gm) {
+      gmRo.textContent = state.scene === "ranch"
+        ? "GM：點圈選範圍角落點來校正效果發生範圍"
+        : "GM：拖曳田裡的標桿來校正位置";
+    }
   }
 }
 
@@ -4162,6 +4179,8 @@ function renderProfile() {
   ].join("");
 }
 
+function openGuide() { const b = document.querySelector("#guideBox"); if (b) b.hidden = false; }
+function closeGuide() { const b = document.querySelector("#guideBox"); if (b) b.hidden = true; }
 function openFarmSettings() { renderFarmSettings(); const b = document.querySelector("#farmBox"); if (b) b.hidden = false; }
 function closeFarmSettings() { const b = document.querySelector("#farmBox"); if (b) b.hidden = true; }
 
@@ -4952,7 +4971,7 @@ function renderUpgrades() {
             <strong>${upgrade.name} Lv.${level}/${upgrade.max}</strong>
             <span>${complete ? "滿級" : `${cost} 金幣`}</span>
           </span>
-          <span class="upgrade-meta">${upgrade.description}${reqText.length ? `（${reqText.join("、")}）` : ""}</span>
+          <span class="upgrade-meta">${typeof upgrade.description === "function" ? upgrade.description(level) : upgrade.description}${reqText.length ? `（${reqText.join("、")}）` : ""}</span>
           <button class="action-button" type="button" data-buy-upgrade="${id}" ${complete || !meet ? "disabled" : ""}>
             <span class="button-icon" aria-hidden="true" data-icon="${upgrade.icon}"></span>
             ${complete ? "滿級" : btnLabel}
@@ -6012,7 +6031,7 @@ function renderRanchAnimals() {
       el.dataset.type = a.type;
       const p = randPaddock();
       el.style.left = p[0] + "%"; el.style.top = p[1] + "%"; el.style.zIndex = Math.round(p[1] * 10);
-      el.innerHTML = '<span class="animal-badge"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
+      el.innerHTML = '<span class="animal-badge"></span><span class="animal-anchor" aria-hidden="true"></span>' + (cfg.img ? '<img class="animal-img" src="' + cfg.img + '" alt="" draggable="false" />' : '<span class="animal-emoji">' + cfg.emoji + '</span>');
       el.addEventListener("click", () => onRanchAnimalClick(a.id));
       box.appendChild(el);
     }

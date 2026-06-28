@@ -33,7 +33,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-189" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-195" />
   </head>
   <body>
     <div class="farm-app">
@@ -41,11 +41,10 @@
         <nav class="main-nav" aria-label="主選單">
           <button class="nav-button is-active" type="button" data-menu-action="farm">莊園設定</button>
           <button class="nav-button" type="button" data-menu-action="invite">邀請好友</button>
+          <button class="nav-button" type="button" data-menu-action="leaderboard">好友排行榜</button>
           <button class="nav-button" type="button" data-tab="market">農民市集</button>
           <button class="nav-button" type="button" data-menu-action="save">存檔備份</button>
-          <button class="nav-button" type="button" data-menu-action="notice">常見問題</button>
           <button class="nav-button" type="button" data-menu-action="redeem">兌換碼</button>
-          <button class="nav-button" type="button" data-menu-action="leaderboard">好友排行榜</button>
           <button class="nav-button" type="button" data-menu-action="stock">股市</button>
         </nav>
 
@@ -84,6 +83,7 @@
         </div>
 
         <div class="topbar-status" aria-label="目前天氣">
+          <button class="nav-button" id="guideBtn" type="button" title="新手攻略">📖 攻略</button>
           <button class="nav-button" id="bgmToggle" type="button" title="背景音樂開關">🎵 音樂</button>
           <span class="topbar-stat">目前天氣 <strong id="weatherValue">晴朗</strong></span>
         </div>
@@ -231,7 +231,7 @@
               <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
               換種子
             </button>
-            <button class="tool-button farm-tool" data-action="one-farm" type="button" title="一鍵完成">⚡ 一鍵完成</button>
+            <button class="tool-button farm-tool" data-action="one-farm" type="button" title="一鍵完成"><span class="button-icon one-click-icon" aria-hidden="true">⚡</span>一鍵完成</button>
             <button class="tool-button ranch-tool" data-action="ranch-exit" type="button" title="回農場">
               回農場
             </button>
@@ -255,7 +255,7 @@
               <span class="button-icon" aria-hidden="true" data-icon="coin"></span>
               賣動物
             </button>
-            <button class="tool-button ranch-tool" data-action="one-ranch" type="button" title="一鍵完成">⚡ 一鍵完成</button>
+            <button class="tool-button ranch-tool" data-action="one-ranch" type="button" title="一鍵完成"><span class="button-icon one-click-icon" aria-hidden="true">⚡</span>一鍵完成</button>
             <button class="tool-button visit-tool-farm" data-visit-go="ranch" type="button" title="參觀牧場">參觀牧場</button>
             <button class="tool-button visit-tool-farm" data-visit-tool="steal" type="button" title="偷菜">
               <span class="button-icon" aria-hidden="true" data-icon="basket"></span>
@@ -471,6 +471,30 @@
       </div>
     </div>
 
+    <div id="guideBox" class="gift-box" hidden>
+      <div class="gift-card guide-card" role="dialog" aria-modal="true" aria-label="新手攻略">
+        <h2>📖 新手攻略</h2>
+        <div class="guide-body">
+          <p class="guide-core">核心心法：<b>時間才是真正的貨幣，金幣只是計分板。</b>作物和動物都吃真實時間、離線照長——人不在時田別空著，人在時別讓成熟的菜閒置。</p>
+          <h3>🌱 開局三件事</h3>
+          <p>先衝<b>訂單</b>（金幣＋經驗雙收，也是小攤售價加成的解鎖門檻）、先點<b>風車</b>（每級全作物成長 −2%，會複利一輩子；推到中段 Lv.6–7 先停）、再<b>開墾田地</b>。田多→同輪收更多→滾更快。</p>
+          <h3>⏱️ 選作物看「每分鐘利潤」</h3>
+          <p>心算 (收成價×產量 − 種子成本) ÷ 成長分鐘。在線勤顧種短週期、利潤密度高；要睡覺出門就種高階長週期作物掛機過夜。比「種最貴的」更賺。</p>
+          <h3>🐄 牧場＝被動收入</h3>
+          <p>餵一次顧很久，適合掛機。重點：動物髒了要<b>先洗澡</b>才能再餵食／收成，別卡住生產。有閒錢就升牧場（小→大→超大）擴量。</p>
+          <h3>🤝 好友攻防一體</h3>
+          <p>主動：逛好友農場偷菜＋幫忙（除草／除蟲／澆水）都能賺；放蟲／潑髒水是干擾牌（一輪一次）。防守：離線前別留滿地成熟的菜（被偷標靶），搭<b>防盜卡＋餵飽看門狗（約 90% 擋偷）</b>。狗沒飯吃＝睡覺＝不設防。</p>
+          <h3>🎒 道具用在刀口</h3>
+          <p>肥料壓在最慢／最值錢的田；凍傷一定用<b>解凍卡（全返 50）</b>，別用金幣解凍（只回 70%）；天氣卡閃颱風／凍傷或硬切晴朗；經驗卡池衝等級；金幣卡救急。</p>
+          <h3>📈 股市低買高賣</h3>
+          <p>固定 ±10% 漲跌停、平盤置中，偏均值回歸。接近<b>跌停</b>分批接、靠近<b>漲停</b>減；資金少玩零股；盤間休息 5 分鐘不能交易別硬戳。是娛樂兼調節，別 All-in。</p>
+          <h3>📅 每日固定流程</h3>
+          <p>禮包＋轉盤 → 收信領獎／兌換碼 → 一輪收成重種（懶就 20 金幣一鍵完成）→ 餵動物、洗澡 → 用庫存即時填訂單 → 逛好友偷菜＋幫忙 → 餵狗顧家 → 瞄股市撿便宜。</p>
+        </div>
+        <button id="guideClose" type="button" class="gift-close">關閉</button>
+      </div>
+    </div>
+
     <div id="gmBadge" class="gm-badge" hidden>🛠️ GM 模式</div>
 
     <div id="gmPanel" class="gm-box" hidden>
@@ -584,7 +608,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-189"></script>
+    <script src="./game.js?v=20260624-claude-195"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
