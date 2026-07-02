@@ -3355,7 +3355,8 @@ body.is-ranch .wfx-sky {
 #ranchEditorSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ro-poly { fill: rgba(80,170,255,0.22); stroke: #3da0ff; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: auto; cursor: move; }
 .ro-handle { position: absolute; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; border-radius: 50%; background: #ffd24a; border: none; box-shadow: none; cursor: grab; pointer-events: auto; touch-action: none; z-index: 8; }
-#ranchExportBtn, #ranchResetBtn { position: absolute; bottom: 10px; z-index: 9; padding: 7px 12px; font-weight: 900; color: #fffaf0; background: rgba(40,72,44,0.92); border: 1px solid rgba(255,244,213,0.5); border-radius: 8px; cursor: pointer; pointer-events: auto; }
+#ranchExportBtn, #ranchResetBtn, #ranchYUp, #ranchYDn { position: absolute; bottom: 10px; z-index: 9; padding: 7px 12px; font-weight: 900; color: #fffaf0; background: rgba(40,72,44,0.92); border: 1px solid rgba(255,244,213,0.5); border-radius: 8px; cursor: pointer; pointer-events: auto; }
+#ranchYUp { left: 250px; } #ranchYDn { left: 335px; background: rgba(40,72,44,0.92); }
 #ranchExportBtn { left: 10px; }
 #ranchResetBtn { left: 150px; background: rgba(120,60,40,0.92); }
 

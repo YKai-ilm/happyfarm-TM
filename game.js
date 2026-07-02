@@ -1288,6 +1288,7 @@ function renderVisitingRanch() {
   const rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
   let box = frame.querySelector("#ranchAnimals");
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
+  applyRanchAnimalYAdj();
   // 移除多出來的動物節點
   const want = {};
   animals.forEach((a, i) => { want["v" + i] = true; });
@@ -5814,9 +5815,9 @@ function cropCardVisual(id) {
 /* ===== 牧場窗門四點框選器（GM + 牧場模式才出現）===== */
 const RANCH_OPENINGS_DEFAULT = [
   { n: "中央門", p: [[46.3,18.2],[53.8,18.2],[53.8,31.4],[46.4,31.3]] },
-  { n: "小牧場動物移動範圍", p: [[36.4,38.4],[63.3,38.7],[69.9,53],[28.9,53]] },
-  { n: "大牧場動物移動範圍", p: [[36.5,37.7],[62.9,37.5],[75,66.8],[24.7,66.9]] },
-  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[90.4,58],[9,58]] },
+  { n: "小牧場動物移動範圍", p: [[36.4,39.8],[63,40.3],[69.1,52.1],[30.1,52.2]] },
+  { n: "大牧場動物移動範圍", p: [[36.5,40.3],[62.7,40.1],[75,66.8],[26,66]] },
+  { n: "超大牧場動物移動範圍", p: [[31.2,37.6],[68.2,37.3],[90.4,58],[9,58]] },
 ];
 function currentRangeName() {
   return (RANCH_LEVEL_NAMES[state.ranchLevel || 1] || "小牧場") + "動物移動範圍";
@@ -5871,6 +5872,14 @@ function buildRanchEditor(frame) {
     saveRanchOpenings(); renderRanchEditor();
   });
   ed.appendChild(reset);
+  const yUp = document.createElement("button");
+  yUp.type = "button"; yUp.id = "ranchYUp"; yUp.textContent = "動物▲";
+  yUp.addEventListener("click", () => { localStorage.setItem("gm-ranch-yadj", (ranchYAdj() - 0.5).toFixed(1)); applyRanchAnimalYAdj(); toast("動物Y微調 " + ranchYAdj() + "%"); });
+  ed.appendChild(yUp);
+  const yDn = document.createElement("button");
+  yDn.type = "button"; yDn.id = "ranchYDn"; yDn.textContent = "動物▼";
+  yDn.addEventListener("click", () => { localStorage.setItem("gm-ranch-yadj", (ranchYAdj() + 0.5).toFixed(1)); applyRanchAnimalYAdj(); toast("動物Y微調 " + ranchYAdj() + "%"); });
+  ed.appendChild(yDn);
   frame.appendChild(ed);
   renderRanchEditor();
 }
@@ -5985,10 +5994,21 @@ function pointInPoly(x, y, poly) {
   }
   return inside;
 }
+const RANCH_INSET = 0.12;  // 移動範圍往形心內縮，讓動物離圍欄有邊距、不貼邊超出
+function insetPoly(poly, f) {
+  if (!poly || poly.length < 3) return poly;
+  const cx = poly.reduce((s, q) => s + q[0], 0) / poly.length;
+  const cy = poly.reduce((s, q) => s + q[1], 0) / poly.length;
+  return poly.map((q) => [q[0] + (cx - q[0]) * f, q[1] + (cy - q[1]) * f]);
+}
+function rangePoly(rangeName) {
+  const region = loadRanchOpenings().find((o) => o.n === (rangeName || currentRangeName()));
+  return (region && region.p && region.p.length >= 3) ? insetPoly(region.p, RANCH_INSET) : null;
+}
 function randPaddock(rangeName) {
-  const ops = loadRanchOpenings();
-  const region = ops.find((o) => o.n === (rangeName || currentRangeName()));
-  if (region && region.p && region.p.length >= 3) {
+  const poly = rangePoly(rangeName);
+  if (poly) {
+    const region = { p: poly };
     const xs = region.p.map((q) => q[0]), ys = region.p.map((q) => q[1]);
     const minx = Math.min.apply(null, xs), maxx = Math.max.apply(null, xs);
     const miny = Math.min.apply(null, ys), maxy = Math.max.apply(null, ys);
@@ -6015,6 +6035,7 @@ function renderRanchAnimals() {
   let box = frame.querySelector("#ranchAnimals");
   if (state.scene !== "ranch") { if (box) box.remove(); return; }
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
+  applyRanchAnimalYAdj();
   const now = Date.now();
   const list = state.ranchAnimals || [];
   const ids = {};
@@ -6048,15 +6069,21 @@ function renderRanchAnimals() {
   clampRanchAnimalsInRange();
 }
 
+function ranchYAdj() { const v = parseFloat(localStorage.getItem("gm-ranch-yadj")); return isFinite(v) ? v : 0; }
+function applyRanchAnimalYAdj() {
+  const box = document.querySelector("#ranchAnimals");
+  if (box) box.style.transform = "translateY(" + ranchYAdj() + "%)";
+}
+
 function clampRanchAnimalsInRange(rangeName) {
   const box = document.querySelector("#ranchAnimals");
   if (!box) return;
-  const region = loadRanchOpenings().find((o) => o.n === (rangeName || currentRangeName()));
-  if (!region || !region.p || region.p.length < 3) return;
+  const poly = rangePoly(rangeName);
+  if (!poly) return;
   const now = Date.now();
   box.querySelectorAll(".ranch-animal").forEach((el) => {
     const cx = parseFloat(el.style.left) || 50, cy = parseFloat(el.style.top) || 50;
-    if (!pointInPoly(cx, cy, region.p)) {
+    if (!pointInPoly(cx, cy, poly)) {
       const t = randPaddock(rangeName);
       el.style.transition = "none";
       el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; setAnimalZ(el, t[1]);
@@ -6081,13 +6108,13 @@ function wanderRanchAnimals() {
     rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
   }
   const now = Date.now();
-  const region = loadRanchOpenings().find((o) => o.n === (rangeName || currentRangeName()));
+  const poly = rangePoly(rangeName);
   box.querySelectorAll(".ranch-animal").forEach((el) => {
     setAnimalZ(el, parseFloat(el.style.top) || 50);   // 每次重算前後層級(含未移動者)
-    // 即時自我修正：腳底若已不在圈選範圍內(例如剛調整範圍)，立刻無滑行拉回範圍內
-    if (region && region.p && region.p.length >= 3) {
+    // 即時自我修正：腳底若已不在(內縮)範圍內，立刻無滑行拉回範圍內
+    if (poly) {
       const cx = parseFloat(el.style.left) || 50, cy = parseFloat(el.style.top) || 50;
-      if (!pointInPoly(cx, cy, region.p)) {
+      if (!pointInPoly(cx, cy, poly)) {
         const t = randPaddock(rangeName);
         el.style.transition = "none";
         el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; setAnimalZ(el, t[1]);
