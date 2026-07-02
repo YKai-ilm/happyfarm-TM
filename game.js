@@ -1044,7 +1044,7 @@ async function publishProfile(force) {
         if (p.broken) return { s: "broken" };
         if (!p.crop) return { s: "empty" };
         const planted = p.plantedAt || 0;
-        return { s: "crop", crop: p.crop, plantedAt: planted, readyAt: planted + getPlotDuration(p), pest: !!p.pest, pestBy: p.pestBy || null, pestUsed: !!p.pestUsed, weed: !!p.weed };
+        return { s: "crop", crop: p.crop, plantedAt: planted, readyAt: planted + getPlotDuration(p), pest: !!p.pest, pestBy: p.pestBy || null, pestUsed: !!p.pestUsed, weed: !!p.weed, watered: !!p.watered };
       }),
       ranchSnapshot: {
         ranchLevel: state.ranchLevel || 1,
@@ -1430,7 +1430,10 @@ function cloudFarmHelp(index) {
   const myUid = fbUser && fbUser.uid;
   const clearableBug = pl.pest && pl.pestBy !== myUid;   // 別人放的或系統的蟲
   const ownBug = pl.pest && pl.pestBy === myUid;         // 自己放的蟲
+  // 除蟲／除草：同一塊田在對方刷新前只能幫一次
   if (pl.weed || clearableBug) {
+    if (pl._depested) { toast("這塊的蟲害／雜草已經幫忙清過了，等主人刷新。"); return; }
+    pl._depested = true;
     writeFriendEvent(visiting.uid, { type: "depest", plotIndex: index });
     state.coins = (state.coins || 0) + 8; addXp(3);
     if (state.stats) state.stats.bug = (state.stats.bug || 0) + 1;
@@ -1439,6 +1442,12 @@ function cloudFarmHelp(index) {
     return;
   }
   if (ownBug) { toast("這是你自己放的蟲，不能自己幫忙清掉 🐛"); return; }
+  // 澆水：需非雨天、未澆水、且本輪未幫澆過（同一塊田在對方刷新前只能澆一次）
+  const rainy = ["rain", "storm", "typhoon"].includes(visiting.weather);
+  if (rainy) { toast("現在是雨天，不用幫忙澆水。"); return; }
+  if (pl.watered) { toast("這塊已經澆過水了。"); return; }
+  if (pl._watered) { toast("你已經幫這塊澆過水了，等主人刷新。"); return; }
+  pl._watered = true;
   writeFriendEvent(visiting.uid, { type: "help", plotIndex: index });
   state.coins = (state.coins || 0) + 8; addXp(3);
   if (state.stats) state.stats.water = (state.stats.water || 0) + 1;
