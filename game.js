@@ -6129,6 +6129,11 @@ function clampRanchAnimalsInRange(rangeName) {
 
 // 滑行 5.5s，每次抵達後強制停頓 1.5-2.5s（期間僅原地抖動），不連續滑行
 const RANCH_GLIDE_MS = 5500;
+const RANCH_SPEED = 0.0065;  // %/ms：等速移動(時間與距離成正比，不再有遠距離衝刺感)
+function ranchGlideMs(x1, y1, x2, y2) {
+  const d = Math.hypot(x2 - x1, y2 - y1);
+  return Math.min(9000, Math.max(1800, Math.round(d / RANCH_SPEED)));
+}
 function ranchRestMs() { return 1500 + Math.random() * 1000; }
 function wanderRanchAnimals() {
   const isVisit = visiting && visitScene === "ranch";
@@ -6161,11 +6166,14 @@ function wanderRanchAnimals() {
     if (!next) { el.dataset.nextMove = now + 300 + Math.random() * 3500; return; }  // 初次錯開
     if (now < next) return;
     const cur = parseFloat(el.style.left) || 50;
+    const curY = parseFloat(el.style.top) || 50;
     const t = randPaddock(rangeName);
+    const dur = ranchGlideMs(cur, curY, t[0], t[1]);   // 等速：依距離決定時間
+    el.style.transitionDuration = dur + "ms";
     el.style.left = t[0] + "%"; el.style.top = t[1] + "%"; setAnimalZ(el, t[1]);
     const face = el.querySelector(".animal-emoji, .animal-img");
     if (face) face.style.transform = (t[0] < cur) ? "scaleX(-1)" : "scaleX(1)";
-    el.dataset.nextMove = now + RANCH_GLIDE_MS + ranchRestMs();  // 滑行完成 + 停頓後才能再滑行
+    el.dataset.nextMove = now + dur + ranchRestMs();  // 滑行完成 + 停頓後才能再滑行
   });
 }
 

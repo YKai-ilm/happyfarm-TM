@@ -26,7 +26,7 @@
           document.body.innerHTML = '<div id="simSafe"><iframe id="simFrame" title="開心農場" src="' + src + '"></iframe></div>';
           // 用完整可視範圍置中縮放(不額外扣安全區，避免瀏海旁的寬度被雙重浪費)；遊戲置中，瀏海落在留邊
           var safe = document.getElementById("simSafe");
-          safe.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0c140c;";
+          safe.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0c140c;";  /* 左右先滿→以寬度為準、上下停止縮放並置中 */
           var fr = document.getElementById("simFrame");
           fr.style.cssText = "border:0;flex:0 0 auto;width:" + DW + "px;height:" + DH + "px;transform-origin:center center;background:#0c140c;";
           function fit() {
@@ -44,7 +44,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-202" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-204" />
   </head>
   <body>
     <div class="farm-app">
@@ -619,7 +619,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-202"></script>
+    <script src="./game.js?v=20260624-claude-204"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
