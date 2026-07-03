@@ -1288,7 +1288,7 @@ function renderVisitingRanch() {
   const rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
   let box = frame.querySelector("#ranchAnimals");
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
-  applyRanchAnimalYAdj();
+  applyRanchAnimalYAdj(); calibrateRanchOnce(0);
   // 移除多出來的動物節點
   const want = {};
   animals.forEach((a, i) => { want["v" + i] = true; });
@@ -5881,14 +5881,6 @@ function buildRanchEditor(frame) {
     saveRanchOpenings(); renderRanchEditor();
   });
   ed.appendChild(reset);
-  const yUp = document.createElement("button");
-  yUp.type = "button"; yUp.id = "ranchYUp"; yUp.textContent = "動物▲";
-  yUp.addEventListener("click", () => { localStorage.setItem("gm-ranch-yadj", (ranchYAdj() - 0.5).toFixed(1)); applyRanchAnimalYAdj(); toast("動物Y微調 " + ranchYAdj() + "%"); });
-  ed.appendChild(yUp);
-  const yDn = document.createElement("button");
-  yDn.type = "button"; yDn.id = "ranchYDn"; yDn.textContent = "動物▼";
-  yDn.addEventListener("click", () => { localStorage.setItem("gm-ranch-yadj", (ranchYAdj() + 0.5).toFixed(1)); applyRanchAnimalYAdj(); toast("動物Y微調 " + ranchYAdj() + "%"); });
-  ed.appendChild(yDn);
   frame.appendChild(ed);
   renderRanchEditor();
 }
@@ -6044,7 +6036,7 @@ function renderRanchAnimals() {
   let box = frame.querySelector("#ranchAnimals");
   if (state.scene !== "ranch") { if (box) box.remove(); return; }
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
-  applyRanchAnimalYAdj();
+  applyRanchAnimalYAdj(); calibrateRanchOnce(0);
   const now = Date.now();
   const list = state.ranchAnimals || [];
   const ids = {};
@@ -6082,6 +6074,39 @@ function ranchYAdj() { const v = parseFloat(localStorage.getItem("gm-ranch-yadj"
 function applyRanchAnimalYAdj() {
   const box = document.querySelector("#ranchAnimals");
   if (box) box.style.transform = "translateY(" + ranchYAdj() + "%)";
+}
+// 自動校正：量測動物實際渲染腳底 vs 資料腳底，補正系統性垂直落差(收斂後不再變動)
+let _ranchCalibrated = false;
+// 進牧場時量測一次系統性垂直落差並補正(只做一次、不連續回饋，避免與 bob 打架抖動)
+function autoCalibrateRanchYAdj() {
+  const frame = document.querySelector(".field-frame");
+  const box = document.querySelector("#ranchAnimals");
+  if (!frame || !box) return false;
+  const fr = frame.getBoundingClientRect();
+  if (!fr.width || !fr.height) return false;
+  let el = null;
+  box.querySelectorAll(".ranch-animal").forEach((a) => {
+    if (el) return;
+    const rr = a.getBoundingClientRect();
+    if (rr.height < 6) return;
+    const cx = (rr.left + rr.width / 2 - fr.left) / fr.width * 100;
+    if (Math.abs(cx - (parseFloat(a.style.left) || 50)) <= 2) el = a;   // 只量已停下的動物
+  });
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  const intended = parseFloat(el.style.top) || 50;        // 資料上的腳底 %
+  const feetPct = (r.bottom - fr.top) / fr.height * 100;  // 實際渲染的腳底 %
+  const delta = feetPct - intended;
+  if (Math.abs(delta) > 1.0) {
+    localStorage.setItem("gm-ranch-yadj", (ranchYAdj() - delta).toFixed(1));
+    applyRanchAnimalYAdj();
+  }
+  return true;   // 已完成一次量測(即使已對齊也算)
+}
+function calibrateRanchOnce(tries) {
+  if (_ranchCalibrated) return;
+  if (autoCalibrateRanchYAdj()) { _ranchCalibrated = true; return; }
+  if ((tries || 0) < 10) setTimeout(function () { calibrateRanchOnce((tries || 0) + 1); }, 300);
 }
 
 function clampRanchAnimalsInRange(rangeName) {

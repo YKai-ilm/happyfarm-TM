@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>開心農場 — 手機模擬器（iPhone 15 / OPPO Reno 14）</title>
+<style>
+  :root { --bg:#1f2933; --panel:#2b3947; --ink:#eef3f7; --accent:#e8b94a; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body {
+    background:#1f2933;
+    color:var(--ink);
+    font-family:"Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  .toolbar {
+    flex:0 0 auto; display:flex; align-items:center; gap:8px;
+    padding:10px 14px; background:var(--panel); border-bottom:1px solid #000;
+    flex-wrap:wrap;
+  }
+  .toolbar h1 { font-size:15px; margin:0 8px 0 0; font-weight:800; }
+  .toolbar .sep { width:1px; height:22px; background:#0006; margin:0 4px; }
+  .toolbar .spacer { flex:1 1 auto; }
+  .btn {
+    font:inherit; font-size:13px; font-weight:700; cursor:pointer;
+    color:#22303c; background:#dfe7ee; border:1px solid #0006; border-radius:8px;
+    padding:7px 12px;
+  }
+  .btn.on { background:var(--accent); }
+  .size-label { font-size:12px; color:#9fb0bf; }
+  .stage {
+    flex:1 1 auto; position:relative; overflow:auto;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .device-wrap { position:relative; transform-origin:center center; }
+  .device {
+    position:relative; background:#000;
+    padding:14px; box-shadow:0 24px 60px rgba(0,0,0,.55);
+  }
+  .device .screen {
+    position:relative; overflow:hidden; background:#78bd63;
+  }
+  /* 瀏海（iPhone 藥丸） */
+  .device .notch {
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:150px; height:26px; background:#000; border-radius:0 0 18px 18px; z-index:5;
+  }
+  .device.landscape .notch {
+    top:50%; left:0; transform:translateY(-50%);
+    width:26px; height:150px; border-radius:0 18px 18px 0;
+  }
+  /* 打孔（OPPO 置中挖孔） */
+  .device.hole .notch {
+    width:14px; height:14px; top:8px; left:50%; transform:translateX(-50%);
+    border-radius:50%; background:#000; box-shadow:0 0 0 2px #1a1a1a;
+  }
+  .device.hole.landscape .notch {
+    width:14px; height:14px; top:50%; left:8px; transform:translateY(-50%);
+    border-radius:50%;
+  }
+  iframe { border:0; display:block; background:#78bd63; }
+  .hint { font-size:12px; color:#9fb0bf; padding:0 14px 8px; flex:0 0 auto; background:var(--panel); }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>📱 開心農場 模擬器</h1>
+    <button class="btn on" id="btnIphone">iPhone 15 Pro Max</button>
+    <button class="btn" id="btnOppo">OPPO Reno 14</button>
+    <span class="sep"></span>
+    <button class="btn" id="btnPortrait">直向</button>
+    <button class="btn on" id="btnLandscape">橫向</button>
+    <span class="sep"></span>
+    <button class="btn" id="btnReload">重新整理</button>
+    <span class="spacer"></span>
+    <span class="size-label" id="sizeLabel"></span>
+  </div>
+  <div class="hint">把 index.html 塞進所選手機尺寸的預覽框。可切換機型（iPhone 15 Pro Max / OPPO Reno 14）與直橫向。改完程式按「重新整理」即可看到最新版。</div>
+  <div class="stage" id="stage">
+    <div class="device-wrap" id="deviceWrap">
+      <div class="device landscape" id="device">
+        <div class="notch"></div>
+        <div class="screen" id="screen">
+          <iframe id="frame" src="./index.html" title="開心農場預覽"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 各機型邏輯尺寸（CSS 點，直向）＋外觀
+    var DEVICES = {
+      iphone15: { name: "iPhone 15 Pro Max", w: 430, h: 932, radius: 48, screenRadius: 34, notch: "pill" },
+      oppo14:   { name: "OPPO Reno 14",       w: 419, h: 920, radius: 40, screenRadius: 30, notch: "hole" }
+    };
+    var deviceKey = "iphone15";
+    var orientation = "landscape"; // 預設橫向（遊戲以橫幅為主）
+
+    var device = document.getElementById("device");
+    var screen = document.getElementById("screen");
+    var frame = document.getElementById("frame");
+    var wrap = document.getElementById("deviceWrap");
+    var stage = document.getElementById("stage");
+    var sizeLabel = document.getElementById("sizeLabel");
+    var btnP = document.getElementById("btnPortrait");
+    var btnL = document.getElementById("btnLandscape");
+    var btnIphone = document.getElementById("btnIphone");
+    var btnOppo = document.getElementById("btnOppo");
+
+    function applySize() {
+      var d = DEVICES[deviceKey];
+      var W, H;
+      if (orientation === "portrait") { W = d.w; H = d.h; }
+      else { W = d.h; H = d.w; }
+      screen.style.width = W + "px";
+      screen.style.height = H + "px";
+      frame.style.width = W + "px";
+      frame.style.height = H + "px";
+      device.style.borderRadius = d.radius + "px";
+      screen.style.borderRadius = d.screenRadius + "px";
+      device.classList.toggle("landscape", orientation === "landscape");
+      device.classList.toggle("hole", d.notch === "hole");
+      sizeLabel.textContent = d.name + "　螢幕 " + W + " × " + H + " pt";
+      btnP.classList.toggle("on", orientation === "portrait");
+      btnL.classList.toggle("on", orientation === "landscape");
+      btnIphone.classList.toggle("on", deviceKey === "iphone15");
+      btnOppo.classList.toggle("on", deviceKey === "oppo14");
+      fitScale();
+    }
+
+    function fitScale() {
+      wrap.style.transform = "scale(1)";
+      var pad = 28;
+      var availW = stage.clientWidth - pad * 2;
+      var availH = stage.clientHeight - pad * 2;
+      var dw = device.offsetWidth;
+      var dh = device.offsetHeight;
+      var scale = Math.min(availW / dw, availH / dh, 1);
+      wrap.style.transform = "scale(" + scale + ")";
+    }
+
+    function reload() {
+      frame.src = "./index.html?preview=" + Date.now();
+    }
+
+    btnIphone.onclick = function () { deviceKey = "iphone15"; applySize(); };
+    btnOppo.onclick   = function () { deviceKey = "oppo14";   applySize(); };
+    btnP.onclick = function () { orientation = "portrait"; applySize(); };
+    btnL.onclick = function () { orientation = "landscape"; applySize(); };
+    document.getElementById("btnReload").onclick = reload;
+    window.addEventListener("resize", fitScale);
+    applySize();
+  </script>
+</body>
+</html>
