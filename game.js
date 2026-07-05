@@ -185,14 +185,107 @@ function applyBuildings() {
     const active = !visiting && state.scene !== "ranch";   // 水池區一直可點(所有天氣)
     pond.style.display = active ? "block" : "none";
     if (active) {
-      const pos = gmBuildingPos.pond || BUILDING_POS.pond;
-      pond.style.left = pos[0] + "%"; pond.style.top = pos[1] + "%";
-      pond.style.transform = "scale(" + (gmBuildingScale.pond || 0.7) + ")";
+      const e = gmPondEllipse;
+      pond.style.left = (e.cx - e.rx) + "%"; pond.style.top = (e.cy - e.ry) + "%";
+      pond.style.width = (e.rx * 2) + "%"; pond.style.height = (e.ry * 2) + "%";
+      pond.style.transform = "none"; pond.style.borderRadius = "50%";
       pond.style.pointerEvents = "auto";
-      pond.style.cursor = (state.gm && !visiting) ? "grab" : "pointer";
+      pond.style.cursor = (state.gm && !visiting) ? "move" : "pointer";
     }
-    updateBuildingScaleSlider("#bld-pond", "pond", 34);
+    updatePondHandles(active && state.gm && !visiting);
   }
+}
+
+function updatePondHandles(show) {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  let wrap = fx.querySelector("#pondHandles");
+  if (!show) { if (wrap) wrap.style.display = "none"; return; }
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "pondHandles";
+    ["t", "b", "l", "r"].forEach((d) => {
+      const h = document.createElement("div");
+      h.className = "pond-handle pond-h-" + d; h.dataset.dir = d;
+      wrap.appendChild(h);
+    });
+    fx.appendChild(wrap);
+    setupPondHandles(wrap);
+  }
+  wrap.style.display = "block";
+  const e = gmPondEllipse;
+  const set = (sel, x, y) => { const h = wrap.querySelector(sel); if (h) { h.style.left = x + "%"; h.style.top = y + "%"; } };
+  set(".pond-h-t", e.cx, e.cy - e.ry);
+  set(".pond-h-b", e.cx, e.cy + e.ry);
+  set(".pond-h-l", e.cx - e.rx, e.cy);
+  set(".pond-h-r", e.cx + e.rx, e.cy);
+}
+
+function savePondEllipse() {
+  try { localStorage.setItem("gm-pond-ellipse", JSON.stringify(gmPondEllipse)); } catch (e) {}
+}
+
+function refreshPondEllipseUI() {
+  const e = gmPondEllipse;
+  const pond = document.querySelector("#bld-pond");
+  if (pond) {
+    pond.style.left = (e.cx - e.rx) + "%"; pond.style.top = (e.cy - e.ry) + "%";
+    pond.style.width = (e.rx * 2) + "%"; pond.style.height = (e.ry * 2) + "%";
+  }
+  updatePondHandles(true);
+  const ro = document.querySelector("#gmStakeReadout");
+  if (ro) ro.textContent = "水池橢圓｜中心 " + e.cx.toFixed(1) + "," + e.cy.toFixed(1) + "　半徑 " + e.rx.toFixed(1) + "×" + e.ry.toFixed(1);
+}
+
+function setupPondHandles(wrap) {
+  let dir = "", sx = 0, sy = 0, e0 = null;
+  wrap.querySelectorAll(".pond-handle").forEach((h) => {
+    h.addEventListener("pointerdown", (ev) => {
+      dir = h.dataset.dir; sx = ev.clientX; sy = ev.clientY; e0 = { ...gmPondEllipse };
+      ev.preventDefault(); ev.stopPropagation();
+      try { h.setPointerCapture(ev.pointerId); } catch (e) {}
+    });
+    h.addEventListener("pointermove", (ev) => {
+      if (!dir) return;
+      const fx = document.querySelector("#weatherFx"); const fr = fx.getBoundingClientRect();
+      if (!fr.width || !fr.height) return;
+      const dx = (ev.clientX - sx) / fr.width * 100, dy = (ev.clientY - sy) / fr.height * 100;
+      const e = gmPondEllipse;
+      if (dir === "r") { const L = e0.cx - e0.rx, R = e0.cx + e0.rx + dx; e.rx = Math.max(2, (R - L) / 2); e.cx = L + e.rx; }
+      else if (dir === "l") { const R = e0.cx + e0.rx, L = e0.cx - e0.rx + dx; e.rx = Math.max(2, (R - L) / 2); e.cx = R - e.rx; }
+      else if (dir === "b") { const T = e0.cy - e0.ry, B = e0.cy + e0.ry + dy; e.ry = Math.max(1.5, (B - T) / 2); e.cy = T + e.ry; }
+      else if (dir === "t") { const B = e0.cy + e0.ry, T = e0.cy - e0.ry + dy; e.ry = Math.max(1.5, (B - T) / 2); e.cy = B - e.ry; }
+      refreshPondEllipseUI();
+    });
+    const end = () => { if (dir) { dir = ""; savePondEllipse(); } };
+    h.addEventListener("pointerup", end);
+    h.addEventListener("pointercancel", end);
+  });
+}
+
+function setupPondBodyDrag() {
+  const pond = document.querySelector("#bld-pond");
+  if (!pond || pond.dataset.ellReady) return;
+  pond.dataset.ellReady = "1";
+  let sx = 0, sy = 0, c0 = null, moving = false;
+  pond.addEventListener("pointerdown", (ev) => {
+    if (!state.gm || visiting) return;
+    if (ev.target !== pond) return;   // 點在把手上不算移動
+    sx = ev.clientX; sy = ev.clientY; c0 = { cx: gmPondEllipse.cx, cy: gmPondEllipse.cy }; moving = true;
+    ev.preventDefault();
+    try { pond.setPointerCapture(ev.pointerId); } catch (e) {}
+  });
+  pond.addEventListener("pointermove", (ev) => {
+    if (!moving) return;
+    const fx = document.querySelector("#weatherFx"); const fr = fx.getBoundingClientRect();
+    if (!fr.width || !fr.height) return;
+    gmPondEllipse.cx = c0.cx + (ev.clientX - sx) / fr.width * 100;
+    gmPondEllipse.cy = c0.cy + (ev.clientY - sy) / fr.height * 100;
+    refreshPondEllipseUI();
+  });
+  const end = () => { if (moving) { moving = false; savePondEllipse(); } };
+  pond.addEventListener("pointerup", end);
+  pond.addEventListener("pointercancel", end);
 }
 
 function updateBuildingScaleSlider(sel, key, baseW) {
@@ -237,16 +330,28 @@ function openPondDialog() {
   box.innerHTML = '<div class="gift-card pond-card" role="dialog" aria-modal="true" aria-label="水池">' +
     '<div class="pond-row">' +
       '<img class="pond-img" src="' + img + '" alt="" />' +
-      '<div class="pond-actions">' +
-        '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
-        (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
+      '<div class="pond-side">' +
+        '<div class="pond-actions">' +
+          '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
+          (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
+        '</div>' +
+        '<div class="pond-msg" id="pondMsg">' + (good ? "水面泛起漣漪，適合下竿。" : "天氣不佳，水面平靜無波。") + '</div>' +
       '</div>' +
     '</div>' +
     '<button type="button" id="pondClose" class="gift-close">關閉</button></div>';
   box.querySelector("#pondClose").addEventListener("click", closePondDialog);
   box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => {
-    toast(b.dataset.pond === "raise" ? "養魚功能開發中。" : "釣魚功能開發中。");
+    pondMsg(b.dataset.pond === "raise" ? "🐟 養魚功能開發中。" : "🎣 釣魚功能開發中。");
   }));
+}
+function pondMsg(text) {
+  const el = document.querySelector("#pondMsg");
+  if (!el) return;
+  const line = document.createElement("div");
+  line.className = "pond-msg-line";
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
 }
 function closePondDialog() {
   pondDialogOpen = false;
@@ -257,7 +362,7 @@ function setupBuildingDrag() {
   const fx = document.querySelector("#weatherFx");
   if (!fx || fx.dataset.dragReady) return;
   fx.dataset.dragReady = "1";
-  const BUILDINGS = [["#bld-windmill", "windmill", "風車", false], ["#bld-doghouse", "doghouse", "狗窩", true], ["#bld-fishing", "fishing", "釣魚", false], ["#bld-pond", "pond", "水池", false]];
+  const BUILDINGS = [["#bld-windmill", "windmill", "風車", false], ["#bld-doghouse", "doghouse", "狗窩", true], ["#bld-fishing", "fishing", "釣魚", false]];
   let cur = null, key = "", label = "", openable = false, sx = 0, sy = 0, ox = 0, oy = 0, moved = false, dragging = false;
   function hitTest(x, y) {
     for (const [sel, k, lb, op] of BUILDINGS) {
@@ -307,6 +412,7 @@ function setupBuildingDrag() {
     }
     cur = null;
   });
+  setupPondBodyDrag();
 }
 function buyDoghouse() {
   const cost = 10000;
@@ -593,6 +699,8 @@ let audioReady = false;
 let gmStakePos = {};
 let gmCloudPos = {};
 let gmBuildingPos = {};
+let gmPondEllipse = { cx: 23.6, cy: 43.1, rx: 11.9, ry: 6.0 };
+try { const _pe = JSON.parse(localStorage.getItem("gm-pond-ellipse") || "null"); if (_pe && isFinite(_pe.cx)) gmPondEllipse = _pe; } catch (e) {}
 let gmBuildingScale = {};
 try { gmBuildingScale = JSON.parse(localStorage.getItem("gm-building-scale") || "{}") || {}; } catch (e) { gmBuildingScale = {}; }
 
@@ -1634,6 +1742,8 @@ function cloudFarmHelp(index) {
     return;
   }
   if (ownBug) { toast("這是你自己放的蟲，不能自己幫忙清掉 🐛"); return; }
+  // 已成熟(可收成)的田不用再澆水
+  if (pl.readyAt && Date.now() >= pl.readyAt) { toast("這塊作物已經成熟，不用再澆水了。"); return; }
   // 澆水：需非雨天、未澆水、且本輪未幫澆過（同一塊田在對方刷新前只能澆一次）
   const rainy = ["rain", "storm", "typhoon"].includes(visiting.weather);
   if (rainy) { toast("現在是雨天，不用幫忙澆水。"); return; }
@@ -4786,8 +4896,8 @@ function exportStakePos() {
     }
     const pondE = fx.querySelector("#bld-pond");
     if (pondE && pondE.style.display !== "none") {
-      const pp = gmBuildingPos.pond || BUILDING_POS.pond;
-      bl.push(`水池:${pp[0]},${pp[1]}(縮放${(gmBuildingScale.pond || 0.7).toFixed(2)}x)`);
+      const pe = gmPondEllipse;
+      bl.push(`水池橢圓:中心${pe.cx.toFixed(1)},${pe.cy.toFixed(1)} 半徑${pe.rx.toFixed(1)}x${pe.ry.toFixed(1)}`);
     }
   }
   if (!out.length && !cl.length && !bl.length) { toast("目前畫面沒有可匯出的座標。"); return; }
@@ -6063,7 +6173,7 @@ const RANCH_OPENINGS_DEFAULT = [
   { n: "中央門", p: [[46.3,18.2],[53.8,18.2],[53.8,31.4],[46.4,31.3]] },
   { n: "小牧場動物移動範圍", p: [[36.4,39.8],[63,40.3],[69.1,52.1],[30.1,52.2]] },
   { n: "大牧場動物移動範圍", p: [[36.5,40.3],[62.7,40.1],[75,66.8],[26,66]] },
-  { n: "超大牧場動物移動範圍", p: [[31.2,37.6],[68.2,37.3],[90.4,58],[9,58]] },
+  { n: "超大牧場動物移動範圍", p: [[31.9,33.9],[68.1,34.2],[90.4,58],[9,58]] },
   { n: "小牧場散步路線", p: [[17.2,84.3],[81.7,84.2]] },
   { n: "大牧場散步路線", p: [[16.3,95.9],[78.6,95.5]] },
   { n: "超大牧場散步路線", p: [[15.5,94.7],[88.4,94.6]] },
