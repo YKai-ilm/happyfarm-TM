@@ -3023,13 +3023,14 @@ body {
 /* 水池視窗 */
 .pond-card { max-width: 720px; width: 95%; text-align: center; }
 .pond-row { display: flex; gap: 14px; align-items: stretch; }
-.pond-img { flex: 1 1 auto; min-width: 0; max-height: 46vh; object-fit: contain; border-radius: 12px; background: #fff; }
+.pond-img { flex: 1 1 auto; min-width: 0; max-height: 64vh; object-fit: contain; border-radius: 12px; background: #fff; }
 .pond-actions { display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 0 0 auto; width: 130px; }
 .pond-btn { width: 100%; padding: 12px 8px; border: 1px solid var(--line); border-radius: 10px; background: #e3b53f; color: #2a2113; font-weight: 900; font-size: 1rem; cursor: pointer; }
 .pond-btn:hover { background: #d8a72f; }
-.pond-msg { flex: 0 0 auto; width: 160px; overflow-y: auto; text-align: left; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.18); color: #f4ecd8; font-size: 0.9rem; line-height: 1.5; }
+.pond-msg { flex: 0 0 auto; width: 160px; max-height: 64vh; overflow-y: auto; text-align: left; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.18); color: #f4ecd8; font-size: 0.9rem; line-height: 1.5; }
 .pond-msg-line { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.15); }
-#pondBox .gift-close { margin-top: 12px; }
+.pond-close-btn { background: #e8e0cf; color: #4a4030; }
+.pond-close-btn:hover { background: #ddd2bd; }
 
 /* 狗狗好感度視窗 */
 .aff-card { max-width: 380px; width: 88%; text-align: center; }

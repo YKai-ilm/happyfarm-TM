@@ -334,9 +334,9 @@ function openPondDialog() {
       '<div class="pond-actions">' +
         '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
         (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
+        '<button type="button" id="pondClose" class="pond-btn pond-close-btn">關閉</button>' +
       '</div>' +
-    '</div>' +
-    '<button type="button" id="pondClose" class="gift-close">關閉</button></div>';
+    '</div></div>';
   box.querySelector("#pondClose").addEventListener("click", closePondDialog);
   box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => {
     pondMsg(b.dataset.pond === "raise" ? "🐟 養魚功能開發中。" : "🎣 釣魚功能開發中。");
