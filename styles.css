@@ -3019,6 +3019,16 @@ body {
 /* GM 標桿校正讀數 */
 
 
+
+/* 水池視窗 */
+.pond-card { max-width: 620px; width: 94%; text-align: center; }
+.pond-row { display: flex; gap: 14px; align-items: center; }
+.pond-img { flex: 1 1 auto; min-width: 0; max-height: 46vh; object-fit: contain; border-radius: 12px; background: #fff; }
+.pond-actions { display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 0 0 auto; }
+.pond-btn { width: 120px; padding: 12px 12px; border: 1px solid var(--line); border-radius: 10px; background: #e3b53f; color: #2a2113; font-weight: 900; font-size: 1rem; cursor: pointer; }
+.pond-btn:hover { background: #d8a72f; }
+#pondBox .gift-close { margin-top: 12px; }
+
 /* 狗狗好感度視窗 */
 .aff-card { max-width: 380px; width: 88%; text-align: center; }
 .aff-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
@@ -3362,7 +3372,13 @@ body.is-ranch { --scene-image: url("./assets/ranch/ranch-s-feed-grass.jpg"); }
 body.is-ranch #farmGrid { display: none; }
 body.is-ranch #bld-windmill { display: none !important; }
 body.is-ranch #bld-doghouse { display: none !important; }
+body.is-ranch #bld-fishing { display: none !important; }
 #bld-doghouse { width: 8.2%; left: 68.2%; top: 35%; }
+#bld-fishing { width: 14%; left: 15.2%; top: 24.3%; transform-origin: top left; }
+#bld-pond { width: 34%; height: 17%; left: 11.7%; top: 37.2%; transform-origin: top left; }
+.pond-hit { pointer-events: none; }
+.farm-app.is-gm #bld-pond { outline: 2px dashed #3da0ff; background: rgba(80,170,255,0.16); border-radius: 40%; }
+.fish-scale { position: absolute; z-index: 6; pointer-events: auto; writing-mode: vertical-lr; direction: rtl; width: 24px; height: 120px; accent-color: #e3b53f; }
 /* 牧場內關閉穀倉「進入牧場」熱區 */
 body.is-ranch .barn-hotspot { display: none !important; }
 /* 牧場：天氣差底圖已夠暗，中央門不再加壓頂烏雲變暗 */

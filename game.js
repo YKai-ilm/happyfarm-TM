@@ -25,7 +25,7 @@ const STAKE_POS = {
 };
 
 const CLOUD_POS = { 0: [51.4, 6.3], 1: [35.1, 10.9] };
-const BUILDING_POS = { windmill: [53.6, 25.0], doghouse: [65.1, 31.1] };
+const BUILDING_POS = { windmill: [53.6, 25.0], doghouse: [65.1, 31.1], fishing: [15.2, 24.3], pond: [11.7, 37.2] };
 
 function applyClouds() {
   const fx = document.querySelector("#weatherFx");
@@ -165,13 +165,99 @@ function applyBuildings() {
       }
     } catch (e) { console.error("doghouse render err", e); }
   }
+  const fs = fx.querySelector("#bld-fishing");
+  if (fs) {
+    // 只在自家農場、且天氣為 晴/多雲/微風/烈日 時出現
+    const okWx = ["sun", "cloud", "breeze", "scorch", "fog"].includes(state.weather);
+    const active = !visiting && state.scene !== "ranch" && okWx;
+    fs.style.display = active ? "block" : "none";
+    if (active) {
+      const pos = gmBuildingPos.fishing || BUILDING_POS.fishing;
+      fs.style.left = pos[0] + "%"; fs.style.top = pos[1] + "%";
+      fs.style.transform = "scale(" + (gmBuildingScale.fishing || 0.75) + ")";
+      fs.style.pointerEvents = (state.gm && !visiting) ? "auto" : "none";
+      fs.style.cursor = (state.gm && !visiting) ? "grab" : "default";
+    }
+    updateBuildingScaleSlider("#bld-fishing", "fishing", 14);
+  }
+  const pond = fx.querySelector("#bld-pond");
+  if (pond) {
+    const active = !visiting && state.scene !== "ranch";   // 水池區一直可點(所有天氣)
+    pond.style.display = active ? "block" : "none";
+    if (active) {
+      const pos = gmBuildingPos.pond || BUILDING_POS.pond;
+      pond.style.left = pos[0] + "%"; pond.style.top = pos[1] + "%";
+      pond.style.transform = "scale(" + (gmBuildingScale.pond || 0.7) + ")";
+      pond.style.pointerEvents = "auto";
+      pond.style.cursor = (state.gm && !visiting) ? "grab" : "pointer";
+    }
+    updateBuildingScaleSlider("#bld-pond", "pond", 34);
+  }
+}
+
+function updateBuildingScaleSlider(sel, key, baseW) {
+  const fx = document.querySelector("#weatherFx");
+  if (!fx) return;
+  const el = fx.querySelector(sel);
+  const id = "scale_" + key;
+  let sl = fx.querySelector("#" + id);
+  const show = el && el.style.display !== "none" && state.gm && !visiting;
+  if (!show) { if (sl) sl.remove(); return; }
+  const def = key === "fishing" ? 0.75 : (key === "pond" ? 0.7 : 1);
+  if (!sl) {
+    sl = document.createElement("input");
+    sl.id = id; sl.type = "range"; sl.min = "0.4"; sl.max = "2.5"; sl.step = "0.05";
+    sl.className = "fish-scale"; sl.value = String(gmBuildingScale[key] || def);
+    sl.addEventListener("input", () => {
+      gmBuildingScale[key] = parseFloat(sl.value) || def;
+      try { localStorage.setItem("gm-building-scale", JSON.stringify(gmBuildingScale)); } catch (e) {}
+      const t = document.querySelector(sel); if (t) t.style.transform = "scale(" + gmBuildingScale[key] + ")";
+      const ro = document.querySelector("#gmStakeReadout"); if (ro) ro.textContent = key + " 縮放 " + gmBuildingScale[key].toFixed(2) + "x";
+      updateBuildingScaleSlider(sel, key, baseW);
+    });
+    fx.appendChild(sl);
+  }
+  const pos = gmBuildingPos[key] || BUILDING_POS[key];
+  sl.style.left = (pos[0] + baseW * (gmBuildingScale[key] || def) + 0.5) + "%";
+  sl.style.top = pos[1] + "%";
+}
+
+let pondDialogOpen = false;   // 視窗內容在開啟當下就固定，天氣照常變化但視窗不重繪
+function openPondDialog() {
+  if (visiting || state.scene === "ranch") return;
+  pondDialogOpen = true;
+  const good = ["sun", "cloud", "breeze", "scorch", "fog"].includes(state.weather);
+  const img = good ? "./assets/decor/pond-fishing.png" : "./assets/decor/pond-empty.png";
+  let box = document.querySelector("#pondBox");
+  if (!box) {
+    box = document.createElement("div"); box.id = "pondBox"; box.className = "gift-box";
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box) closePondDialog(); });
+  }
+  box.innerHTML = '<div class="gift-card pond-card" role="dialog" aria-modal="true" aria-label="水池">' +
+    '<div class="pond-row">' +
+      '<img class="pond-img" src="' + img + '" alt="" />' +
+      '<div class="pond-actions">' +
+        '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
+        (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
+      '</div>' +
+    '</div>' +
+    '<button type="button" id="pondClose" class="gift-close">關閉</button></div>';
+  box.querySelector("#pondClose").addEventListener("click", closePondDialog);
+  box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => {
+    toast(b.dataset.pond === "raise" ? "養魚功能開發中。" : "釣魚功能開發中。");
+  }));
+}
+function closePondDialog() {
+  pondDialogOpen = false;
+  const b = document.querySelector("#pondBox"); if (b) b.remove();
 }
 
 function setupBuildingDrag() {
   const fx = document.querySelector("#weatherFx");
   if (!fx || fx.dataset.dragReady) return;
   fx.dataset.dragReady = "1";
-  const BUILDINGS = [["#bld-windmill", "windmill", "風車", false], ["#bld-doghouse", "doghouse", "狗窩", true]];
+  const BUILDINGS = [["#bld-windmill", "windmill", "風車", false], ["#bld-doghouse", "doghouse", "狗窩", true], ["#bld-fishing", "fishing", "釣魚", false], ["#bld-pond", "pond", "水池", false]];
   let cur = null, key = "", label = "", openable = false, sx = 0, sy = 0, ox = 0, oy = 0, moved = false, dragging = false;
   function hitTest(x, y) {
     for (const [sel, k, lb, op] of BUILDINGS) {
@@ -507,6 +593,8 @@ let audioReady = false;
 let gmStakePos = {};
 let gmCloudPos = {};
 let gmBuildingPos = {};
+let gmBuildingScale = {};
+try { gmBuildingScale = JSON.parse(localStorage.getItem("gm-building-scale") || "{}") || {}; } catch (e) { gmBuildingScale = {}; }
 
 const WEATHER_AUDIO = {
   sun: ["aud-sun"],
@@ -1444,6 +1532,15 @@ function useAffinityItem(uid, key) {
 function onDogChased(name) {
   visitDogBarkUntil = Date.now() + 3000;   // 狗窩切敵人圖 3 秒
   try { applyBuildings(); setTimeout(applyBuildings, 3100); } catch (e) {}
+  // 被趕走每 10 次，該好友狗好感 -1%（各好友分開計數）
+  if (visiting && visiting.uid) {
+    state.dogChaseAffCount = state.dogChaseAffCount || {};
+    state.dogChaseAffCount[visiting.uid] = (state.dogChaseAffCount[visiting.uid] || 0) + 1;
+    if (state.dogChaseAffCount[visiting.uid] >= 10) {
+      state.dogChaseAffCount[visiting.uid] = 0;
+      adjustDogAffinity(visiting.uid, -1);
+    }
+  }
   state.dogChasedCount = (state.dogChasedCount || 0) + 1;
   if (state.dogChasedCount >= 6) {
     state.dogChasedCount = 0;
@@ -2899,6 +2996,7 @@ function bindStaticEvents() {
     updateVisitToolUI();
   }));
   document.querySelector("#bld-doghouse")?.addEventListener("click", onFriendDoghouseClick);
+  document.querySelector("#bld-pond")?.addEventListener("click", () => { if (!visiting && state.scene !== "ranch" && !state.gm) openPondDialog(); });
   document.querySelector('[data-action="visit-exit"]')?.addEventListener("click", exitVisit);
   document.querySelectorAll("[data-visit-go]").forEach((b) => b.addEventListener("click", () => visitGo(b.dataset.visitGo)));
   document.querySelector("#addFriendBtn")?.addEventListener("click", () => {
@@ -4680,6 +4778,16 @@ function exportStakePos() {
         const y = ((ir.top - r.top) / r.height * 100).toFixed(1);
         bl.push(`狗窩:${x},${y}`);
       }
+    }
+    const fsE = fx.querySelector("#bld-fishing");
+    if (fsE && fsE.style.display !== "none") {
+      const pos = gmBuildingPos.fishing || BUILDING_POS.fishing;
+      bl.push(`釣魚:${pos[0]},${pos[1]}(縮放${(gmBuildingScale.fishing || 0.75).toFixed(2)}x)`);
+    }
+    const pondE = fx.querySelector("#bld-pond");
+    if (pondE && pondE.style.display !== "none") {
+      const pp = gmBuildingPos.pond || BUILDING_POS.pond;
+      bl.push(`水池:${pp[0]},${pp[1]}(縮放${(gmBuildingScale.pond || 0.7).toFixed(2)}x)`);
     }
   }
   if (!out.length && !cl.length && !bl.length) { toast("目前畫面沒有可匯出的座標。"); return; }

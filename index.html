@@ -44,7 +44,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-216" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-226" />
   </head>
   <body>
     <div class="farm-app">
@@ -201,6 +201,8 @@
             <div id="weatherFx" class="wfx" aria-hidden="true">
               <img id="bld-windmill" class="scene-decor" src="./assets/decor/windmill-anim.webp" alt="" draggable="false" />
               <img id="bld-doghouse" class="scene-decor" src="./assets/decor/doghouse.png" alt="" draggable="false" />
+              <img id="bld-fishing" class="scene-decor" src="./assets/decor/fishing.png" alt="" draggable="false" />
+              <div id="bld-pond" class="scene-decor pond-hit" aria-hidden="true"></div>
               <div class="wfx-sky">
               <span class="wfx-clouds"></span>
               <span class="wfx-puffs"><i></i><i></i><i></i><i></i><i></i></span>
@@ -619,7 +621,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-216"></script>
+    <script src="./game.js?v=20260624-claude-226"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
