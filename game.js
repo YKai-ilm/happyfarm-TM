@@ -329,13 +329,11 @@ function openPondDialog() {
   }
   box.innerHTML = '<div class="gift-card pond-card" role="dialog" aria-modal="true" aria-label="水池">' +
     '<div class="pond-row">' +
+      '<div class="pond-msg" id="pondMsg">' + (good ? "水面泛起漣漪，適合下竿。" : "天氣不佳，水面平靜無波。") + '</div>' +
       '<img class="pond-img" src="' + img + '" alt="" />' +
-      '<div class="pond-side">' +
-        '<div class="pond-actions">' +
-          '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
-          (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
-        '</div>' +
-        '<div class="pond-msg" id="pondMsg">' + (good ? "水面泛起漣漪，適合下竿。" : "天氣不佳，水面平靜無波。") + '</div>' +
+      '<div class="pond-actions">' +
+        '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
+        (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
       '</div>' +
     '</div>' +
     '<button type="button" id="pondClose" class="gift-close">關閉</button></div>';
@@ -699,7 +697,7 @@ let audioReady = false;
 let gmStakePos = {};
 let gmCloudPos = {};
 let gmBuildingPos = {};
-let gmPondEllipse = { cx: 23.6, cy: 43.1, rx: 11.9, ry: 6.0 };
+let gmPondEllipse = { cx: 22.0, cy: 44.0, rx: 14.2, ry: 3.2 };
 try { const _pe = JSON.parse(localStorage.getItem("gm-pond-ellipse") || "null"); if (_pe && isFinite(_pe.cx)) gmPondEllipse = _pe; } catch (e) {}
 let gmBuildingScale = {};
 try { gmBuildingScale = JSON.parse(localStorage.getItem("gm-building-scale") || "{}") || {}; } catch (e) { gmBuildingScale = {}; }
