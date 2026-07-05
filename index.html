@@ -13,8 +13,11 @@
           if (window.self !== window.top) return false;
           if (location.search.indexOf("frame=1") !== -1) return false;
           var isDesktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches && window.innerWidth >= 900;
-          var isAndroid = /Android/i.test(navigator.userAgent);   // OPPO 等 Android：也用整體縮放，繞過瀏海/安全區跑版；iOS 維持原生
-          return isDesktop || isAndroid;
+          var ua = navigator.userAgent;
+          var isAndroid = /Android/i.test(ua);   // OPPO 等 Android：整體縮放，繞過瀏海/安全區跑版
+          // iPad：iPadOS 13+ 會偽裝成 Mac(MacIntel)，靠觸控點數判斷；iPad 有上方狀態列(時間)但無瀏海，同樣用整體縮放置中即可
+          var isIPad = /iPad/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+          return isDesktop || isAndroid || isIPad;   // iPhone(有瀏海)維持原生
         } catch (e) { return false; }
       })();
       if (window.__SIM_HOST__) {
@@ -44,7 +47,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-232" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-252" />
   </head>
   <body>
     <div class="farm-app">
@@ -54,6 +57,7 @@
           <button class="nav-button" type="button" data-menu-action="invite">邀請好友</button>
           <button class="nav-button" type="button" data-menu-action="leaderboard">好友排行榜</button>
           <button class="nav-button" type="button" data-tab="market">農民市集</button>
+          <button class="nav-button" type="button" data-menu-action="fishmarket">漁市場</button>
           <button class="nav-button" type="button" data-menu-action="save">存檔備份</button>
           <button class="nav-button" type="button" data-menu-action="redeem">兌換碼</button>
           <button class="nav-button" type="button" data-menu-action="stock">股市</button>
@@ -621,7 +625,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-232"></script>
+    <script src="./game.js?v=20260624-claude-252"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

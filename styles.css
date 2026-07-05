@@ -3021,14 +3021,26 @@ body {
 
 
 /* 水池視窗 */
-.pond-card { max-width: 720px; width: 95%; text-align: center; }
+.pond-card { max-width: 943px; width: 96%; text-align: center; max-height: 94vh; overflow: hidden; }
 .pond-row { display: flex; gap: 14px; align-items: stretch; }
-.pond-img { flex: 1 1 auto; min-width: 0; max-height: 64vh; object-fit: contain; border-radius: 12px; background: #fff; }
-.pond-actions { display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 0 0 auto; width: 130px; }
-.pond-btn { width: 100%; padding: 12px 8px; border: 1px solid var(--line); border-radius: 10px; background: #e3b53f; color: #2a2113; font-weight: 900; font-size: 1rem; cursor: pointer; }
+.pond-center { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.pond-img { width: 100%; max-height: 54vh; object-fit: contain; border-radius: 12px; background: #fff; }
+.pond-spacer { flex: 0 0 auto; min-height: 90px; }
+.fish-bar-wrap { display: flex; align-items: center; gap: 8px; padding: 12px 0 0; }
+.fish-bar { position: relative; flex: 0 1 65%; height: 13px; margin-left: auto; border-radius: 6px; background: #3fa14a; overflow: hidden; border: 1px solid rgba(0,0,0,0.3); }
+.fish-zone { position: absolute; top: 0; bottom: 0; }
+.fish-line { position: absolute; top: -2px; bottom: -2px; width: 5px; margin-left: -2.5px; background: #123a8f; border-radius: 2px; box-shadow: 0 0 5px rgba(0,0,0,0.7); }
+.fish-ctrl { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+.fish-mini { padding: 5px 12px; border: 1px solid var(--line); border-radius: 7px; background: #e3b53f; color: #2a2113; font-weight: 800; font-size: 0.72rem; cursor: pointer; }
+.fish-mini:disabled, .pond-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pond-confirm { max-width: 320px; width: 88%; text-align: center; }
+.pond-confirm-btns { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.pond-confirm-btns .pond-btn { width: 110px; }
+.pond-actions { display: flex; flex-direction: column; gap: 9px; justify-content: center; flex: 0 0 auto; width: 111px; }
+.pond-btn { width: 100%; padding: 10px 7px; border: 1px solid var(--line); border-radius: 9px; background: #e3b53f; color: #2a2113; font-weight: 900; font-size: 0.85rem; cursor: pointer; }
 .pond-btn:hover { background: #d8a72f; }
-.pond-msg { flex: 0 0 auto; width: 160px; max-height: 64vh; overflow-y: auto; text-align: left; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.18); color: #f4ecd8; font-size: 0.9rem; line-height: 1.5; }
-.pond-msg-line { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.15); }
+.pond-msg { flex: 0 0 auto; width: 312px; max-height: calc(54vh + 90px); overflow-y: auto; text-align: left; padding: 10px; border: 1px solid #000; border-radius: 10px; background: #000; color: #fff; font-size: 0.9rem; line-height: 1.5; }
+.pond-msg-line { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.28); }
 .pond-close-btn { background: #e8e0cf; color: #4a4030; }
 .pond-close-btn:hover { background: #ddd2bd; }
 
@@ -3870,4 +3882,50 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .mail-row input, .mail-row select { flex: 1 1 auto; min-width: 0; height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 0 7px; font-size: 0.82rem; }
 .mail-row select { flex: 0 0 auto; max-width: 40%; }
 #mailBody { width: 100%; min-height: 76px; border: 1px solid var(--line); border-radius: 9px; padding: 7px; font-size: 0.86rem; box-sizing: border-box; resize: vertical; margin-bottom: 6px; }
-.mail-reward-toggle { width: 100%; border: 1px dashed var(-
+.mail-reward-toggle { width: 100%; border: 1px dashed var(--line); background: #fbf6e8; border-radius: 8px; padding: 6px; font-size: 0.74rem; font-weight: 700; color: #8a6d2a; cursor: pointer; margin-bottom: 6px; }
+.mail-reward-area { background: #fbf6e8; border-radius: 8px; padding: 6px; margin-bottom: 6px; }
+.mail-send-row { margin-top: 4px; }
+.mail-list { max-height: 56vh; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.mail-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; cursor: pointer; }
+.mail-item .mail-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
+.mail-item.is-unread .mail-dot { background: #e0352b; }
+.mail-item.is-read { opacity: 0.62; }
+.mail-item.is-read .mail-dot { background: transparent; border: 1px solid #bbb; }
+.mail-item-main { flex: 1 1 auto; min-width: 0; }
+.mail-item-top { display: flex; justify-content: space-between; gap: 8px; }
+.mail-item-top strong { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-item-time { flex: 0 0 auto; font-size: 0.7rem; color: #9aa0a6; }
+.mail-item-from { font-size: 0.74rem; color: #6a6f75; }
+.mail-read-meta { font-size: 0.78rem; color: #6a6f75; margin-bottom: 10px; }
+.mail-read-body { font-size: 0.92rem; line-height: 1.6; color: #2d281b; white-space: pre-wrap; word-break: break-word; min-height: 80px; margin-bottom: 12px; }
+.mail-reward-note { background: #fff3d6; border: 1px solid #e8d6a0; border-radius: 8px; padding: 8px; font-size: 0.82rem; font-weight: 700; color: #8a6d2a; margin-bottom: 10px; }
+
+/* 桌機：農場區由 JS 等比 contain，靠上水平置中 */
+@media (hover: hover) and (pointer: fine) {
+  .field-frame { justify-self: center; align-self: start; }
+}
+
+/* 信件卡片過高時可內捲 */
+.mail-card { max-height: calc(100vh - 24px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* 漁市場 */
+.fishmkt-card { max-width: 780px; width: 96%; }
+.fishmkt-title { margin: 0 0 12px; font-size: 1.15rem; text-align: center; }
+.fishmkt-coin { font-size: 0.95rem; }
+.fishmkt-split { display: flex; gap: 10px; align-items: stretch; }
+.fishmkt-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.04); }
+.fishmkt-head { flex: 0 0 auto; padding: 8px; text-align: center; font-weight: 900; background: #557a44; color: #fff; font-size: 0.95rem; }
+.fishmkt-list { flex: 1 1 auto; max-height: 48vh; overflow-y: auto; padding: 4px 6px; }
+.fm-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 2px; border-bottom: 1px dashed var(--line); }
+.fm-name { font-size: 0.9rem; }
+.fm-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.fm-price { font-size: 0.72rem; color: #6b6252; }
+.fm-have { font-size: 0.72rem; color: #8a7f6a; white-space: nowrap; }
+.fm-have b { display: inline-block; min-width: 3ch; text-align: right; font-weight: 800; }
+.fm-ctrl-line { display: flex; align-items: center; gap: 5px; }
+.fm-stepper { display: inline-flex; align-items: center; gap: 3px; }
+.fm-step { width: 24px; height: 26px; border: 1px solid var(--line); border-radius: 6px; background: #efe7d4; font-weight: 900; font-size: 0.95rem; line-height: 1; cursor: pointer; padding: 0; }
+.fm-qty { width: 3ch; height: 26px; text-align: center; border: 1px solid var(--line); border-radius: 6px; font-size: 0.85rem; padding: 0 4px; box-sizing: content-box; }
+.fm-buy, .fm-sell { padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; font-weight: 800; font-size: 0.82rem; cursor: pointer; }
+.fm-buy { background: #e3b53f; color: #2a2113; }
+.fm-sell { background: #8fbf6f; color: #23330f; }

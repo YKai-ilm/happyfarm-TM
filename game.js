@@ -315,12 +315,31 @@ function updateBuildingScaleSlider(sel, key, baseW) {
   sl.style.top = pos[1] + "%";
 }
 
+const FISH_TRASH = ["水草", "垃圾", "破鞋子"];
+const FISH_NAMES = ["吳郭魚", "鯽魚", "溪哥", "苦花", "香魚", "泥鰍", "馬口魚", "石賓", "羅漢魚", "大肚魚"];
+const FISH_SELL_RATE = 0.8;   // 賣價＝買價 8 折
+const FISH_MARKET = [
+  { k: "大肚魚", fry: 4,  fish: 40 },
+  { k: "羅漢魚", fry: 5,  fish: 55 },
+  { k: "溪哥",   fry: 8,  fish: 90 },
+  { k: "馬口魚", fry: 10, fish: 110 },
+  { k: "泥鰍",   fry: 12, fish: 130 },
+  { k: "鯽魚",   fry: 13, fish: 150 },
+  { k: "吳郭魚", fry: 15, fish: 180 },
+  { k: "苦花",   fry: 22, fish: 260 },
+  { k: "石賓",   fry: 26, fish: 300 },
+  { k: "香魚",   fry: 32, fish: 360 },
+];
+function fishSellPrice(p) { return Math.round(p * FISH_SELL_RATE); }
 let pondDialogOpen = false;   // 視窗內容在開啟當下就固定，天氣照常變化但視窗不重繪
+let fishSpeedLevel = 0, fishRAF = 0, fishPos = 0, fishDir = 1, fishZones = [], fishRunning = false, fishResumeTimer = 0;
 function openPondDialog() {
   if (visiting || state.scene === "ranch") return;
   pondDialogOpen = true;
+  fishSpeedLevel = 0; fishRunning = false;
+  if (fishRAF) { cancelAnimationFrame(fishRAF); fishRAF = 0; }
+  if (fishResumeTimer) { clearTimeout(fishResumeTimer); fishResumeTimer = 0; }
   const good = ["sun", "cloud", "breeze", "scorch", "fog"].includes(state.weather);
-  const img = good ? "./assets/decor/pond-fishing.png" : "./assets/decor/pond-empty.png";
   let box = document.querySelector("#pondBox");
   if (!box) {
     box = document.createElement("div"); box.id = "pondBox"; box.className = "gift-box";
@@ -330,17 +349,141 @@ function openPondDialog() {
   box.innerHTML = '<div class="gift-card pond-card" role="dialog" aria-modal="true" aria-label="水池">' +
     '<div class="pond-row">' +
       '<div class="pond-msg" id="pondMsg">' + (good ? "水面泛起漣漪，適合下竿。" : "天氣不佳，水面平靜無波。") + '</div>' +
-      '<img class="pond-img" src="' + img + '" alt="" />' +
+      '<div class="pond-center">' +
+        '<img class="pond-img" id="pondImg" src="./assets/decor/pond-empty.png" alt="" />' +
+        '<div class="pond-spacer" id="pondSpacer"></div>' +
+      '</div>' +
       '<div class="pond-actions">' +
         '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
-        (good ? '<button type="button" class="pond-btn" data-pond="fish">🎣 釣魚</button>' : '') +
+        (good ? '<button type="button" class="pond-btn" id="pondFishBtn">🎣 釣魚</button>' : '') +
         '<button type="button" id="pondClose" class="pond-btn pond-close-btn">關閉</button>' +
       '</div>' +
     '</div></div>';
   box.querySelector("#pondClose").addEventListener("click", closePondDialog);
-  box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => {
-    pondMsg(b.dataset.pond === "raise" ? "🐟 養魚功能開發中。" : "🎣 釣魚功能開發中。");
-  }));
+  box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => { pondMsg("🐟 養魚功能開發中。"); }));
+  const fb = box.querySelector("#pondFishBtn");
+  if (fb) fb.addEventListener("click", onFishClick);
+}
+
+function pondConfirm(text, onOk) {
+  const ov = document.createElement("div");
+  ov.className = "gift-box"; ov.style.zIndex = "90";
+  ov.innerHTML = '<div class="gift-card pond-confirm"><p>' + text + '</p><div class="pond-confirm-btns">' +
+    '<button type="button" class="pond-btn" id="pcOk">確認</button>' +
+    '<button type="button" class="pond-btn pond-close-btn" id="pcNo">取消</button></div></div>';
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#pcNo").addEventListener("click", close);
+  ov.querySelector("#pcOk").addEventListener("click", () => { close(); onOk(); });
+}
+
+function onFishClick() {
+  pondConfirm("要花費 20 金幣釣魚一次嗎？", () => {
+    if ((state.coins || 0) < 20) { toast("金幣不足 20，無法釣魚。"); return; }
+    state.coins -= 20; saveState(); renderHeader();
+    fishSpeedLevel = 0;
+    startFishRound();
+  });
+}
+function onFishResume() {
+  if ((state.coins || 0) < 20) { toast("金幣不足 20，無法繼續。"); return; }
+  state.coins -= 20; saveState(); renderHeader();
+  fishSpeedLevel += 1;
+  startFishRound();
+}
+
+function setFishBtns(s) {
+  const set = (id, en) => { const b = document.querySelector(id); if (b) b.disabled = !en; };
+  set("#pondFishBtn", s.fish); set("#fishStop", s.stop); set("#fishResume", s.resume);
+}
+
+function genFishZones() {
+  const gw = 1 / 15, ow = 1 / 6;
+  const blocks = [{ c: "gold", w: gw }, { c: "orange", w: ow }, { c: "orange", w: ow }];
+  for (let i = blocks.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = blocks[i]; blocks[i] = blocks[j]; blocks[j] = t; }
+  const greenTotal = 1 - blocks.reduce((a, b) => a + b.w, 0);
+  const r = [Math.random(), Math.random(), Math.random(), Math.random()];
+  const rs = r.reduce((a, b) => a + b, 0) || 1;
+  const gaps = r.map((v) => v / rs * greenTotal);
+  const zones = []; let x = gaps[0];
+  blocks.forEach((b, i) => { zones.push({ start: x, end: x + b.w, color: b.c }); x += b.w + gaps[i + 1]; });
+  return zones;
+}
+
+function buildFishBar() {
+  const sp = document.querySelector("#pondSpacer");
+  if (!sp) return;
+  let zonesHtml = "";
+  fishZones.forEach((z) => {
+    const col = z.color === "gold" ? "#f4c430" : "#e8863a";
+    zonesHtml += '<div class="fish-zone" style="left:' + (z.start * 100).toFixed(2) + '%;width:' + ((z.end - z.start) * 100).toFixed(2) + '%;background:' + col + '"></div>';
+  });
+  sp.innerHTML = '<div class="fish-bar-wrap">' +
+    '<div class="fish-bar" id="fishBar">' + zonesHtml + '<div class="fish-line" id="fishLine" style="left:0%"></div></div>' +
+    '<div class="fish-ctrl">' +
+      '<button type="button" class="fish-mini" id="fishStop">停止</button>' +
+      '<button type="button" class="fish-mini" id="fishResume">繼續</button>' +
+    '</div></div>';
+  sp.querySelector("#fishStop").addEventListener("click", onFishStop);
+  sp.querySelector("#fishResume").addEventListener("click", onFishResume);
+}
+
+function startFishRound() {
+  const img = document.querySelector("#pondImg");
+  if (img) img.src = "./assets/decor/pond-fishing.png";   // 水池釣魚1
+  fishZones = genFishZones();
+  buildFishBar();
+  setFishBtns({ fish: false, stop: true, resume: false });
+  fishPos = 0; fishDir = 1; fishRunning = true;
+  const round = fishSpeedLevel + 1;   // 第幾關(第1關=第一次釣魚)
+  const speedMult = 1.0 + 0.05 * round * (round + 1) + 0.1 * round;   // 倍率 1.2/1.5/1.9/2.4/3.0/3.7…
+  const speed = 0.62 * speedMult;   // 系統初始速度 0.62 × 倍率
+  let last = 0;
+  const tick = (ts) => {
+    if (!fishRunning) return;
+    if (!last) last = ts;
+    const dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+    fishPos += fishDir * speed * dt;
+    if (fishPos >= 1) { fishPos = 1; fishDir = -1; }
+    else if (fishPos <= 0) { fishPos = 0; fishDir = 1; }
+    const ln = document.querySelector("#fishLine");
+    if (ln) ln.style.left = (fishPos * 100).toFixed(2) + "%";
+    fishRAF = requestAnimationFrame(tick);
+  };
+  fishRAF = requestAnimationFrame(tick);
+}
+
+function onFishStop() {
+  if (!fishRunning) return;
+  fishRunning = false;
+  if (fishRAF) { cancelAnimationFrame(fishRAF); fishRAF = 0; }
+  let color = "green";
+  for (const z of fishZones) { if (fishPos >= z.start && fishPos <= z.end) { color = z.color; break; } }
+  const img = document.querySelector("#pondImg");
+  if (img) img.src = "./assets/decor/pond-fishing2.png";   // 水池釣魚2
+  const mult = Math.pow(2, fishSpeedLevel);   // 每繼續一級獎勵 ×2
+  if (color === "green") {
+    const item = FISH_TRASH[Math.floor(Math.random() * FISH_TRASH.length)];
+    const n = (5 + Math.floor(Math.random() * 4)) * mult;   // (5~8) ×倍率
+    state.coins = (state.coins || 0) + n;
+    pondMsg("釣到" + item + "，回收得 " + n + " 元。");
+  } else if (color === "orange") {
+    const f = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)];
+    state.fishBag = state.fishBag || {};
+    state.fishBag[f] = (state.fishBag[f] || 0) + mult;
+    pondMsg(mult === 1 ? "釣到一隻" + f + "，幸福。" : "釣到 " + mult + " 隻" + f + "，幸福。");
+  } else {
+    state.items = state.items || {};
+    state.items.treasureChest = (state.items.treasureChest || 0) + mult;
+    pondMsg(mult === 1 ? "哇！釣到一個寶箱，運氣爆棚！" : "哇！釣到 " + mult + " 個寶箱，運氣爆棚！");
+  }
+  saveState(); renderHeader();
+  setFishBtns({ fish: false, stop: false, resume: false });
+  fishResumeTimer = setTimeout(() => {
+    if (!pondDialogOpen) return;
+    setFishBtns({ fish: false, stop: false, resume: true });
+  }, 2500);
 }
 function pondMsg(text) {
   const el = document.querySelector("#pondMsg");
@@ -353,7 +496,103 @@ function pondMsg(text) {
 }
 function closePondDialog() {
   pondDialogOpen = false;
+  fishRunning = false;
+  if (fishRAF) { cancelAnimationFrame(fishRAF); fishRAF = 0; }
+  if (fishResumeTimer) { clearTimeout(fishResumeTimer); fishResumeTimer = 0; }
   const b = document.querySelector("#pondBox"); if (b) b.remove();
+}
+
+function openFishMarket() {
+  let box = document.querySelector("#fishMarketBox");
+  if (!box) {
+    box = document.createElement("div"); box.id = "fishMarketBox"; box.className = "gift-box";
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box) box.remove(); });
+  }
+  box.innerHTML = '<div class="gift-card fishmkt-card">' +
+    '<h2 class="fishmkt-title">🐟 漁市場　<span class="fishmkt-coin">🪙 <b id="fmCoin">' + (state.coins || 0) + '</b></span></h2>' +
+    '<div class="fishmkt-split">' +
+      '<div class="fishmkt-col"><div class="fishmkt-head">魚苗買賣</div><div class="fishmkt-list" id="fmFry"></div></div>' +
+      '<div class="fishmkt-col"><div class="fishmkt-head">漁貨批發</div><div class="fishmkt-list" id="fmFish"></div></div>' +
+      '<div class="fishmkt-col"><div class="fishmkt-head">漁貨庫存</div><div class="fishmkt-list" id="fmStock"></div></div>' +
+    '</div>' +
+    '<button type="button" id="fishMarketClose" class="gift-close">關閉</button></div>';
+  box.querySelector("#fishMarketClose").addEventListener("click", () => box.remove());
+  renderFishMarket();
+}
+
+function fmStepperHtml() {
+  return '<span class="fm-stepper">' +
+    '<button type="button" class="fm-step" data-fm-step="-1">−</button>' +
+    '<input class="fm-qty" type="text" inputmode="numeric" maxlength="3" value="0" />' +
+    '<button type="button" class="fm-step" data-fm-step="1">＋</button>' +
+    '</span>';
+}
+function fmRow(name, buyP, sellP, have, type, key) {
+  return '<div class="fm-row">' +
+    '<strong class="fm-name">' + name + '</strong>' +
+    '<div class="fm-meta"><span class="fm-price">買 ' + buyP + ' ／ 賣 ' + sellP + '</span>' +
+      '<span class="fm-have">持有 <b>' + have + '</b></span></div>' +
+    '<div class="fm-ctrl-line">' + fmStepperHtml() +
+      '<button type="button" class="fm-buy" data-fm-buy data-fm-type="' + type + '" data-fm-key="' + key + '">買</button>' +
+      '<button type="button" class="fm-sell" data-fm-sell data-fm-type="' + type + '" data-fm-key="' + key + '">賣</button>' +
+    '</div></div>';
+}
+function fmStockRow(name, sellP, have, key) {
+  return '<div class="fm-row">' +
+    '<strong class="fm-name">' + name + '</strong>' +
+    '<div class="fm-meta"><span class="fm-price">賣 ' + sellP + '</span>' +
+      '<span class="fm-have">庫存 <b>' + have + '</b></span></div>' +
+    '<div class="fm-ctrl-line">' + fmStepperHtml() +
+      '<button type="button" class="fm-sell" data-fm-sell data-fm-type="fish" data-fm-key="' + key + '">賣</button>' +
+    '</div></div>';
+}
+
+function renderFishMarket() {
+  state.fishBag = state.fishBag || {}; state.fryBag = state.fryBag || {};
+  const fry = document.querySelector("#fmFry"), fish = document.querySelector("#fmFish"), stock = document.querySelector("#fmStock");
+  if (!fry) return;
+  const coinEl = document.querySelector("#fmCoin"); if (coinEl) coinEl.textContent = state.coins || 0;
+  fry.innerHTML = FISH_MARKET.map((f) => fmRow(f.k + "(苗)", f.fry, fishSellPrice(f.fry), state.fryBag[f.k] || 0, "fry", f.k)).join("");
+  fish.innerHTML = FISH_MARKET.map((f) => fmRow(f.k, f.fish, fishSellPrice(f.fish), state.fishBag[f.k] || 0, "fish", f.k)).join("");
+  stock.innerHTML = FISH_MARKET.map((f) => fmStockRow(f.k, fishSellPrice(f.fish), state.fishBag[f.k] || 0, f.k)).join("");
+  const box = document.querySelector("#fishMarketBox");
+  box.querySelectorAll(".fm-step").forEach((b) => b.addEventListener("click", () => {
+    const inp = b.parentElement.querySelector(".fm-qty");
+    let v = parseInt(inp.value, 10); if (!isFinite(v)) v = 0;
+    v = Math.max(0, Math.min(999, v + parseInt(b.dataset.fmStep, 10)));
+    inp.value = v;
+  }));
+  box.querySelectorAll(".fm-qty").forEach((inp) => inp.addEventListener("input", () => {
+    let v = inp.value.replace(/[^0-9]/g, "");
+    if (v.length > 3) v = v.slice(0, 3);
+    inp.value = v;   // 允許暫時空字串，backspace 可刪
+  }));
+  const qtyOf = (b) => { const inp = b.closest(".fm-row").querySelector(".fm-qty"); return parseInt(inp.value, 10) || 0; };
+  box.querySelectorAll("[data-fm-buy]").forEach((b) => b.addEventListener("click", () => fmTrade(b.dataset.fmType, b.dataset.fmKey, "buy", qtyOf(b))));
+  box.querySelectorAll("[data-fm-sell]").forEach((b) => b.addEventListener("click", () => fmTrade(b.dataset.fmType, b.dataset.fmKey, "sell", qtyOf(b))));
+}
+
+function fmTrade(type, key, action, qty) {
+  qty = Math.max(0, parseInt(qty, 10) || 0);
+  if (qty <= 0) { toast("請先選擇數量。"); return; }
+  const f = FISH_MARKET.find((x) => x.k === key); if (!f) return;
+  state.fishBag = state.fishBag || {}; state.fryBag = state.fryBag || {};
+  const bag = type === "fry" ? state.fryBag : state.fishBag;
+  const buyP = type === "fry" ? f.fry : f.fish;
+  const sellP = fishSellPrice(buyP);
+  const label = type === "fry" ? key + "(苗)" : key;
+  if (action === "buy") {
+    const cost = buyP * qty;
+    if ((state.coins || 0) < cost) { toast("金幣不足，買 " + qty + " 隻需 " + cost + " 元。"); return; }
+    state.coins -= cost; bag[key] = (bag[key] || 0) + qty;
+    toast("買入 " + label + " ×" + qty + "（-" + cost + "）");
+  } else {
+    if ((bag[key] || 0) < qty) { toast("數量不足，" + label + " 只有 " + (bag[key] || 0) + " 隻。"); return; }
+    bag[key] -= qty; const gain = sellP * qty; state.coins = (state.coins || 0) + gain;
+    toast("賣出 " + label + " ×" + qty + "（+" + gain + "）");
+  }
+  saveState(); renderHeader(); renderFishMarket();   // 重繪→數量欄回歸 0
 }
 
 function setupBuildingDrag() {
@@ -530,6 +769,7 @@ const GM_ITEMS = [
   ["expandCard", "🏗️ 牧場擴建卡"],
   ["expandCardPro", "🏗️ 牧場擴建卡（特）"],
   ["dogStick", "🦴 逗狗棒"],
+  ["treasureChest", "🎁 寶箱"],
 ];
 
 // grow/regrow 單位「分鐘」；sell=每顆售價(原版)；yieldCount=每次收成顆數(原版產量)；img:true 有田間 PNG
@@ -3030,6 +3270,7 @@ function bindStaticEvents() {
         if (stockOpen) exitStock(); else enterStock();
         return;
       }
+      if (button.dataset.menuAction === "fishmarket") { openFishMarket(); return; }
       const wasActive = button.classList.contains("is-active");
       document.querySelectorAll("[data-menu-action]").forEach((item) => item.classList.remove("is-active"));
       if (!wasActive) {
@@ -3804,6 +4045,17 @@ function renderItemList() {
         <strong>🏗️ 牧場擴建卡（特）×${exP}</strong>
         <span class="gift-contents">於「開發 → 牧場建設」升級大牧場為超大牧場時消耗</span>
       </div>
+    </div>`;
+  }
+  const chest = (state.items && state.items.treasureChest) || 0;
+  if (chest > 0) {
+    rows += `
+    <div class="gift-row">
+      <div class="gift-row-main">
+        <strong>🎁 寶箱 ×${chest}</strong>
+        <span class="gift-contents">釣魚釣到的寶箱，開箱內容日後開放</span>
+      </div>
+      <button class="gift-claim" type="button" disabled title="開箱功能開發中">開箱</button>
     </div>`;
   }
   if (!rows) rows = '<p class="item-empty">目前沒有道具。</p>';
