@@ -387,8 +387,9 @@ function onFishClick() {
   });
 }
 function onFishResume() {
-  if ((state.coins || 0) < 20) { toast("金幣不足 20，無法繼續。"); return; }
-  state.coins -= 20; saveState(); renderHeader();
+  const cost = 40 * Math.pow(2, fishSpeedLevel);   // 繼續費用：第1次40、第2次80、第3次160…每次翻倍
+  if ((state.coins || 0) < cost) { toast("金幣不足 " + cost + "，無法繼續。"); return; }
+  state.coins -= cost; saveState(); renderHeader();
   fishSpeedLevel += 1;
   startFishRound();
 }
