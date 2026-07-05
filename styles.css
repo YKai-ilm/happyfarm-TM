@@ -3909,7 +3909,7 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .mail-card { max-height: calc(100vh - 24px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
 /* 漁市場 */
-.fishmkt-card { max-width: 780px; width: 96%; }
+.fishmkt-card { max-width: 900px; width: 97%; max-height: 94vh; overflow: hidden; }
 .fishmkt-title { margin: 0 0 12px; font-size: 1.15rem; text-align: center; }
 .fishmkt-coin { font-size: 0.95rem; }
 .fishmkt-split { display: flex; gap: 10px; align-items: stretch; }
@@ -3917,15 +3917,18 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .fishmkt-head { flex: 0 0 auto; padding: 8px; text-align: center; font-weight: 900; background: #557a44; color: #fff; font-size: 0.95rem; }
 .fishmkt-list { flex: 1 1 auto; max-height: 48vh; overflow-y: auto; padding: 4px 6px; }
 .fm-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 2px; border-bottom: 1px dashed var(--line); }
-.fm-name { font-size: 0.9rem; }
-.fm-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.fm-line1 { display: flex; align-items: baseline; gap: 8px; }
+.fm-name { font-size: 0.9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-right { margin-left: auto; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
 .fm-price { font-size: 0.72rem; color: #6b6252; }
+.fm-num { display: inline-block; min-width: 3ch; text-align: right; }
 .fm-have { font-size: 0.72rem; color: #8a7f6a; white-space: nowrap; }
 .fm-have b { display: inline-block; min-width: 3ch; text-align: right; font-weight: 800; }
 .fm-ctrl-line { display: flex; align-items: center; gap: 5px; }
 .fm-stepper { display: inline-flex; align-items: center; gap: 3px; }
 .fm-step { width: 24px; height: 26px; border: 1px solid var(--line); border-radius: 6px; background: #efe7d4; font-weight: 900; font-size: 0.95rem; line-height: 1; cursor: pointer; padding: 0; }
 .fm-qty { width: 3ch; height: 26px; text-align: center; border: 1px solid var(--line); border-radius: 6px; font-size: 0.85rem; padding: 0 4px; box-sizing: content-box; }
+.fm-all { padding: 0 6px; height: 26px; border: 1px solid var(--line); border-radius: 6px; background: #cfe0bd; color: #2f3d1c; font-weight: 800; font-size: 0.66rem; cursor: pointer; }
 .fm-buy, .fm-sell { padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; font-weight: 800; font-size: 0.82rem; cursor: pointer; }
 .fm-buy { background: #e3b53f; color: #2a2113; }
 .fm-sell { background: #8fbf6f; color: #23330f; }

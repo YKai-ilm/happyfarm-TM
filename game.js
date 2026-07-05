@@ -521,29 +521,30 @@ function openFishMarket() {
   renderFishMarket();
 }
 
-function fmStepperHtml() {
+function fmStepperHtml(have) {
   return '<span class="fm-stepper">' +
     '<button type="button" class="fm-step" data-fm-step="-1">−</button>' +
     '<input class="fm-qty" type="text" inputmode="numeric" maxlength="3" value="0" />' +
     '<button type="button" class="fm-step" data-fm-step="1">＋</button>' +
+    '<button type="button" class="fm-all" data-fm-all="' + (have || 0) + '">ALL</button>' +
     '</span>';
 }
 function fmRow(name, buyP, sellP, have, type, key) {
   return '<div class="fm-row">' +
-    '<strong class="fm-name">' + name + '</strong>' +
-    '<div class="fm-meta"><span class="fm-price">買 ' + buyP + ' ／ 賣 ' + sellP + '</span>' +
-      '<span class="fm-have">持有 <b>' + have + '</b></span></div>' +
-    '<div class="fm-ctrl-line">' + fmStepperHtml() +
+    '<div class="fm-line1"><strong class="fm-name">' + name + '</strong>' +
+      '<span class="fm-right"><span class="fm-price">買 <span class="fm-num">' + buyP + '</span> ／ 賣 <span class="fm-num">' + sellP + '</span></span>' +
+      '<span class="fm-have">持有 <b>' + have + '</b></span></span></div>' +
+    '<div class="fm-ctrl-line">' + fmStepperHtml(have) +
       '<button type="button" class="fm-buy" data-fm-buy data-fm-type="' + type + '" data-fm-key="' + key + '">買</button>' +
       '<button type="button" class="fm-sell" data-fm-sell data-fm-type="' + type + '" data-fm-key="' + key + '">賣</button>' +
     '</div></div>';
 }
 function fmStockRow(name, sellP, have, key) {
   return '<div class="fm-row">' +
-    '<strong class="fm-name">' + name + '</strong>' +
-    '<div class="fm-meta"><span class="fm-price">賣 ' + sellP + '</span>' +
-      '<span class="fm-have">庫存 <b>' + have + '</b></span></div>' +
-    '<div class="fm-ctrl-line">' + fmStepperHtml() +
+    '<div class="fm-line1"><strong class="fm-name">' + name + '</strong>' +
+      '<span class="fm-right"><span class="fm-price">賣 <span class="fm-num">' + sellP + '</span></span>' +
+      '<span class="fm-have">庫存 <b>' + have + '</b></span></span></div>' +
+    '<div class="fm-ctrl-line">' + fmStepperHtml(have) +
       '<button type="button" class="fm-sell" data-fm-sell data-fm-type="fish" data-fm-key="' + key + '">賣</button>' +
     '</div></div>';
 }
@@ -562,6 +563,10 @@ function renderFishMarket() {
     let v = parseInt(inp.value, 10); if (!isFinite(v)) v = 0;
     v = Math.max(0, Math.min(999, v + parseInt(b.dataset.fmStep, 10)));
     inp.value = v;
+  }));
+  box.querySelectorAll(".fm-all").forEach((b) => b.addEventListener("click", () => {
+    const inp = b.parentElement.querySelector(".fm-qty");
+    inp.value = b.dataset.fmAll || "0";
   }));
   box.querySelectorAll(".fm-qty").forEach((inp) => inp.addEventListener("input", () => {
     let v = inp.value.replace(/[^0-9]/g, "");
