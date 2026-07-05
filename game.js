@@ -81,6 +81,7 @@ function setupCloudDrag() {
 
 let gmDogOverride = "";   // GM 狗窩狀態測試覆蓋
 let dogBarkUntil = 0;     // 趕走小偷後維持「敵人(吠叫)」圖到此時間
+let visitDogBarkUntil = 0;   // 參觀好友時被狗趕，狗窩顯示敵人圖到此時間
 const DOG_SAT_MS = 6 * 3600 * 1000;     // 飽食度 6 小時歸零
 const DOG_HAPPY_MS = 8 * 3600 * 1000;   // 開心度 8 小時歸零
 function dogSatiety() { if (!state.dog) return 0; return Math.max(0, Math.min(100, 100 - (Date.now() - (state.dog.fedAt || 0)) / DOG_SAT_MS * 100)); }
@@ -147,7 +148,7 @@ function applyBuildings() {
       if (visiting) {
         // 參觀好友農場：顯示好友的狗窩(依公開檔 dogState)，只在農場場景
         if (visiting.kind === "cloud" && visitScene !== "ranch" && visiting.dogState && visiting.dogState !== "none") {
-          active = true; imgKey = visiting.dogState;
+          active = true; imgKey = (Date.now() < visitDogBarkUntil) ? "enemy" : visiting.dogState;
         }
       } else {
         active = gmDogOverride !== "none" && state.scene !== "ranch" && (state.doghouseBought || !!gmDogOverride || state.gm);
@@ -159,8 +160,8 @@ function applyBuildings() {
         let dp = visiting ? null : gmBuildingPos.doghouse;
         if (!(dp && (dp[0] > 2 || dp[1] > 8))) dp = BUILDING_POS.doghouse;
         dh.style.left = dp[0] + "%"; dh.style.top = dp[1] + "%";
-        dh.style.pointerEvents = visiting ? "none" : "auto";   // 參觀好友的狗窩不可拖/點
-        dh.style.cursor = (state.gm && !visiting) ? "grab" : "default";
+        dh.style.pointerEvents = "auto";
+        dh.style.cursor = visiting ? "pointer" : ((state.gm && !visiting) ? "grab" : "default");
       }
     } catch (e) { console.error("doghouse render err", e); }
   }
@@ -338,6 +339,7 @@ const GM_ITEMS = [
   ["expSpinPack", "🎰 抽獎經驗卡池包"],
   ["expandCard", "🏗️ 牧場擴建卡"],
   ["expandCardPro", "🏗️ 牧場擴建卡（特）"],
+  ["dogStick", "🦴 逗狗棒"],
 ];
 
 // grow/regrow 單位「分鐘」；sell=每顆售價(原版)；yieldCount=每次收成顆數(原版產量)；img:true 有田間 PNG
@@ -1385,20 +1387,63 @@ function dogCatchChance(uid) {
   if (a <= 89) return 0.6;
   return 0.5;                 // 90~100
 }
-function useDogStick() {
-  if (!visiting || visiting.kind !== "cloud") { toast("逗狗棒只能對真實好友的狗使用。"); return; }
-  const hasDog = visiting.dogState && visiting.dogState !== "none" && visiting.dogState !== "empty";
-  if (!hasDog) { toast("這位好友沒有養狗。"); return; }
-  const cnt = (state.items && state.items.dogStick) || 0;
-  if (cnt <= 0) { toast("沒有逗狗棒，去農民市集購買。"); return; }
-  state.items.dogStick = cnt - 1;
-  adjustDogAffinity(visiting.uid, 5);
-  saveState(); renderHeader(); updateVisitBanner();
-  const a = (state.dogAffinity && state.dogAffinity[visiting.uid]) || 0;
-  toast("逗了逗 " + (visiting.farmName || "好友") + " 的狗，好感度 +5%（目前 " + a + "%）");
+const AFFINITY_ITEMS = [{ key: "dogStick", name: "🦴 逗狗棒", inc: 5 }];
+let _affItemsShown = false;
+function onFriendDoghouseClick() {
+  if (visiting && visiting.kind === "cloud" && visiting.dogState && visiting.dogState !== "none" && visiting.dogState !== "empty") {
+    openDogAffinity(visiting.uid);
+  }
+}
+function openDogAffinity(uid) {
+  if (!uid) return;
+  _affItemsShown = false;
+  let box = document.querySelector("#dogAffinityBox");
+  if (!box) {
+    box = document.createElement("div"); box.id = "dogAffinityBox"; box.className = "gift-box";
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box) closeDogAffinity(); });
+  }
+  box.dataset.uid = uid;
+  renderDogAffinity();
+}
+function closeDogAffinity() { const b = document.querySelector("#dogAffinityBox"); if (b) b.remove(); }
+function renderDogAffinity() {
+  const box = document.querySelector("#dogAffinityBox");
+  if (!box) return;
+  const uid = box.dataset.uid;
+  const name = (visiting && visiting.farmName) || "好友";
+  const a = (state.dogAffinity && state.dogAffinity[uid]) || 0;
+  let items = "";
+  if (_affItemsShown) {
+    const rows = AFFINITY_ITEMS.map((it) => {
+      const have = (state.items && state.items[it.key]) || 0;
+      return '<button type="button" class="aff-item" data-aff-use="' + it.key + '" ' + (have > 0 ? "" : "disabled") + '>' + it.name + ' ×' + have + '　好感 +' + it.inc + '%</button>';
+    }).join("");
+    items = '<div class="aff-items">' + (rows || '<span class="item-empty">目前沒有可用的好感道具（去農民市集買逗狗棒）</span>') + '</div>';
+  }
+  box.innerHTML = '<div class="gift-card aff-card" role="dialog" aria-modal="true" aria-label="狗狗好感度">' +
+    '<h2>🐶 ' + name + ' 的狗</h2>' +
+    '<div class="aff-row"><span class="aff-label">好感度</span><span class="aff-bar"><span class="aff-fill" style="width:' + a + '%"></span></span><span class="aff-num">' + a + '%</span><button type="button" id="affUse" class="aff-use-btn">使用</button></div>' +
+    items +
+    '<button type="button" id="affClose" class="gift-close">關閉</button></div>';
+  box.querySelector("#affClose").addEventListener("click", closeDogAffinity);
+  box.querySelector("#affUse").addEventListener("click", () => { _affItemsShown = !_affItemsShown; renderDogAffinity(); });
+  box.querySelectorAll("[data-aff-use]").forEach((b) => b.addEventListener("click", () => useAffinityItem(uid, b.dataset.affUse)));
+}
+function useAffinityItem(uid, key) {
+  const it = AFFINITY_ITEMS.find((x) => x.key === key);
+  if (!it) return;
+  const have = (state.items && state.items[key]) || 0;
+  if (have <= 0) { toast("沒有這個道具了。"); return; }
+  state.items[key] = have - 1;
+  adjustDogAffinity(uid, it.inc);
+  saveState(); renderHeader(); renderDogAffinity();
+  toast("好感度 +" + it.inc + "%（目前 " + ((state.dogAffinity && state.dogAffinity[uid]) || 0) + "%）");
 }
 
 function onDogChased(name) {
+  visitDogBarkUntil = Date.now() + 3000;   // 狗窩切敵人圖 3 秒
+  try { applyBuildings(); setTimeout(applyBuildings, 3100); } catch (e) {}
   state.dogChasedCount = (state.dogChasedCount || 0) + 1;
   if (state.dogChasedCount >= 6) {
     state.dogChasedCount = 0;
@@ -2853,7 +2898,7 @@ function bindStaticEvents() {
     visitTool = (visitTool === b.dataset.visitTool) ? "" : b.dataset.visitTool;
     updateVisitToolUI();
   }));
-  document.querySelectorAll("[data-visit-dogstick]").forEach((b) => b.addEventListener("click", useDogStick));
+  document.querySelector("#bld-doghouse")?.addEventListener("click", onFriendDoghouseClick);
   document.querySelector('[data-action="visit-exit"]')?.addEventListener("click", exitVisit);
   document.querySelectorAll("[data-visit-go]").forEach((b) => b.addEventListener("click", () => visitGo(b.dataset.visitGo)));
   document.querySelector("#addFriendBtn")?.addEventListener("click", () => {
@@ -4938,7 +4983,7 @@ function renderMarket() {
     marketRow("fertilizer", "🌱 肥料", FERTILIZER_COST, "對一塊田施肥，剩餘成長時間減半（一作物限一次）") +
     marketRow("thawCard", "🃏 解凍卡", THAW_CARD_COST, "對凍傷作物完全返還最多 50 個（在災損清單使用）") +
     marketRow("expandCard", "🏗️ 牧場擴建卡", 20000,
-      "升級牧場時消耗。<br>解鎖：售出動物 " + sold + "/10",
+      "小牧場升級大牧場時消耗。<br>解鎖：售出動物 " + sold + "/10",
       { locked: expLocked, lockText: "售出動物 " + sold + "/10" }) +
     marketRow("dogStick", "🦴 逗狗棒", 300, "參觀好友時逗牠家的狗，每次好感度 +5%（好感越高越不會被趕）");
   elements.tabContent.querySelectorAll("[data-buy]").forEach((b) => {
@@ -4963,12 +5008,11 @@ function buyDogStick() {
 
 function buyExpandCard() {
   const cost = 20000;
-  if ((state.animalsSoldForCard || 0) < 10) { toast("要售出 10 隻動物才能購買（每買一張後重新計算）。"); return; }
+  if ((state.animalsSoldForCard || 0) < 10) { toast("要累計售出 10 隻動物才能購買。"); return; }
   if (state.coins < cost) { toast("金幣不夠，牧場擴建卡需要 20000 金幣。"); return; }
   state.coins -= cost;
   state.items = state.items || {};
   state.items.expandCard = (state.items.expandCard || 0) + 1;
-  state.animalsSoldForCard = (state.animalsSoldForCard || 0) - 10;   // 消耗 10 隻售出額度
   saveState(); render();
   toast("購買牧場擴建卡 ×1（花費 20000 金幣）。");
 }

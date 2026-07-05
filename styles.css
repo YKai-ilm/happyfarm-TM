@@ -3018,6 +3018,20 @@ body {
 
 /* GM 標桿校正讀數 */
 
+
+/* 狗狗好感度視窗 */
+.aff-card { max-width: 380px; width: 88%; text-align: center; }
+.aff-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
+.aff-label { flex: 0 0 auto; font-weight: 800; color: #5a4a22; font-size: 0.9rem; }
+.aff-bar { flex: 1 1 auto; height: 16px; border-radius: 999px; background: #eadfca; overflow: hidden; }
+.aff-fill { display: block; height: 100%; background: linear-gradient(90deg,#f0a6c8,#e0642f); transition: width .25s; }
+.aff-num { flex: 0 0 auto; min-width: 3.2em; text-align: right; font-weight: 900; color: #b8541f; }
+.aff-use-btn { flex: 0 0 auto; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px; background: #e3b53f; color: #2a2113; font-weight: 900; cursor: pointer; }
+.aff-items { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.aff-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf5; color: var(--ink); font-weight: 800; cursor: pointer; }
+.aff-item:disabled { opacity: .5; cursor: default; }
+.aff-item:not(:disabled):hover { background: #f5ecd8; }
+
 /* 偷竊被抓損失金幣對話窗(螢幕中上、3秒) */
 .loss-dialog { position: fixed; top: 7%; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: none; max-width: 82%; }
 .loss-dialog-inner { background: rgba(178,44,40,0.96); color: #fff; padding: 11px 20px; border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.35); text-align: center; animation: loss-pop .22s ease-out; }
