@@ -1270,6 +1270,7 @@ function renderVisitingFarm() {
       + '<span class="plot-meter" aria-hidden="true"><span style="width:' + pct + '%"></span></span></span></button>';
   }).join("");
   grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
+  renderDogWalker();
   updateVisitBanner();
   updateVisitToolUI();
 }
@@ -1288,7 +1289,7 @@ function renderVisitingRanch() {
   const rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
   let box = frame.querySelector("#ranchAnimals");
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
-  applyRanchAnimalYAdj(); calibrateRanchOnce(0);
+  applyRanchAnimalYAdj();
   // 移除多出來的動物節點
   const want = {};
   animals.forEach((a, i) => { want["v" + i] = true; });
@@ -1371,12 +1372,60 @@ function cloudRanchSpray(i) {
   toast("你朝 " + (visiting.farmName || "好友") + " 的動物噴了髒水 💩（牠髒了，主人要先洗才能照顧）");
 }
 
+function adjustDogAffinity(uid, delta) {
+  if (!uid) return;
+  state.dogAffinity = state.dogAffinity || {};
+  state.dogAffinity[uid] = Math.max(0, Math.min(100, (state.dogAffinity[uid] || 0) + delta));
+}
+function dogCatchChance(uid) {
+  const a = (state.dogAffinity && state.dogAffinity[uid]) || 0;   // 好感越高越不趕
+  if (a <= 0) return 1;       // 好感0：絕對趕跑
+  if (a <= 29) return 0.9;
+  if (a <= 59) return 0.8;
+  if (a <= 89) return 0.6;
+  return 0.5;                 // 90~100
+}
+function useDogStick() {
+  if (!visiting || visiting.kind !== "cloud") { toast("逗狗棒只能對真實好友的狗使用。"); return; }
+  const hasDog = visiting.dogState && visiting.dogState !== "none" && visiting.dogState !== "empty";
+  if (!hasDog) { toast("這位好友沒有養狗。"); return; }
+  const cnt = (state.items && state.items.dogStick) || 0;
+  if (cnt <= 0) { toast("沒有逗狗棒，去農民市集購買。"); return; }
+  state.items.dogStick = cnt - 1;
+  adjustDogAffinity(visiting.uid, 5);
+  saveState(); renderHeader(); updateVisitBanner();
+  const a = (state.dogAffinity && state.dogAffinity[visiting.uid]) || 0;
+  toast("逗了逗 " + (visiting.farmName || "好友") + " 的狗，好感度 +5%（目前 " + a + "%）");
+}
+
+function onDogChased(name) {
+  state.dogChasedCount = (state.dogChasedCount || 0) + 1;
+  if (state.dogChasedCount >= 6) {
+    state.dogChasedCount = 0;
+    const loss = 50 + Math.floor(Math.random() * 251);   // 50~300
+    state.coins = Math.max(0, (state.coins || 0) - loss);
+    saveState(); renderHeader();
+    showLossDialog(loss, name);
+  } else {
+    saveState();
+    toast("汪汪！被 " + (name || "好友") + " 的看門狗趕走了 🐕（連續 " + state.dogChasedCount + "/6）");
+  }
+}
+function showLossDialog(loss, name) {
+  const old = document.querySelector("#lossDialog"); if (old) old.remove();
+  const d = document.createElement("div");
+  d.id = "lossDialog"; d.className = "loss-dialog";
+  d.innerHTML = '<div class="loss-dialog-inner"><div class="loss-title">🐕💢 被逮個正著！</div><div class="loss-body">連續偷竊被 ' + (name || "好友") + ' 的看門狗抓到，賠了 <b>' + loss + '</b> 金幣！</div></div>';
+  document.body.appendChild(d);
+  setTimeout(function () { if (d && d.parentNode) d.parentNode.removeChild(d); }, 3000);
+}
+
 function cloudStealProduct(i) {
   const rs = visiting.ranchSnapshot || {};
   const a = (rs.animals || [])[i];
   if (!a) return;
   if (a.status !== "ready") { toast("這隻還沒有可收的產物。"); return; }
-  if (visiting.dogGuard && Math.random() < DOG_CATCH) { toast("汪汪！被 " + (visiting.farmName || "好友") + " 的看門狗趕走了 🐕"); return; }
+  if (visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
   const cfg = RANCH_ANIMALS[a.type];
   const uid = (visiting.uid || "?") + ":r";
   const now = Date.now();
@@ -1388,6 +1437,7 @@ function cloudStealProduct(i) {
   log.push(now);
   state.cloudStealLog[uid] = log;
   writeFriendEvent(visiting.uid, { type: "rsteal", animalIndex: i });
+  adjustDogAffinity(visiting.uid, -1);
   saveState();
   rerenderVisit();
   toast("偷到 " + (visiting.farmName || "好友") + " 的 " + (cfg ? cfg.product : "產物") + " 1 個！");
@@ -1572,7 +1622,7 @@ function cloudSteal(index) {
   if (!pl || !pl.crop) { toast("這格沒有作物。"); return; }
   const ready = pl.readyAt ? Date.now() >= pl.readyAt : false;
   if (!ready) { toast("還沒成熟，不能偷。"); return; }
-  if (visiting.dogGuard && Math.random() < DOG_CATCH) { toast("汪汪！被 " + (visiting.farmName || "好友") + " 的看門狗趕走了 🐕"); return; }
+  if (visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
   const uid = visiting.uid || "?";
   const now = Date.now();
   state.cloudStealLog = state.cloudStealLog || {};
@@ -1585,6 +1635,7 @@ function cloudSteal(index) {
   log.push(now);
   state.cloudStealLog[uid] = log;
   writeFriendEvent(visiting.uid, { type: "steal", plotIndex: index });
+  adjustDogAffinity(visiting.uid, -1);
   saveState();
   rerenderVisit();
   toast("偷到 " + (visiting.farmName || "好友") + " 的 " + (crop ? crop.name : pl.crop) + " " + amt + " 個！");
@@ -2802,6 +2853,7 @@ function bindStaticEvents() {
     visitTool = (visitTool === b.dataset.visitTool) ? "" : b.dataset.visitTool;
     updateVisitToolUI();
   }));
+  document.querySelectorAll("[data-visit-dogstick]").forEach((b) => b.addEventListener("click", useDogStick));
   document.querySelector('[data-action="visit-exit"]')?.addEventListener("click", exitVisit);
   document.querySelectorAll("[data-visit-go]").forEach((b) => b.addEventListener("click", () => visitGo(b.dataset.visitGo)));
   document.querySelector("#addFriendBtn")?.addEventListener("click", () => {
@@ -4218,6 +4270,7 @@ function render() {
   applyScene();
   applyFarmTitle();
   renderRanchAnimals();
+  renderDogWalker();
   applyWeatherPassive();
   renderHeader();
   renderFarm();
@@ -4854,10 +4907,12 @@ function buySeed(id) {
   render();
 }
 
-function marketRow(key, name, cost, desc) {
+function marketRow(key, name, cost, desc, opts) {
+  opts = opts || {};
   const have = (state.items && state.items[key]) || 0;
+  const locked = !!opts.locked;
   return `
-    <article class="seed-card">
+    <article class="seed-card ${locked ? "is-locked" : ""}">
       <span class="mini-crop market-icon" aria-hidden="true">${name.split(" ")[0]}</span>
       <span class="seed-details">
         <span class="seed-title">
@@ -4867,9 +4922,9 @@ function marketRow(key, name, cost, desc) {
         <span class="seed-meta">${desc}</span>
         <span class="seed-actions">
           <span class="seed-meta">持有 ${have}</span>
-          <button class="seed-button" type="button" data-buy="${key}">
+          <button class="seed-button" type="button" data-buy="${key}" ${locked ? "disabled" : ""}>
             <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
-            購買
+            ${locked ? (opts.lockText || "未解鎖") : "購買"}
           </button>
         </span>
       </span>
@@ -4877,15 +4932,45 @@ function marketRow(key, name, cost, desc) {
 }
 
 function renderMarket() {
+  const sold = Math.min(10, state.animalsSoldForCard || 0);
+  const expLocked = (state.animalsSoldForCard || 0) < 10;
   elements.tabContent.innerHTML =
     marketRow("fertilizer", "🌱 肥料", FERTILIZER_COST, "對一塊田施肥，剩餘成長時間減半（一作物限一次）") +
-    marketRow("thawCard", "🃏 解凍卡", THAW_CARD_COST, "對凍傷作物完全返還最多 50 個（在災損清單使用）");
+    marketRow("thawCard", "🃏 解凍卡", THAW_CARD_COST, "對凍傷作物完全返還最多 50 個（在災損清單使用）") +
+    marketRow("expandCard", "🏗️ 牧場擴建卡", 20000,
+      "升級牧場時消耗。<br>解鎖：售出動物 " + sold + "/10",
+      { locked: expLocked, lockText: "售出動物 " + sold + "/10" }) +
+    marketRow("dogStick", "🦴 逗狗棒", 300, "參觀好友時逗牠家的狗，每次好感度 +5%（好感越高越不會被趕）");
   elements.tabContent.querySelectorAll("[data-buy]").forEach((b) => {
     b.addEventListener("click", () => {
       if (b.dataset.buy === "fertilizer") buyFertilizer();
       if (b.dataset.buy === "thawCard") buyThawCard();
+      if (b.dataset.buy === "expandCard") buyExpandCard();
+      if (b.dataset.buy === "dogStick") buyDogStick();
     });
   });
+}
+
+function buyDogStick() {
+  const cost = 300;
+  if (state.coins < cost) { toast("金幣不夠，逗狗棒需要 300 金幣。"); return; }
+  state.coins -= cost;
+  state.items = state.items || {};
+  state.items.dogStick = (state.items.dogStick || 0) + 1;
+  saveState(); render();
+  toast("購買逗狗棒 ×1（花費 300 金幣）。");
+}
+
+function buyExpandCard() {
+  const cost = 20000;
+  if ((state.animalsSoldForCard || 0) < 10) { toast("要售出 10 隻動物才能購買（每買一張後重新計算）。"); return; }
+  if (state.coins < cost) { toast("金幣不夠，牧場擴建卡需要 20000 金幣。"); return; }
+  state.coins -= cost;
+  state.items = state.items || {};
+  state.items.expandCard = (state.items.expandCard || 0) + 1;
+  state.animalsSoldForCard = (state.animalsSoldForCard || 0) - 10;   // 消耗 10 隻售出額度
+  saveState(); render();
+  toast("購買牧場擴建卡 ×1（花費 20000 金幣）。");
 }
 
 function renderOrders() {
@@ -5827,9 +5912,65 @@ const RANCH_OPENINGS_DEFAULT = [
   { n: "小牧場動物移動範圍", p: [[36.4,39.8],[63,40.3],[69.1,52.1],[30.1,52.2]] },
   { n: "大牧場動物移動範圍", p: [[36.5,40.3],[62.7,40.1],[75,66.8],[26,66]] },
   { n: "超大牧場動物移動範圍", p: [[31.2,37.6],[68.2,37.3],[90.4,58],[9,58]] },
+  { n: "小牧場散步路線", p: [[17.2,84.3],[81.7,84.2]] },
+  { n: "大牧場散步路線", p: [[16.3,95.9],[78.6,95.5]] },
+  { n: "超大牧場散步路線", p: [[15.5,94.7],[88.4,94.6]] },
 ];
 function currentRangeName() {
   return (RANCH_LEVEL_NAMES[state.ranchLevel || 1] || "小牧場") + "動物移動範圍";
+}
+function ranchLvlNow() {
+  if (visiting && visitScene === "ranch") return (visiting.ranchSnapshot && visiting.ranchSnapshot.ranchLevel) || 1;
+  return state.ranchLevel || 1;
+}
+function currentTrackName() { return (RANCH_LEVEL_NAMES[ranchLvlNow()] || "小牧場") + "散步路線"; }
+function hasDogForWalk() {
+  if (visiting && visitScene === "ranch") { const ds = visiting.dogState; return !!ds && ds !== "none" && ds !== "empty"; }
+  return !!state.dog;
+}
+const DOG_WALK_SPEED = 0.006;  // %/ms：固定速度(不因路線長度變速)
+function dogTrack() { return loadRanchOpenings().find((o) => o.n === currentTrackName()); }
+// 只在牧場(自家/參觀)且有狗時顯示散步狗；切場景會被移除(避免跑出來)
+function renderDogWalker() {
+  const frame = document.querySelector(".field-frame");
+  if (!frame) return;
+  const inRanch = state.scene === "ranch" || (visiting && visitScene === "ranch");
+  let layer = frame.querySelector("#dogWalkerLayer");
+  const track = dogTrack();
+  if (!inRanch || !hasDogForWalk() || !track || !track.p || track.p.length < 2) {
+    if (layer) layer.remove();
+    return;
+  }
+  if (!layer) {
+    layer = document.createElement("div"); layer.id = "dogWalkerLayer";
+    const w = document.createElement("div"); w.id = "dogWalker"; w.className = "dog-walker";
+    w.innerHTML = '<div class="dog-walker-sprite"></div>';
+    const p0 = track.p[0];
+    w.style.left = p0[0] + "%"; w.style.top = p0[1] + "%"; w.dataset.target = "1";
+    setAnimalZ(w, p0[1]);
+    w.addEventListener("transitionend", (e) => { if (e.propertyName === "left") stepDogWalker(); });
+    layer.appendChild(w); frame.appendChild(layer);
+    setTimeout(stepDogWalker, 60);
+  }
+  applyRanchAnimalYAdj();
+}
+function stepDogWalker() {
+  const w = document.querySelector("#dogWalker");
+  if (!w) return;
+  const track = dogTrack();
+  if (!track || track.p.length < 2) return;
+  const fromX = parseFloat(w.style.left) || track.p[0][0], fromY = parseFloat(w.style.top) || track.p[0][1];
+  const target = Number(w.dataset.target || 1);
+  const dest = track.p[target] || track.p[1];
+  const dist = Math.hypot(dest[0] - fromX, dest[1] - fromY) || 1;
+  const dur = Math.round(dist / DOG_WALK_SPEED);
+  w.style.transitionDuration = dur + "ms";
+  w.style.left = dest[0] + "%"; w.style.top = dest[1] + "%";
+  setAnimalZ(w, dest[1]);
+  const spr = w.querySelector(".dog-walker-sprite");
+  if (spr) spr.style.transform = (dest[0] < fromX) ? "scaleX(-1)" : "scaleX(1)";
+  w.dataset.target = target ? "0" : "1";
+  w.dataset.arriveBy = String(Date.now() + dur);
 }
 
 let gmRanchOpenings = null;
@@ -5894,12 +6035,12 @@ function renderRanchEditor() {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   ed.querySelectorAll(".ro-handle").forEach((n) => n.remove());
   const ops = loadRanchOpenings();
-  const visible = ((state.ranchLevel || 1) === 3) ? [currentRangeName()] : ["中央門", currentRangeName()];
+  const visible = ((state.ranchLevel || 1) === 3) ? [currentRangeName(), currentTrackName()] : ["中央門", currentRangeName(), currentTrackName()];
   ops.forEach((op, gi) => {
     if (!visible.includes(op.n)) return;
     const poly = document.createElementNS(SVGNS, "polygon");
     poly.setAttribute("points", ptsStr(op.p));
-    poly.setAttribute("class", "ro-poly");
+    poly.setAttribute("class", op.p.length === 2 ? "ro-poly ro-track" : "ro-poly");
     poly.setAttribute("data-g", gi);
     svg.appendChild(poly);
     addRanchBodyDrag(poly, gi, frame);
@@ -5976,7 +6117,7 @@ function addRanchBodyDrag(poly, gi, frame) {
 
 function exportRanchOpenings() {
   const ops = loadRanchOpenings();
-  const visible = ((state.ranchLevel || 1) === 3) ? [currentRangeName()] : ["中央門", currentRangeName()];
+  const visible = ((state.ranchLevel || 1) === 3) ? [currentRangeName(), currentTrackName()] : ["中央門", currentRangeName(), currentTrackName()];
   const text = ops.filter((op) => visible.includes(op.n)).map((op) => op.n + ": " + ptsStr(op.p)).join("\n");
   try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
   try { console.log("RANCH_OPENINGS:\n" + text); } catch (e) {}
@@ -6036,7 +6177,7 @@ function renderRanchAnimals() {
   let box = frame.querySelector("#ranchAnimals");
   if (state.scene !== "ranch") { if (box) box.remove(); return; }
   if (!box) { box = document.createElement("div"); box.id = "ranchAnimals"; frame.appendChild(box); }
-  applyRanchAnimalYAdj(); calibrateRanchOnce(0);
+  applyRanchAnimalYAdj();
   const now = Date.now();
   const list = state.ranchAnimals || [];
   const ids = {};
@@ -6070,10 +6211,11 @@ function renderRanchAnimals() {
   clampRanchAnimalsInRange();
 }
 
-function ranchYAdj() { const v = parseFloat(localStorage.getItem("gm-ranch-yadj")); return isFinite(v) ? v : 0; }
+function ranchYAdj() { return 0; }
 function applyRanchAnimalYAdj() {
-  const box = document.querySelector("#ranchAnimals");
-  if (box) box.style.transform = "translateY(" + ranchYAdj() + "%)";
+  const t = "translateY(" + ranchYAdj() + "%)";
+  const box = document.querySelector("#ranchAnimals"); if (box) box.style.transform = t;
+  const dl = document.querySelector("#dogWalkerLayer"); if (dl) dl.style.transform = t;
 }
 // 自動校正：量測動物實際渲染腳底 vs 資料腳底，補正系統性垂直落差(收斂後不再變動)
 let _ranchCalibrated = false;
@@ -6147,6 +6289,8 @@ function wanderRanchAnimals() {
     rangeName = (RANCH_LEVEL_NAMES[lvl] || "小牧場") + "動物移動範圍";
   }
   const now = Date.now();
+  const _dw = document.querySelector("#dogWalker");
+  if (_dw && Date.now() > Number(_dw.dataset.arriveBy || 0) + 1200) stepDogWalker();
   const poly = rangePoly(rangeName);
   box.querySelectorAll(".ranch-animal").forEach((el) => {
     setAnimalZ(el, parseFloat(el.style.top) || 50);   // 每次重算前後層級(含未移動者)
@@ -6368,10 +6512,10 @@ function openSellAnimal() {
       if (!cfg) return "";
       const p = a.produced || 0;
       const can = p >= RANCH_SELL_THRESHOLD;
-      return `<button type="button" class="animal-buy" data-sell-animal="${a.id}" ${can ? "" : "disabled"}><span class="ab-emoji">${cfg.emoji}</span><span class="ab-name">${cfg.name}</span><span class="ab-info">生產 ${p}/${RANCH_SELL_THRESHOLD}</span><span class="ab-price">${can ? "🪙 " + cfg.price : "未達標"}</span></button>`;
+      return `<button type="button" class="animal-buy" data-sell-animal="${a.id}" ${can ? "" : "disabled"}><span class="ab-emoji">${cfg.emoji}</span><span class="ab-name">${cfg.name}</span><span class="ab-info">生產 ${p}/${RANCH_SELL_THRESHOLD}</span><span class="ab-price">${can ? "🪙 " + Math.round(cfg.price / 10) : "未達標"}</span></button>`;
     }).join("") + '</div>';
   }
-  m.innerHTML = `<div class="animal-shop-card"><h2>🪙 賣動物</h2>${body}<p class="animal-shop-hint">動物生產滿 ${RANCH_SELL_THRESHOLD} 次後才能賣掉，賣出可拿回購買金額。</p><button type="button" class="gm-close" id="animalSellClose">關閉</button></div>`;
+  m.innerHTML = `<div class="animal-shop-card"><h2>🪙 賣動物</h2>${body}<p class="animal-shop-hint">動物生產滿 ${RANCH_SELL_THRESHOLD} 次後才能賣掉，賣出價為購買價的 1/10。</p><button type="button" class="gm-close" id="animalSellClose">關閉</button></div>`;
   document.body.appendChild(m);
   m.querySelectorAll("[data-sell-animal]").forEach((b) => b.addEventListener("click", () => sellAnimal(b.dataset.sellAnimal)));
   m.querySelector("#animalSellClose").addEventListener("click", () => m.remove());
@@ -6385,12 +6529,14 @@ function sellAnimal(id) {
   const cfg = RANCH_ANIMALS[a.type];
   if (!cfg) return;
   if ((a.produced || 0) < RANCH_SELL_THRESHOLD) { toast(`要生產滿 ${RANCH_SELL_THRESHOLD} 次才能賣。`); return; }
+  const sellPrice = Math.round(cfg.price / 10);
   state.ranchAnimals = list.filter((x) => x.id !== id);
-  state.coins += cfg.price;
+  state.coins += sellPrice;
+  state.animalsSoldForCard = (state.animalsSoldForCard || 0) + 1;   // 累計售出(擴建卡解鎖用)
   const m = document.querySelector("#animalSell");
   if (m) m.remove();
   saveState(); render();
-  toast(`賣出一隻${cfg.name}，獲得 ${cfg.price} 金幣。`);
+  toast(`賣出一隻${cfg.name}，獲得 ${sellPrice} 金幣（原價 1/10）。`);
 }
 
 

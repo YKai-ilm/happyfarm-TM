@@ -3017,6 +3017,15 @@ body {
 .scene-status-strip { align-items: center; }
 
 /* GM 標桿校正讀數 */
+
+/* 偷竊被抓損失金幣對話窗(螢幕中上、3秒) */
+.loss-dialog { position: fixed; top: 7%; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: none; max-width: 82%; }
+.loss-dialog-inner { background: rgba(178,44,40,0.96); color: #fff; padding: 11px 20px; border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.35); text-align: center; animation: loss-pop .22s ease-out; }
+.loss-dialog .loss-title { font-weight: 900; font-size: 1.02rem; margin-bottom: 2px; }
+.loss-dialog .loss-body { font-size: 0.9rem; line-height: 1.35; }
+.loss-dialog .loss-body b { font-size: 1.05em; color: #ffe08a; }
+@keyframes loss-pop { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
 .gm-stake-readout {
   position: absolute;
   top: 13%;
@@ -3354,6 +3363,9 @@ body.is-ranch .wfx-sky {
 #ranchEditor { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 #ranchEditorSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ro-poly { fill: rgba(80,170,255,0.22); stroke: #3da0ff; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: auto; cursor: move; }
+
+/* 散步軌跡線(GM)：兩點膠囊線 */
+.ro-poly.ro-track { fill: none; stroke: #ff6fb5; stroke-width: 5; stroke-linecap: round; }
 .ro-handle { position: absolute; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; border-radius: 50%; background: #ffd24a; border: none; box-shadow: none; cursor: grab; pointer-events: auto; touch-action: none; z-index: 8; }
 #ranchExportBtn, #ranchResetBtn, #ranchYUp, #ranchYDn { position: absolute; bottom: 10px; z-index: 9; padding: 7px 12px; font-weight: 900; color: #fffaf0; background: rgba(40,72,44,0.92); border: 1px solid rgba(255,244,213,0.5); border-radius: 8px; cursor: pointer; pointer-events: auto; }
 #ranchYUp { left: 250px; } #ranchYDn { left: 335px; background: rgba(40,72,44,0.92); }
@@ -3381,10 +3393,22 @@ body.is-ranch .wfx-sky {
 
 /* ===== 牧場動物 ===== */
 #ranchAnimals { position: absolute; inset: 0; z-index: 3; pointer-events: none; contain: layout style; }
-.ranch-animal { position: absolute; transform: translate(-50%, -100%); transition: left 5.5s linear, top 5.5s linear; font-size: clamp(15px, 2.25vw, 25px); line-height: 1; animation: animal-bob 4s ease-in-out infinite; will-change: transform; text-shadow: 0 1px 1px rgba(0,0,0,0.3); }
+.ranch-animal { position: absolute; transform: translate(-50%, -100%); transition: left 5.5s linear, top 5.5s linear; font-size: clamp(15px, 2.25vw, 25px); line-height: 1; will-change: transform; text-shadow: 0 1px 1px rgba(0,0,0,0.3); }
 .ranch-animal .animal-emoji { display: block; transition: transform 0.4s ease; }
 /* GM：動物移動基準點(腳底錨點)，關 GM 自動隱藏 */
 .ranch-animal .animal-anchor { display: none; }
+
+/* 狗狗散步(牧場) */
+#dogWalkerLayer { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.dog-walker { position: absolute; transform: translate(-50%, -100%); transition: left 3s linear, top 3s linear; pointer-events: none; }
+.dog-walker-sprite {
+  width: 61px; height: 50px;
+  background-image: url("./assets/decor/dog-walk-sheet.png");
+  background-repeat: no-repeat;
+  background-size: 854px 50px;
+  animation: dogwalk 2.1s steps(14) infinite;
+}
+@keyframes dogwalk { from { background-position-x: 0; } to { background-position-x: -854px; } }
 .farm-app.is-gm .ranch-animal .animal-anchor {
   display: block; position: absolute; left: 50%; top: 100%;
   width: 9px; height: 9px; transform: translate(-50%, -50%);
