@@ -1626,6 +1626,7 @@ async function visitCloudFriend(uid) {
 
 function enterVisit(profile) {
   visiting = Object.assign({ kind: "cloud" }, profile);
+  state.dogChasedCount = 0;   // 切換到別的好友農場：被趕跑次數歸零
   visitScene = "farm";
   visitPendingBug = {}; visitPendingSpray = {};
   closeFriends();
@@ -1656,6 +1657,7 @@ async function refreshVisit() {
 function exitVisit() {
   if (visitRefreshTimer) { clearInterval(visitRefreshTimer); visitRefreshTimer = null; }
   visiting = null;
+  state.dogChasedCount = 0;   // 回自家農場/牧場：被趕跑次數歸零
   visitTool = "";
   visitScene = "farm";
   visitPendingBug = {}; visitPendingSpray = {};
@@ -1905,6 +1907,18 @@ function onDogChased(name) {
     toast("汪汪！被 " + (name || "好友") + " 的看門狗趕走了 🐕（連續 " + state.dogChasedCount + "/6）");
   }
 }
+function confirmRiskySteal(onOk) {
+  const ov = document.createElement("div");
+  ov.className = "gift-box"; ov.style.zIndex = "95";
+  ov.innerHTML = '<div class="gift-card pond-confirm"><p>第六次被捉到趕走時，會隨機遺失金幣，確定繼續偷嗎？</p><div class="pond-confirm-btns">' +
+    '<button type="button" class="pond-btn" id="rsOk">確定</button>' +
+    '<button type="button" class="pond-btn pond-close-btn" id="rsNo">放棄</button></div></div>';
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#rsNo").addEventListener("click", close);
+  ov.querySelector("#rsOk").addEventListener("click", () => { close(); onOk(); });
+}
 function showLossDialog(loss, name) {
   const old = document.querySelector("#lossDialog"); if (old) old.remove();
   const d = document.createElement("div");
@@ -1919,6 +1933,13 @@ function cloudStealProduct(i) {
   const a = (rs.animals || [])[i];
   if (!a) return;
   if (a.status !== "ready") { toast("這隻還沒有可收的產物。"); return; }
+  if (visiting.dogGuard && (state.dogChasedCount || 0) >= 5) { confirmRiskySteal(() => cloudStealProductExec(i)); return; }
+  cloudStealProductExec(i);
+}
+function cloudStealProductExec(i) {
+  const rs = visiting.ranchSnapshot || {};
+  const a = (rs.animals || [])[i];
+  if (!a) return;
   if (visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
   const cfg = RANCH_ANIMALS[a.type];
   const uid = (visiting.uid || "?") + ":r";
@@ -2118,6 +2139,13 @@ function cloudSteal(index) {
   if (!pl || !pl.crop) { toast("這格沒有作物。"); return; }
   const ready = pl.readyAt ? Date.now() >= pl.readyAt : false;
   if (!ready) { toast("還沒成熟，不能偷。"); return; }
+  if (visiting.dogGuard && (state.dogChasedCount || 0) >= 5) { confirmRiskySteal(() => cloudStealExec(index)); return; }
+  cloudStealExec(index);
+}
+function cloudStealExec(index) {
+  const plots = Array.isArray(visiting.farmSnapshot) ? visiting.farmSnapshot : [];
+  const pl = plots[index];
+  if (!pl || !pl.crop) return;
   if (visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
   const uid = visiting.uid || "?";
   const now = Date.now();
@@ -4412,6 +4440,7 @@ function visitFriend(id) {
   saveState();
   currentFriendId = id;
   visiting = { kind: "npc", id: id };
+  state.dogChasedCount = 0;   // 切換好友：被趕跑次數歸零
   visitScene = "farm";
   closeFriends();
   if (state.scene === "ranch") { state.scene = ""; saveState(); }

@@ -47,7 +47,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-257" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-259" />
   </head>
   <body>
     <div class="farm-app">
@@ -395,11 +395,19 @@
     </div>
 
     <div id="friendsBox" class="gift-box" hidden>
-      <div class="gift-card" role="dialog" aria-modal="true" aria-label="好友">
+      <div class="gift-card friends-card" role="dialog" aria-modal="true" aria-label="好友">
         <h2>🧑‍🌾 好友</h2>
         <p>你的好友，點「拜訪」去逛逛、偷菜、幫忙。加好友請到「邀請好友」。</p>
-        <div id="cloudFriendsList" class="friends-list"></div>
-        <div id="friendsList" class="friends-list"></div>
+        <div class="friends-split">
+          <div class="friends-col">
+            <div class="fishmkt-head">真實好友</div>
+            <div id="cloudFriendsList" class="friends-list"></div>
+          </div>
+          <div class="friends-col">
+            <div class="fishmkt-head">虛擬好友</div>
+            <div id="friendsList" class="friends-list"></div>
+          </div>
+        </div>
         <button id="friendsClose" type="button" class="gift-close">關閉</button>
       </div>
     </div>
@@ -625,7 +633,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-257"></script>
+    <script src="./game.js?v=20260624-claude-259"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
