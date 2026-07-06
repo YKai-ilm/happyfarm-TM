@@ -601,6 +601,158 @@ function fmTrade(type, key, action, qty) {
   saveState(); renderHeader(); renderFishMarket();   // 重繪→數量欄回歸 0
 }
 
+// ===== 寶箱開箱 =====
+const CHEST_PRIZES = [
+  { name: "逗狗棒", icon: "🦴", per: 3, type: "item", key: "dogStick" },
+  { name: "天氣兌換卡", icon: "🌤️", per: 2, type: "item", key: "weatherCard" },
+  { name: "解凍卡", icon: "🃏", per: 3, type: "item", key: "thawCard" },
+  { name: "肥料", icon: "🌱", per: 5, type: "item", key: "fertilizer" },
+  { name: "蘋果", icon: "🍎", per: 5, type: "crop", key: "apple" },
+  { name: "隨機魚苗", icon: "🐟", per: 10, type: "fry", key: "" },
+  { name: "豬肉", icon: "🥓", per: 3, type: "ranch", key: "pig" },
+  { name: "防盜卡", icon: "🛡️", per: 2, type: "item", key: "guardCard" },
+];
+let chestSpinning = false, chestTimer = 0, chestLog = [];
+
+function chestCount() { return (state.items && state.items.treasureChest) || 0; }
+function chestPositions() {
+  // 8 格排成 3-2-3 環繞中央寶箱(順時針)
+  return [
+    { left: 22, top: 22 }, { left: 50, top: 22 }, { left: 78, top: 22 },
+    { left: 78, top: 50 },
+    { left: 78, top: 78 }, { left: 50, top: 78 }, { left: 22, top: 78 },
+    { left: 22, top: 50 },
+  ];
+}
+function openChest() {
+  if (chestCount() <= 0) { toast("沒有寶箱可以開。"); return; }
+  chestLog = []; chestSpinning = false;
+  if (chestTimer) { clearTimeout(chestTimer); chestTimer = 0; }
+  let box = document.querySelector("#chestBox");
+  if (!box) { box = document.createElement("div"); box.id = "chestBox"; box.className = "gift-box"; document.body.appendChild(box); }
+  const pos = chestPositions();
+  const cells = CHEST_PRIZES.map((p, i) =>
+    '<div class="chest-cell" data-ci="' + i + '" style="left:' + pos[i].left.toFixed(1) + '%;top:' + pos[i].top.toFixed(1) + '%">' +
+    '<span class="chest-ico">' + p.icon + '</span><span class="chest-x">×' + p.per + '</span></div>').join("");
+  box.innerHTML = '<div class="gift-card chest-card">' +
+    '<h2 class="chest-title">🎁 寶箱 ×<b id="chestCount">' + chestCount() + '</b></h2>' +
+    '<div class="chest-body">' +
+      '<div class="chest-wheel" id="chestWheel">' + cells + '<div class="chest-center">🎁</div></div>' +
+      '<div class="chest-side">' +
+        '<span class="chest-stepper">' +
+          '<button type="button" class="fm-step" id="chestMinus">−</button>' +
+          '<input class="fm-qty" id="chestQty" type="text" inputmode="numeric" maxlength="3" value="1" />' +
+          '<button type="button" class="fm-step" id="chestPlus">＋</button>' +
+          '<button type="button" class="chest-qbtn" id="chestReset">重新</button>' +
+          '<button type="button" class="chest-qbtn" id="chestAll">ALL</button>' +
+        '</span>' +
+        '<button type="button" class="pond-btn" id="chestUse">使用</button>' +
+        '<button type="button" class="pond-btn pond-close-btn" id="chestExit">離開</button>' +
+        '<button type="button" class="pond-btn" id="chestListBtn">清單</button>' +
+      '</div>' +
+    '</div></div>';
+  box.querySelector("#chestMinus").addEventListener("click", () => { const i = box.querySelector("#chestQty"); let v = parseInt(i.value, 10); if (!isFinite(v)) v = 0; i.value = Math.max(0, v - 1); });
+  box.querySelector("#chestPlus").addEventListener("click", () => { const i = box.querySelector("#chestQty"); let v = parseInt(i.value, 10); if (!isFinite(v)) v = 0; i.value = Math.min(chestCount(), v + 1); });
+  box.querySelector("#chestReset").addEventListener("click", () => { box.querySelector("#chestQty").value = 0; });
+  box.querySelector("#chestAll").addEventListener("click", () => { box.querySelector("#chestQty").value = chestCount(); });
+  box.querySelector("#chestQty").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 3); });
+  box.querySelector("#chestExit").addEventListener("click", closeChest);
+  box.querySelector("#chestListBtn").addEventListener("click", openChestLog);
+  box.querySelector("#chestUse").addEventListener("click", chestUse);
+}
+function closeChest() {
+  if (chestTimer) { clearTimeout(chestTimer); chestTimer = 0; }
+  chestSpinning = false;
+  const b = document.querySelector("#chestBox"); if (b) b.remove();
+  render();
+}
+function setChestActive(idx) {
+  const w = document.querySelector("#chestWheel"); if (!w) return;
+  w.querySelectorAll(".chest-cell").forEach((c) => c.classList.toggle("active", Number(c.dataset.ci) === idx));
+}
+function chestSpin(onDone) {
+  const N = CHEST_PRIZES.length;
+  const target = Math.floor(Math.random() * N);
+  const total = N * 3 + target + 1; let s = 0;
+  chestSpinning = true;
+  (function tick() {
+    setChestActive(s % N); s++;
+    if (s >= total) { chestSpinning = false; onDone(target); return; }
+    const t = s / total;
+    chestTimer = setTimeout(tick, 45 + t * t * 255);
+  })();
+}
+function grantPrize(p, qty) {
+  state.items = state.items || {};
+  if (p.type === "item") state.items[p.key] = (state.items[p.key] || 0) + qty;
+  else if (p.type === "crop") { state.inventory = state.inventory || {}; state.inventory[p.key] = (state.inventory[p.key] || 0) + qty; }
+  else if (p.type === "ranch") { state.ranchProducts = state.ranchProducts || {}; state.ranchProducts[p.key] = (state.ranchProducts[p.key] || 0) + qty; }
+  else if (p.type === "fry") { state.fryBag = state.fryBag || {}; const f = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fryBag[f] = (state.fryBag[f] || 0) + qty; }
+}
+function chestUse() {
+  if (chestSpinning) return;
+  const raw = parseInt(document.querySelector("#chestQty").value, 10) || 0;
+  const n = Math.min(chestCount(), raw);
+  if (n < 1) { toast("請先選擇數量。"); return; }
+  state.items.treasureChest -= n;
+  const useBtn = document.querySelector("#chestUse");
+  const qi = document.querySelector("#chestQty");
+  if (useBtn) useBtn.disabled = true;
+  if (qi) qi.disabled = true;
+  chestSpin((target) => {
+    if (n === 1) {
+      const p = CHEST_PRIZES[target];
+      const qty = p.per;
+      grantPrize(p, qty);
+      const msg = "您獲得了" + p.name + " " + qty + " 個";
+      chestLog.push({ kind: "single", text: msg });
+      chestResultDialog(msg);
+    } else {
+      const draws = [];
+      for (let k = 0; k < n; k++) {
+        const p = CHEST_PRIZES[Math.floor(Math.random() * CHEST_PRIZES.length)];
+        const qty = p.per;
+        grantPrize(p, qty);
+        draws.push({ name: p.name, icon: p.icon, qty: qty });
+      }
+      chestLog.push({ kind: "multi", draws: draws });
+      chestResultDialog("詳查閱清單訊息");
+    }
+    saveState(); renderHeader();
+    const cc = document.querySelector("#chestCount"); if (cc) cc.textContent = chestCount();
+    if (useBtn) useBtn.disabled = false;
+    if (qi) { qi.disabled = false; qi.value = Math.max(1, Math.min(chestCount() || 1, parseInt(qi.value, 10) || 1)); }
+  });
+}
+function chestResultDialog(msg) {
+  const old = document.querySelector("#chestResult"); if (old) old.remove();
+  const d = document.createElement("div");
+  d.id = "chestResult"; d.className = "loss-dialog"; d.style.zIndex = "88";
+  d.innerHTML = '<div class="loss-dialog-inner"><div class="loss-title">🎁 開箱結果</div><div class="loss-body">' + msg + '</div></div>';
+  document.body.appendChild(d);
+  setTimeout(() => { if (d && d.parentNode) d.remove(); }, 2500);
+}
+function openChestLog() {
+  let ov = document.querySelector("#chestLogBox");
+  if (!ov) { ov = document.createElement("div"); ov.id = "chestLogBox"; ov.className = "gift-box"; ov.style.zIndex = "80"; document.body.appendChild(ov); }
+  let rows = chestLog.map((e, i) => e.kind === "single"
+    ? '<div class="clog-row">' + e.text + '</div>'
+    : '<div class="clog-row">您獲得' + e.draws.length + '個以上的物品 <button type="button" class="clog-view" data-cl="' + i + '">點閱</button></div>').join("");
+  if (!rows) rows = '<p class="item-empty">還沒有開箱紀錄。</p>';
+  ov.innerHTML = '<div class="gift-card chest-log-card"><h2 class="chest-title">📜 開箱清單</h2><div class="clog-list">' + rows + '</div><button type="button" class="gift-close" id="chestLogClose">關閉</button></div>';
+  ov.querySelector("#chestLogClose").addEventListener("click", () => ov.remove());
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  ov.querySelectorAll(".clog-view").forEach((b) => b.addEventListener("click", () => openChestGrid(chestLog[Number(b.dataset.cl)].draws)));
+}
+function openChestGrid(draws) {
+  let ov = document.querySelector("#chestGridBox");
+  if (!ov) { ov = document.createElement("div"); ov.id = "chestGridBox"; ov.className = "gift-box"; ov.style.zIndex = "85"; document.body.appendChild(ov); }
+  const cells = (draws || []).map((d) => '<div class="cgrid-cell"><span class="cgrid-ico">' + d.icon + '</span><span class="cgrid-name">' + d.name + '</span><span class="cgrid-qty">×' + d.qty + '</span></div>').join("");
+  ov.innerHTML = '<div class="gift-card chest-grid-card"><h2 class="chest-title">🎁 中獎物品</h2><div class="cgrid">' + cells + '</div><button type="button" class="gift-close" id="chestGridClose">關閉</button></div>';
+  ov.querySelector("#chestGridClose").addEventListener("click", () => ov.remove());
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+}
+
 function setupBuildingDrag() {
   const fx = document.querySelector("#weatherFx");
   if (!fx || fx.dataset.dragReady) return;
@@ -4089,7 +4241,7 @@ function renderItemList() {
         <strong>🎁 寶箱 ×${chest}</strong>
         <span class="gift-contents">釣魚釣到的寶箱，開箱內容日後開放</span>
       </div>
-      <button class="gift-claim" type="button" disabled title="開箱功能開發中">開箱</button>
+      <button class="gift-claim" type="button" id="useChest">開箱</button>
     </div>`;
   }
   if (!rows) rows = '<p class="item-empty">目前沒有道具。</p>';
@@ -4101,6 +4253,7 @@ function renderItemList() {
   document.querySelector("#useGuard")?.addEventListener("click", useGuard);
   document.querySelector("#useCoinCard")?.addEventListener("click", useCoinCard);
   document.querySelector("#useExpPack")?.addEventListener("click", useExpPack);
+  document.querySelector("#useChest")?.addEventListener("click", openChest);
 }
 
 function thawCost(id, n) {
