@@ -3793,10 +3793,13 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 /* ===== 選擇存檔（多存檔選單） ===== */
 .slot-box { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); background: rgba(20,30,20,0.55); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .slot-box[hidden] { display: none; }
-.slot-card { width: min(420px, 100%); margin: auto; background: #fffdf5; border-radius: 16px; padding: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.3); box-sizing: border-box; }
+.slot-card { width: min(680px, 100%); margin: auto; background: #fffdf5; border-radius: 16px; padding: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.3); box-sizing: border-box; }
 .slot-card h2 { margin: 0 0 6px; }
 .slot-hint { font-size: 0.78rem; color: var(--muted); margin: 0 0 10px; }
-.slot-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; }
+.slot-split { display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px; }
+.slot-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.03); }
+.slot-col-head { flex: 0 0 auto; padding: 7px; text-align: center; font-weight: 900; background: #557a44; color: #fff; font-size: 0.92rem; }
+.slot-list { display: flex; flex-direction: column; gap: 8px; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px; }
 .slot-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; }
 .slot-row.is-current { border-color: #e3b53f; box-shadow: 0 0 0 2px #f7e6b8 inset; }
 .slot-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }

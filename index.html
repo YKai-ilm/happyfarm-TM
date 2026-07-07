@@ -47,7 +47,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-264" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-265" />
   </head>
   <body>
     <div class="farm-app">
@@ -336,7 +336,16 @@
       <div class="slot-card" role="dialog" aria-modal="true" aria-label="選擇存檔">
         <h2>選擇存檔</h2>
         <p class="slot-hint">同一個帳號可有多個存檔。選同一個存檔的裝置會互相同步；選不同存檔則各玩各的，好友資訊共通。</p>
-        <div id="slotList" class="slot-list"></div>
+        <div class="slot-split">
+          <div class="slot-col">
+            <div class="slot-col-head">其他存檔</div>
+            <div id="slotListOther" class="slot-list"></div>
+          </div>
+          <div class="slot-col">
+            <div class="slot-col-head">先前使用</div>
+            <div id="slotListPrev" class="slot-list"></div>
+          </div>
+        </div>
         <div class="friend-add slot-new">
           <input id="newSlotName" type="text" maxlength="16" placeholder="新存檔名稱" />
           <button id="newSlotBtn" type="button">新增空白</button>
@@ -633,7 +642,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="./game.js?v=20260624-claude-264"></script>
+    <script src="./game.js?v=20260624-claude-265"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

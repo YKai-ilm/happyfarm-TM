@@ -1448,25 +1448,33 @@ function overwriteSlot(id) {
   toast("已覆蓋存檔：" + payload.name);
 }
 function hideSlotPicker() { const b = document.querySelector("#slotPickerBox"); if (b) b.hidden = true; }
-function renderSlotList() {
-  const list = document.querySelector("#slotList");
-  if (!list || !accountData) return;
+function slotRowHtml(id) {
   const canBranch = !!(activeSlot && accountData.slots[activeSlot]);
+  const s = accountData.slots[id]; let lv = 1, co = 0;
+  try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (_) {}
+  const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
+  return '<div class="slot-row' + (id === activeSlot ? ' is-current' : '') + '"><div class="slot-info"><strong>' + (s.name || id) + (id === activeSlot ? ' ✓' : '') + '</strong>' +
+    '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 版本 ' + (s.rev || 0) + '</span>' +
+    '<span class="slot-when">⏱ ' + when + '</span></div>' +
+    '<button class="slot-use" type="button" data-use="' + id + '">使用</button>' +
+    ((canBranch && id !== activeSlot) ? '<button class="slot-over" type="button" data-over="' + id + '">覆蓋</button>' : '') +
+    '<button class="slot-del" type="button" data-del="' + id + '">刪除</button></div>';
+}
+function renderSlotList() {
+  const other = document.querySelector("#slotListOther");
+  const prev = document.querySelector("#slotListPrev");
+  if (!other || !prev || !accountData) return;
+  const prevId = pickerResumeTarget();
   const ids = Object.keys(accountData.slots);
-  list.innerHTML = ids.length ? ids.map((id) => {
-    const s = accountData.slots[id]; let lv = 1, co = 0;
-    try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (_) {}
-    const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
-    return '<div class="slot-row' + (id === activeSlot ? ' is-current' : '') + '"><div class="slot-info"><strong>' + (s.name || id) + (id === activeSlot ? ' ✓' : '') + '</strong>' +
-      '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 版本 ' + (s.rev || 0) + '</span>' +
-      '<span class="slot-when">⏱ ' + when + '</span></div>' +
-      '<button class="slot-use" type="button" data-use="' + id + '">使用</button>' +
-      ((canBranch && id !== activeSlot) ? '<button class="slot-over" type="button" data-over="' + id + '">覆蓋</button>' : '') +
-      '<button class="slot-del" type="button" data-del="' + id + '">刪除</button></div>';
-  }).join("") : '<p class="item-empty">還沒有存檔，在下面新增一個。</p>';
-  list.querySelectorAll("[data-use]").forEach((b) => b.addEventListener("click", () => useSlot(b.dataset.use)));
-  list.querySelectorAll("[data-over]").forEach((b) => b.addEventListener("click", () => overwriteSlot(b.dataset.over)));
-  list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteSlot(b.dataset.del)));
+  const otherIds = ids.filter((id) => id !== prevId);
+  const prevIds = prevId ? [prevId] : [];
+  other.innerHTML = otherIds.length ? otherIds.map(slotRowHtml).join("") : '<p class="item-empty">沒有其他存檔。</p>';
+  prev.innerHTML = prevIds.length ? prevIds.map(slotRowHtml).join("") : '<p class="item-empty">尚無先前使用的存檔。</p>';
+  [other, prev].forEach((c) => {
+    c.querySelectorAll("[data-use]").forEach((b) => b.addEventListener("click", () => useSlot(b.dataset.use)));
+    c.querySelectorAll("[data-over]").forEach((b) => b.addEventListener("click", () => overwriteSlot(b.dataset.over)));
+    c.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteSlot(b.dataset.del)));
+  });
 }
 
 function useSlot(slotId) {
