@@ -360,7 +360,7 @@ function openPondDialog() {
       '</div>' +
     '</div></div>';
   box.querySelector("#pondClose").addEventListener("click", closePondDialog);
-  box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => { pondMsg("🐟 養魚功能開發中。"); }));
+  box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => { openFishFarm(); }));
   const fb = box.querySelector("#pondFishBtn");
   if (fb) fb.addEventListener("click", onFishClick);
 }
@@ -470,10 +470,27 @@ function onFishStop() {
     state.coins = (state.coins || 0) + n;
     pondMsg("釣到" + item + "，回收得 " + n + " 元。");
   } else if (color === "orange") {
-    const f = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)];
-    state.fishBag = state.fishBag || {};
-    state.fishBag[f] = (state.fishBag[f] || 0) + mult;
-    pondMsg(mult === 1 ? "釣到一隻" + f + "，幸福。" : "釣到 " + mult + " 隻" + f + "，幸福。");
+    // 橘色：從養魚水池撈成魚(stage>=2)，釣走幾隻就從池裡扣幾隻，進漁貨庫存
+    state.pondFish = state.pondFish || [];
+    const adultIdx = [];
+    state.pondFish.forEach((e, i) => { const st = (e && typeof e === "object") ? (e.stage || 0) : 0; if (st >= 2) adultIdx.push(i); });
+    if (adultIdx.length === 0) {
+      pondMsg("養魚水池裡還沒有成魚可以釣。");
+    } else {
+      const take = Math.min(mult, adultIdx.length);
+      for (let k = adultIdx.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); const t = adultIdx[k]; adultIdx[k] = adultIdx[j]; adultIdx[j] = t; }
+      const chosen = adultIdx.slice(0, take).sort((a, b) => b - a);   // 由大到小 splice 才安全
+      const caught = {};
+      state.fishBag = state.fishBag || {};
+      chosen.forEach((idx) => {
+        const e = state.pondFish[idx]; const tp = (e && e.type) || e;
+        caught[tp] = (caught[tp] || 0) + 1;
+        state.fishBag[tp] = (state.fishBag[tp] || 0) + 1;
+        state.pondFish.splice(idx, 1);
+      });
+      const parts = Object.keys(caught).map((t) => t + " " + caught[t]);
+      pondMsg("從養魚池釣起 " + parts.join("、") + "，共 " + take + " 隻！");
+    }
   } else {
     state.items = state.items || {};
     state.items.treasureChest = (state.items.treasureChest || 0) + mult;
@@ -497,10 +514,214 @@ function pondMsg(text) {
 }
 function closePondDialog() {
   pondDialogOpen = false;
+  const ff = document.querySelector("#fishFarmView"); if (ff) ff.remove();
   fishRunning = false;
   if (fishRAF) { cancelAnimationFrame(fishRAF); fishRAF = 0; }
   if (fishResumeTimer) { clearTimeout(fishResumeTimer); fishResumeTimer = 0; }
   const b = document.querySelector("#pondBox"); if (b) b.remove();
+}
+
+const FRY_COLORS = { "吳郭魚": "#8a9a5b", "鯽魚": "#b0a07a", "溪哥": "#7fb0d0", "苦花": "#9fbf8f", "香魚": "#c8d09a", "泥鰍": "#6b5a3a", "馬口魚": "#d08fa8", "石賓": "#7a8a9a", "羅漢魚": "#e0a45c", "大肚魚": "#a6c6ea" };
+let ffFish = [], ffFeed = [], ffMode = "", ffPlaceType = "", ffRAF = 0, ffLast = 0;
+const FF_SAT_DRAIN = 0.05, FF_SAT_PER = 25, FF_GROW_PELLETS = 16;   // 飽食每秒降、每顆+25%、每16顆長大一階
+
+function openFishFarm() {
+  const pb = document.querySelector("#pondBox"); if (pb) pb.style.display = "none";
+  const oldV = document.querySelector("#fishFarmView"); if (oldV) oldV.remove();
+  if (ffRAF) { cancelAnimationFrame(ffRAF); ffRAF = 0; }
+  ffFish = []; ffFeed = []; ffMode = ""; ffPlaceType = ""; ffLast = 0;
+  const v = document.createElement("div"); v.id = "fishFarmView"; v.className = "fishfarm";
+  v.innerHTML = '<div class="ff-sky"></div><div class="ff-grass ff-grass-l"></div><div class="ff-grass ff-grass-r"></div><div class="ff-water"></div>' +
+    '<div id="ffPanel" class="ff-panel">' +
+      '<button type="button" id="fishFarmExit" class="ff-exit">離開</button>' +
+      '<button type="button" class="ff-ctrl ff-ctrl-place" data-ff="place">放魚苗</button>' +
+      '<button type="button" class="ff-ctrl ff-ctrl-feed" data-ff="feed">餵魚</button>' +
+      '<button type="button" class="ff-ctrl ff-ctrl-snail" data-ff="snail">清螺</button>' +
+    '</div>';
+  document.body.appendChild(v);
+  v.querySelector("#fishFarmExit").addEventListener("click", (e) => { e.stopPropagation(); closeFishFarm(); });
+  v.querySelectorAll(".ff-ctrl").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); ffCtrlClick(b.dataset.ff); }));
+  v.addEventListener("click", ffWaterClick);
+  state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
+  state.pondFish.forEach((data) => ffSpawnFish(data, 5 + Math.random() * 90, 20 + Math.random() * 72));
+  ffLast = 0; ffRAF = requestAnimationFrame(ffStep);
+}
+function closeFishFarm() {
+  if (ffRAF) { cancelAnimationFrame(ffRAF); ffRAF = 0; }
+  const v = document.querySelector("#fishFarmView"); if (v) v.remove();
+  const pb = document.querySelector("#pondBox"); if (pb) pb.style.display = "";
+}
+function ffUpdateBtns() {
+  const p = document.querySelector(".ff-ctrl-place"), f = document.querySelector(".ff-ctrl-feed");
+  if (p) p.classList.toggle("active", ffMode === "place");
+  if (f) f.classList.toggle("active", ffMode === "feed");
+}
+function ffCtrlClick(kind) {
+  if (kind === "place") { if (ffMode === "place") { ffMode = ""; ffUpdateBtns(); } else ffOpenFrySelect(); }
+  else if (kind === "feed") { ffMode = (ffMode === "feed") ? "" : "feed"; ffUpdateBtns(); if (ffMode === "feed") toast("點水面撒飼料，小魚會來搶。"); }
+  else if (kind === "snail") { toast("清螺功能開發中。"); }
+}
+function ffOpenFrySelect() {
+  const bag = state.fryBag || {};
+  const items = FISH_MARKET.filter((f) => (bag[f.k] || 0) > 0);
+  const ov = document.createElement("div"); ov.className = "gift-box"; ov.style.zIndex = "90";
+  let rows = items.map((f) => '<button type="button" class="ff-fry-opt" data-fry="' + f.k + '"><span class="ff-fry-dot" style="background:' + (FRY_COLORS[f.k] || "#7fb0d0") + '"></span>' + f.k + '(苗) ×' + (bag[f.k] || 0) + '</button>').join("");
+  if (!rows) rows = '<p class="item-empty">沒有魚苗，先去漁市場買。</p>';
+  ov.innerHTML = '<div class="gift-card ff-fry-card"><h2 class="chest-title">選擇魚苗</h2><div class="ff-fry-list">' + rows + '</div><button type="button" class="gift-close" id="ffFryClose">關閉</button></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  ov.querySelector("#ffFryClose").addEventListener("click", () => ov.remove());
+  ov.querySelectorAll("[data-fry]").forEach((b) => b.addEventListener("click", () => {
+    ffPlaceType = b.dataset.fry; ffMode = "place"; ffUpdateBtns(); ov.remove();
+    toast("點水面放入 " + ffPlaceType + "(苗)，再按一次「放魚苗」可取消。");
+  }));
+}
+function ffDarken(hex, amt) {
+  const n = parseInt((hex || "#7fb0d0").slice(1), 16);
+  let r = (n >> 16) & 255, gg = (n >> 8) & 255, b = n & 255;
+  r = Math.round(r * (1 - amt)); gg = Math.round(gg * (1 - amt)); b = Math.round(b * (1 - amt));
+  return "#" + ((1 << 24) + (r << 16) + (gg << 8) + b).toString(16).slice(1);
+}
+function ffMakeFishEl(type) {
+  const el = document.createElement("div"); el.className = "ff-fish";
+  const col = FRY_COLORS[type] || "#7fb0d0", dk = ffDarken(col, 0.3);
+  el.innerHTML = '<svg viewBox="0 0 48 30">' +
+    '<path d="M34,15 C39,12 44,9 47,7 C45,11 45,19 47,23 C44,21 39,18 34,15 Z" fill="' + dk + '"/>' +
+    '<path d="M17,7 C20,1 26,2 28,7 Z" fill="' + dk + '"/>' +
+    '<path d="M18,23 C21,28 25,27 26,23 Z" fill="' + dk + '"/>' +
+    '<path d="M7,15 C9,8 17,5 25,6 C32,7 35,11 35,15 C35,19 32,23 25,24 C17,25 9,22 7,15 Z" fill="' + col + '" stroke="' + dk + '" stroke-width="0.6"/>' +
+    '<ellipse cx="22" cy="11" rx="11" ry="3.4" fill="#ffffff" opacity="0.16"/>' +
+    '<path d="M15,16 C11,20 13,22 18,20 Z" fill="' + dk + '" opacity="0.85"/>' +
+    '<path d="M17,8 C15,12 15,18 17,22" fill="none" stroke="' + dk + '" stroke-width="0.7" opacity="0.65"/>' +
+    '<circle cx="12" cy="12.5" r="2.4" fill="#fff"/>' +
+    '<circle cx="11.2" cy="12.5" r="1.3" fill="#12212e"/>' +
+    '</svg>';
+  return el;
+}
+function ffUpdateFishEl(f) {
+  const stage = f.data.stage || 0;
+  const g = Math.pow(1.3, stage), dir = f.vx > 0 ? -1 : 1, adult = stage >= 2;
+  f.el.style.left = f.x + "%"; f.el.style.top = f.y + "%";
+  f.el.style.transform = "translate(-50%,-50%) scale(" + (g * dir) + "," + g + ")";
+  f.bar.style.left = f.x + "%"; f.bar.style.top = (f.y - 3.2 * g) + "%";
+  f.fill.style.width = Math.max(0, Math.min(100, f.sat)) + "%";
+  f.fill.style.background = adult ? "#9aa0a6" : "#4caf50";
+}
+function ffFishEat(f) {
+  const stage = f.data.stage || 0;
+  f.sat = Math.min(100, f.sat + FF_SAT_PER);
+  if (stage >= 2) return;   // 成魚只補飽食、不再成長
+  f.data.eaten = (f.data.eaten || 0) + 1;
+  if (f.data.eaten >= (stage + 1) * FF_GROW_PELLETS) {
+    f.data.stage = stage + 1;
+    if (f.data.stage >= 2) f.sat = 100;
+    saveState();
+  }
+}
+function ffSpawnFish(data, x, y) {
+  const view = document.querySelector("#fishFarmView"); if (!view) return;
+  const el = ffMakeFishEl(data.type); view.appendChild(el);
+  const bar = document.createElement("div"); bar.className = "ff-sat"; bar.innerHTML = '<div class="ff-sat-fill"></div>';
+  view.appendChild(bar);
+  const a = Math.random() * Math.PI * 2;
+  const f = { data: data, type: data.type, x: x, y: y, vx: Math.cos(a) * 8, vy: Math.sin(a) * 5, el: el, bar: bar, fill: bar.firstChild, sat: 50, retarget: 1 + Math.random() * 2 };
+  ffFish.push(f); ffUpdateFishEl(f);
+}
+function ffAddFeed(x, y) {
+  const view = document.querySelector("#fishFarmView"); if (!view) return;
+  const el = document.createElement("div"); el.className = "ff-feed";
+  el.style.left = x + "%"; el.style.top = y + "%"; view.appendChild(el);
+  ffFeed.push({ x: x, y: y, vy: 8 + Math.random() * 5, phase: Math.random() * 6.28, life: 18, el: el });
+}
+function ffRemoveFeed(fd) {
+  const i = ffFeed.indexOf(fd); if (i >= 0) ffFeed.splice(i, 1);
+  if (fd.el && fd.el.parentNode) fd.el.remove();
+}
+function ffStep(ts) {
+  if (!document.querySelector("#fishFarmView")) { ffRAF = 0; return; }
+  if (!ffLast) ffLast = ts;
+  const dt = Math.min(0.05, (ts - ffLast) / 1000); ffLast = ts;
+  for (let i = ffFeed.length - 1; i >= 0; i--) {
+    const fd = ffFeed[i];
+    fd.life -= dt;
+    if (fd.life <= 0) { ffRemoveFeed(fd); continue; }
+    fd.y += fd.vy * dt;
+    if (fd.y >= 94) { ffRemoveFeed(fd); continue; }   // 沉到底就消失
+    fd.phase += dt * 2.5;
+    fd.el.style.top = fd.y + "%";
+    fd.el.style.left = (fd.x + Math.sin(fd.phase) * 0.4) + "%";
+  }
+  ffFish.forEach((f) => {
+    const adult = (f.data.stage || 0) >= 2;
+    f.sat -= FF_SAT_DRAIN * dt; if (f.sat < 0) f.sat = 0;   // 成魚也會下降
+    let tf = null, td = 1e9;
+    if (f.sat <= 76) {   // 飽食>76%就不追食(75%吃一顆剛好滿100)
+      ffFeed.forEach((fd) => { const d = (fd.x - f.x) * (fd.x - f.x) + (fd.y - f.y) * (fd.y - f.y); if (d < td) { td = d; tf = fd; } });
+    }
+    if (tf) {
+      const dx = tf.x - f.x, dy = tf.y - f.y, dist = Math.hypot(dx, dy) || 1;
+      f.vx = dx / dist * 24; f.vy = dy / dist * 18;
+      if (dist < 2.5) { ffRemoveFeed(tf); ffFishEat(f); }
+    } else {
+      f.retarget -= dt;
+      if (f.retarget <= 0) { const a = Math.random() * Math.PI * 2; f.vx = Math.cos(a) * 8; f.vy = Math.sin(a) * 5; f.retarget = 1 + Math.random() * 2.5; }
+    }
+    f.x += f.vx * dt; f.y += f.vy * dt;
+    if (f.x < 4) { f.x = 4; f.vx = Math.abs(f.vx); } if (f.x > 96) { f.x = 96; f.vx = -Math.abs(f.vx); }
+    if (f.y < 14) { f.y = 14; f.vy = Math.abs(f.vy); } if (f.y > 95) { f.y = 95; f.vy = -Math.abs(f.vy); }
+    ffUpdateFishEl(f);
+  });
+  ffRAF = requestAnimationFrame(ffStep);
+}
+function ffWaterClick(e) {
+  if (e.target.closest(".ff-ctrl, .ff-exit")) return;
+  const view = document.querySelector("#fishFarmView"); if (!view) return;
+  const r = view.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * 100, y = (e.clientY - r.top) / r.height * 100;
+  if (y < 11) return;   // 上方草地不算
+  if (ffMode === "place") {
+    state.fryBag = state.fryBag || {};
+    if ((state.fryBag[ffPlaceType] || 0) <= 0) { toast("這種魚苗不夠了。"); ffMode = ""; ffUpdateBtns(); return; }
+    state.fryBag[ffPlaceType] -= 1;
+    state.pondFish = state.pondFish || [];
+    const data = { type: ffPlaceType, eaten: 0, stage: 0 };
+    state.pondFish.push(data);
+    ffSpawnFish(data, x, y); saveState();
+  } else if (ffMode === "feed") {
+    const n = 3 + Math.floor(Math.random() * 2);   // 一次 3~4 顆
+    for (let k = 0; k < n; k++) {
+      const fx = Math.max(4, Math.min(96, x + (Math.random() * 6 - 3)));
+      const fy = Math.max(12, Math.min(90, y + (Math.random() * 4 - 2)));
+      ffAddFeed(fx, fy);
+    }
+  }
+}
+function ffMakePanelDraggable(panel) {
+  if (!panel) return;
+  let sx = 0, sy = 0, ox = 0, oy = 0, moved = false, dragging = false, tapEl = null;
+  panel.addEventListener("pointerdown", (e) => {
+    tapEl = e.target.closest(".ff-ctrl, .ff-exit");   // 記住按到哪顆(點擊用)
+    dragging = true; moved = false; sx = e.clientX; sy = e.clientY;
+    const rr = panel.getBoundingClientRect(); ox = rr.left; oy = rr.top;
+    try { panel.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault(); e.stopPropagation();
+  });
+  panel.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+    panel.style.left = (ox + dx) + "px"; panel.style.top = (oy + dy) + "px"; panel.style.right = "auto"; panel.style.bottom = "auto";
+  });
+  const end = () => {
+    if (!dragging) return; dragging = false;
+    if (!moved && tapEl) {                            // 沒拖動＝點擊該鈕
+      if (tapEl.classList.contains("ff-exit")) closeFishFarm();
+      else ffCtrlClick(tapEl.dataset.ff);
+    }
+    tapEl = null;
+  };
+  panel.addEventListener("pointerup", end);
+  panel.addEventListener("pointercancel", end);
 }
 
 function openFishMarket() {
@@ -1446,7 +1667,6 @@ function showSlotPicker() {
   renderSlotList();
   const canBranch = !!(activeSlot && accountData && accountData.slots[activeSlot]);
   const sa = document.querySelector("#saveAsBtn"); if (sa) sa.hidden = !canBranch;
-  const cc = document.querySelector("#slotCancel"); if (cc) cc.hidden = !pickerResumeTarget();
   box.hidden = false;
 }
 function pickerResumeTarget() {
@@ -1477,7 +1697,7 @@ function slotSummary(s) {
   let lv = 1, co = 0;
   try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (e) {}
   const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
-  return "Lv." + lv + " · 🪙" + co + " · 版本 " + (s.rev || 0) + "<br>⏱ " + when;
+  return "Lv." + lv + " · 🪙" + co + " · 序號 " + (s.rev || 0) + "<br>⏱ " + when;
 }
 function slotConfirmDialog(html, onOk, okLabel, cancelLabel) {
   const ov = document.createElement("div");
@@ -1564,7 +1784,7 @@ function slotRowHtml(id) {
   try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (_) {}
   const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
   return '<div class="slot-row' + (id === hl ? ' is-current' : '') + '"><div class="slot-info"><strong>' + (s.name || id) + (id === hl ? ' ✓' : '') + '</strong>' +
-    '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 版本 ' + (s.rev || 0) + '</span>' +
+    '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 序號 ' + (s.rev || 0) + '</span>' +
     '<span class="slot-when">⏱ ' + when + '</span></div>' +
     '<button class="slot-use" type="button" data-use="' + id + '">使用</button>' +
     ((canBranch && id !== activeSlot) ? '<button class="slot-over" type="button" data-over="' + id + '">覆蓋</button>' : '') +
@@ -3704,7 +3924,12 @@ function bindStaticEvents() {
   if (importBtn) importBtn.addEventListener("click", importCode);
   if (saveBoxClose) saveBoxClose.addEventListener("click", closeSaveBox);
   document.querySelector("#googleLoginBtn")?.addEventListener("click", () => { fbUser ? googleLogout() : googleLogin(); });
-  document.querySelector("#slotPreviewBtn")?.addEventListener("click", openSlotPreview);
+  const _spb = document.querySelector("#slotPreviewBtn");
+  if (_spb) {
+    const _localDev = location.protocol === "file:" || ["localhost", "127.0.0.1", ""].includes(location.hostname);
+    if (_localDev) _spb.addEventListener("click", openSlotPreview);
+    else _spb.style.display = "none";   // 線上版隱藏本機測試鈕
+  }
   if (saveBox) {
     saveBox.addEventListener("click", (event) => {
       if (event.target === saveBox) closeSaveBox();
@@ -3878,7 +4103,7 @@ function bindStaticEvents() {
     saveAsNewSlot(inp ? inp.value : "");
     if (inp) inp.value = "";
   });
-  document.querySelector("#slotCancel")?.addEventListener("click", cancelSlotPicker);
+  document.querySelector("#slotPickerBox")?.addEventListener("click", (e) => { if (e.target && e.target.id === "slotPickerBox" && slotPreviewMode) closeSlotPreview(); });
   document.querySelector("#slotOtherLock")?.addEventListener("click", unlockOtherConfirm);
   document.querySelector("#recycleBtn")?.addEventListener("click", openRecycle);
   // 工作面板內容點擊不冒泡到「點空白關閉面板」，避免買一個就關閉
