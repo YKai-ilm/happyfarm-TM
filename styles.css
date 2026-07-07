@@ -3793,24 +3793,30 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 /* ===== 選擇存檔（多存檔選單） ===== */
 .slot-box { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); background: rgba(20,30,20,0.55); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .slot-box[hidden] { display: none; }
-.slot-card { width: min(680px, 100%); margin: auto; background: #fffdf5; border-radius: 16px; padding: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.3); box-sizing: border-box; }
+.slot-card { width: min(880px, 96vw); margin: auto; background: #fffdf5; border-radius: 16px; padding: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.3); box-sizing: border-box; }
 .slot-card h2 { margin: 0 0 6px; }
 .slot-hint { font-size: 0.78rem; color: var(--muted); margin: 0 0 10px; }
 .slot-split { display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px; }
 .slot-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.03); }
+.slot-col-other { position: relative; }
+.slot-lock { position: absolute; inset: 0; background: rgba(190,190,190,0.42); cursor: pointer; z-index: 6; }
 .slot-col-head { flex: 0 0 auto; padding: 7px; text-align: center; font-weight: 900; background: #557a44; color: #fff; font-size: 0.92rem; }
 .slot-list { display: flex; flex-direction: column; gap: 8px; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px; }
 .slot-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; }
-.slot-row.is-current { border-color: #e3b53f; box-shadow: 0 0 0 2px #f7e6b8 inset; }
+.slot-row.is-current { border-color: #e8562a; box-shadow: 0 0 0 2px #e8562a inset, 0 0 0 3px rgba(232,86,42,0.28); }
 .slot-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .slot-info strong { font-size: 0.92rem; }
 .slot-meta { font-size: 0.74rem; color: #6a6f75; }
 .slot-when { font-size: 0.7rem; color: #9aa0a6; }
-.slot-use, .slot-del { flex: 0 0 auto; height: 32px; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; font-size: 0.8rem; cursor: pointer; padding: 0 10px; color: var(--ink); }
+.slot-use, .slot-over, .slot-restore, .slot-del { flex: 0 0 auto; height: 34px; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; font-size: 0.8rem; cursor: pointer; padding: 0 12px; color: var(--ink); }
+.slot-restore { background: #ffd9c2; }
 .slot-use { background: #ffe7a8; }
 .slot-over { background: #e7f0ff; }
 .slot-del { background: #f3efe9; }
 .slot-new { margin-top: 4px; }
+.slot-new-incol { display: flex; flex-direction: row; gap: 8px; padding: 8px; }
+.slot-new-incol button { flex: 1 1 0; min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 10px; font-weight: 800; cursor: pointer; color: var(--ink); white-space: nowrap; }
+.newgame-input { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; font-size: 0.95rem; margin: 8px 0 4px; box-sizing: border-box; }
 .slot-cancel { width: 100%; margin-top: 10px; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: #f1efe9; font-weight: 800; cursor: pointer; color: var(--ink); }
 #saveAsBtn { background: #cdebd2; }
 
@@ -3818,10 +3824,10 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .slot-new { flex-wrap: wrap; gap: 8px; }
 .slot-new #newSlotName { flex: 1 1 100%; min-width: 0; box-sizing: border-box; }
 .slot-new button { flex: 1 1 0; min-width: 0; white-space: nowrap; }
-.slot-row { flex-wrap: wrap; }
-.slot-info { flex: 1 1 100%; min-width: 0; }
-.slot-row .slot-use, .slot-row .slot-over, .slot-row .slot-del { flex: 1 1 auto; padding: 0 8px; }
-.slot-card { max-width: calc(100vw - 28px); }
+.slot-row { flex-wrap: nowrap; }
+.slot-info { flex: 1 1 auto; min-width: 0; }
+.slot-row .slot-use, .slot-row .slot-over, .slot-row .slot-restore, .slot-row .slot-del { flex: 0 0 auto; padding: 0 10px; }
+.slot-card { max-width: calc(100vw - 20px); }
 .gm-foot-max { background: #cfe6d3; border: 1px solid var(--line); border-radius: 8px; font-weight: 800; cursor: pointer; color: var(--ink); }
 
 /* 一鍵完成等：自訂確認框（靠近底部工具列，非瀏覽器置中） */
@@ -3966,3 +3972,16 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .cgrid-ico { font-size: 1.6rem; }
 .cgrid-name { font-size: 0.72rem; }
 .cgrid-qty { font-size: 0.78rem; font-weight: 800; color: #b3541e; }
+
+/* 短暫離線遮罩 */
+.idle-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(10,15,10,0.72); cursor: pointer; }
+.idle-msg { text-align: center; color: #fff; font-size: 1.35rem; font-weight: 800; line-height: 1.7; }
+.idle-msg small { font-size: 0.88rem; font-weight: 600; opacity: 0.85; }
+
+/* 存檔防呆確認視窗 / 回收站 */
+.sc-name { font-weight: 800; font-size: 1rem; margin: 6px 0 2px; }
+.sc-meta { font-size: 0.8rem; color: #6a6f75; margin: 2px 0; line-height: 1.55; }
+.sc-warn { font-size: 0.82rem; color: #b3541e; margin-top: 8px; }
+.slot-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.slot-title-row h2 { margin: 0; }
+.slot-recycle { flex: 0 0 auto; height: 34px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: #efe7d4; font-weight: 800; font-size: 0.85rem; cursor: pointer; color: var(--ink); white-space: nowrap; }

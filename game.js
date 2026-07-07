@@ -915,7 +915,7 @@ const GM_FIELDS = {
 };
 
 let gmEditSnap = null;
-let gmInvSnap = null; let gmSeedSnap = null;
+let gmInvSnap = null; let gmSeedSnap = null; let gmFishSnap = null;
 let gmItemSnap = null;
 const GM_ITEMS = [
   ["weatherCard", "🌤️ 天氣兌換卡"],
@@ -1168,7 +1168,7 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0; let mailTimer = null;
 const SLOT_KEY = "happy-farm-active-slot";
-let activeSlot = ""; let accountData = null; let idleTimer = null; let lastActivity = Date.now(); let slotReady = false; const IDLE_MS = 600000;
+let activeSlot = ""; let accountData = null; let idleTimer = null; let lastActivity = Date.now(); let slotReady = false; const IDLE_MS = 30000; let idlePaused = false;
 let visiting = null; let visitRefreshTimer = null; let visitPendingBug = {}; let visitPendingSpray = {};
 let visitTool = "";
 let visitScene = "farm";
@@ -1200,6 +1200,7 @@ if (!window.__SIM_HOST__) {
 if (window.addEventListener) window.addEventListener("resize", function(){ fitToolbar(); fitField(); });
 window.setInterval(tick, 1000);
 window.setInterval(wanderRanchAnimals, 500);
+window.setInterval(idleCheck, 5000);
 }
 
 function createDefaultState() {
@@ -1384,7 +1385,7 @@ async function startSlotFlow() {
     }
     let friend = data.friend;
     if (!friend) friend = { friendCode: state.friendCode || "", cloudFriends: state.cloudFriends || [] };
-    accountData = { slots: slots, friend: friend };
+    accountData = { slots: slots, friend: friend, recycle: data.recycle || {} };
     cloudReady = true; slotReady = false;
     showSlotPicker();
   } catch (e) { console.warn("讀取帳號存檔失敗", e); cloudReady = true; }
@@ -1401,8 +1402,45 @@ function applySharedFriend() {
   state.cloudFriends = mergeFriends(state.cloudFriends, accountData.friend.cloudFriends);
 }
 
+let slotPreviewMode = false; let slotPreviewBackup = null;
+function openSlotPreview() {
+  slotPreviewBackup = { accountData: accountData, activeSlot: activeSlot };
+  slotPreviewMode = true;
+  const now = Date.now();
+  const mk = (name, lv, co, rev, ago) => ({ name: name, stateJson: JSON.stringify({ level: lv, coins: co }), rev: rev, savedAt: now - ago });
+  const aSlot = mk("第二存檔", 5, 1200, 3, 3600000);
+  aSlot.prev = { stateJson: JSON.stringify({ level: 4, coins: 800 }), rev: 2, savedAt: now - 7200000 };
+  accountData = { slots: {
+    cur: mk("我的農場", 12, 64530, 87, 60000),
+    a: aSlot,
+    b: mk("測試檔", 20, 999999, 40, 86400000),
+  }, recycle: { z: { name: "被刪的舊檔", stateJson: JSON.stringify({ level: 8, coins: 3000 }), rev: 15, savedAt: now - 172800000, deletedAt: now - 3600000 } },
+    friend: (slotPreviewBackup.accountData && slotPreviewBackup.accountData.friend) || {} };
+  activeSlot = "cur";
+  const sb = document.querySelector("#saveBox"); if (sb) sb.hidden = true;
+  showSlotPicker();
+  toast("預覽模式：只看介面，按鈕不會實際變更存檔。");
+}
+function closeSlotPreview() {
+  slotPreviewMode = false;
+  if (slotPreviewBackup) { accountData = slotPreviewBackup.accountData; activeSlot = slotPreviewBackup.activeSlot; slotPreviewBackup = null; }
+  hideSlotPicker();
+}
+function unlockOtherConfirm() {
+  const ov = document.createElement("div");
+  ov.className = "gift-box"; ov.style.zIndex = "120";
+  ov.innerHTML = '<div class="gift-card pond-confirm"><p>這是玩其他存檔的地方，慎選。</p><div class="pond-confirm-btns">' +
+    '<button type="button" class="pond-btn" id="olOk">確認</button>' +
+    '<button type="button" class="pond-btn pond-close-btn" id="olNo">放棄</button></div></div>';
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#olNo").addEventListener("click", close);
+  ov.querySelector("#olOk").addEventListener("click", () => { close(); const lk = document.querySelector("#slotOtherLock"); if (lk) lk.style.display = "none"; });
+}
 function showSlotPicker() {
   slotReady = false;
+  const lk = document.querySelector("#slotOtherLock"); if (lk) lk.style.display = "";
   const box = document.querySelector("#slotPickerBox");
   if (!box) return;
   renderSlotList();
@@ -1418,11 +1456,13 @@ function pickerResumeTarget() {
   return "";
 }
 function cancelSlotPicker() {
+  if (slotPreviewMode) { closeSlotPreview(); return; }
   const t = pickerResumeTarget();
   if (!t) { toast("還沒有可回去的存檔，請先選一個。"); return; }
   useSlot(t);
 }
 function saveAsNewSlot(name) {
+  if (slotPreviewMode) { toast("預覽模式：實際會另存目前進度為新存檔。"); return; }
   if (!accountData) return;
   if (!activeSlot || !accountData.slots[activeSlot]) { toast("請先進入一個存檔，才能另存目前進度。"); return; }
   name = String(name || "").trim() || ("存檔" + (Object.keys(accountData.slots).length + 1));
@@ -1433,31 +1473,102 @@ function saveAsNewSlot(name) {
   useSlot(id);
   toast("已另存為新存檔：" + name);
 }
+function slotSummary(s) {
+  let lv = 1, co = 0;
+  try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (e) {}
+  const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
+  return "Lv." + lv + " · 🪙" + co + " · 版本 " + (s.rev || 0) + "<br>⏱ " + when;
+}
+function slotConfirmDialog(html, onOk, okLabel, cancelLabel) {
+  const ov = document.createElement("div");
+  ov.className = "gift-box"; ov.style.zIndex = "121";
+  ov.innerHTML = '<div class="gift-card pond-confirm">' + html + '<div class="pond-confirm-btns">' +
+    '<button type="button" class="pond-btn" id="scOk">' + (okLabel || "確認") + '</button>' +
+    '<button type="button" class="pond-btn pond-close-btn" id="scNo">' + (cancelLabel || "取消") + '</button></div></div>';
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#scNo").addEventListener("click", close);
+  ov.querySelector("#scOk").addEventListener("click", () => { close(); onOk(); });
+}
+function writeSlotToCloud(id, payload) {
+  try { if (fbDb && fbUser) { const upd = { slots: {} }; upd.slots[id] = payload; fbDb.collection("saves").doc(fbUser.uid).set(upd, { merge: true }); } } catch (e) {}
+}
+function restoreSlotPrev(id) {
+  if (slotPreviewMode) { toast("預覽模式：實際會還原上一版。"); return; }
+  const s = accountData && accountData.slots[id];
+  if (!s || !s.prev) return;
+  const payload = { name: s.name, stateJson: s.prev.stateJson, rev: (s.rev || 0) + 1, savedAt: Date.now(),
+    prev: { stateJson: s.stateJson, rev: s.rev || 0, savedAt: s.savedAt || Date.now() } };
+  accountData.slots[id] = payload;
+  writeSlotToCloud(id, payload);
+  renderSlotList();
+  toast("已還原上一版：" + (payload.name || id));
+}
+function openRecycle() {
+  const rec = (accountData && accountData.recycle) || {};
+  const ids = Object.keys(rec);
+  const ov = document.createElement("div"); ov.className = "gift-box"; ov.style.zIndex = "119"; ov.id = "recycleBox";
+  let rows = ids.map((id) => { const s = rec[id];
+    return '<div class="slot-row"><div class="slot-info"><strong>' + (s.name || id) + '</strong><span class="slot-meta">' + slotSummary(s) + '</span></div>' +
+      '<button class="slot-use" type="button" data-rr="' + id + '">還原</button>' +
+      '<button class="slot-del" type="button" data-rd="' + id + '">永久刪除</button></div>'; }).join("");
+  if (!rows) rows = '<p class="item-empty">回收站是空的。</p>';
+  ov.innerHTML = '<div class="gift-card slot-card"><h2>🗑 回收站</h2><p class="slot-hint">刪除的存檔會先放這裡，可以還原。</p><div class="slot-list">' + rows + '</div><button type="button" class="slot-cancel" id="recClose">關閉</button></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  ov.querySelector("#recClose").addEventListener("click", () => ov.remove());
+  ov.querySelectorAll("[data-rr]").forEach((b) => b.addEventListener("click", () => restoreFromRecycle(b.dataset.rr)));
+  ov.querySelectorAll("[data-rd]").forEach((b) => b.addEventListener("click", () => purgeRecycle(b.dataset.rd)));
+}
+function restoreFromRecycle(id) {
+  if (slotPreviewMode) { toast("預覽模式：實際會把此存檔還原回列表。"); return; }
+  const rec = (accountData && accountData.recycle) || {}; const s = rec[id]; if (!s) return;
+  const payload = { name: s.name, stateJson: s.stateJson, rev: s.rev || 0, savedAt: s.savedAt || Date.now() };
+  accountData.slots[id] = payload; delete accountData.recycle[id];
+  try { if (fbDb && fbUser) { const upd = {}; upd["slots." + id] = payload; upd["recycle." + id] = firebase.firestore.FieldValue.delete(); fbDb.collection("saves").doc(fbUser.uid).update(upd); } } catch (e) {}
+  const rb = document.querySelector("#recycleBox"); if (rb) rb.remove();
+  renderSlotList(); toast("已還原存檔：" + (s.name || id));
+}
+function purgeRecycle(id) {
+  slotConfirmDialog('<p>永久刪除這個存檔？</p><p class="sc-warn">此動作無法復原。</p>', () => {
+    if (slotPreviewMode) { toast("預覽模式：實際會永久刪除。"); return; }
+    if (accountData && accountData.recycle) delete accountData.recycle[id];
+    try { if (fbDb && fbUser) { const upd = {}; upd["recycle." + id] = firebase.firestore.FieldValue.delete(); fbDb.collection("saves").doc(fbUser.uid).update(upd); } } catch (e) {}
+    const rb = document.querySelector("#recycleBox"); if (rb) rb.remove(); openRecycle();
+  }, "永久刪除", "取消");
+}
 function overwriteSlot(id) {
+  if (slotPreviewMode) { toast("預覽模式：實際會用目前進度覆蓋此存檔。"); return; }
   if (!accountData || !accountData.slots[id]) return;
   if (!activeSlot || !accountData.slots[activeSlot]) { toast("請先進入一個存檔。"); return; }
   if (id === activeSlot) { toast("這就是目前的存檔。"); return; }
-  if (!window.confirm("用『目前進度』覆蓋存檔「" + (accountData.slots[id].name || id) + "」？原本內容會被取代。")) return;
-  const targetRev = (accountData.slots[id].rev || 0) + 1;
-  const copy = JSON.parse(JSON.stringify(state));
-  copy.rev = targetRev; copy.savedAt = Date.now();
-  const payload = { name: accountData.slots[id].name || id, stateJson: JSON.stringify(copy), rev: targetRev, savedAt: Date.now() };
-  accountData.slots[id] = payload;
-  try { const upd = { slots: {} }; upd.slots[id] = payload; fbDb.collection("saves").doc(fbUser.uid).set(upd, { merge: true }); } catch (_) {}
-  renderSlotList();
-  toast("已覆蓋存檔：" + payload.name);
+  const oldS = accountData.slots[id];
+  slotConfirmDialog('<p>用「目前進度」覆蓋這個存檔？</p><p class="sc-name">' + (oldS.name || id) + '</p><p class="sc-meta">' + slotSummary(oldS) + '</p><p class="sc-warn">舊內容會被取代（之後可用「還原」救回上一版）。</p>', () => {
+    const targetRev = (oldS.rev || 0) + 1;
+    const copy = JSON.parse(JSON.stringify(state));
+    copy.rev = targetRev; copy.savedAt = Date.now();
+    const payload = { name: oldS.name || id, stateJson: JSON.stringify(copy), rev: targetRev, savedAt: Date.now(),
+      prev: { stateJson: oldS.stateJson, rev: oldS.rev || 0, savedAt: oldS.savedAt || Date.now() } };
+    accountData.slots[id] = payload;
+    writeSlotToCloud(id, payload);
+    renderSlotList();
+    toast("已覆蓋存檔：" + payload.name);
+  }, "確認覆蓋", "放棄");
 }
 function hideSlotPicker() { const b = document.querySelector("#slotPickerBox"); if (b) b.hidden = true; }
 function slotRowHtml(id) {
   const canBranch = !!(activeSlot && accountData.slots[activeSlot]);
+  const hl = pickerResumeTarget();   // 高亮「先前使用/將回去」的那格，登入當下 activeSlot 可能還空
   const s = accountData.slots[id]; let lv = 1, co = 0;
   try { const o = JSON.parse(s.stateJson); lv = o.level || 1; co = o.coins || 0; } catch (_) {}
   const when = s.savedAt ? new Date(s.savedAt).toLocaleString() : "—";
-  return '<div class="slot-row' + (id === activeSlot ? ' is-current' : '') + '"><div class="slot-info"><strong>' + (s.name || id) + (id === activeSlot ? ' ✓' : '') + '</strong>' +
+  return '<div class="slot-row' + (id === hl ? ' is-current' : '') + '"><div class="slot-info"><strong>' + (s.name || id) + (id === hl ? ' ✓' : '') + '</strong>' +
     '<span class="slot-meta">Lv.' + lv + ' · 🪙' + co + ' · 版本 ' + (s.rev || 0) + '</span>' +
     '<span class="slot-when">⏱ ' + when + '</span></div>' +
     '<button class="slot-use" type="button" data-use="' + id + '">使用</button>' +
     ((canBranch && id !== activeSlot) ? '<button class="slot-over" type="button" data-over="' + id + '">覆蓋</button>' : '') +
+    (s.prev ? '<button class="slot-restore" type="button" data-restore="' + id + '" title="還原上一版">還原</button>' : '') +
     '<button class="slot-del" type="button" data-del="' + id + '">刪除</button></div>';
 }
 function renderSlotList() {
@@ -1473,11 +1584,15 @@ function renderSlotList() {
   [other, prev].forEach((c) => {
     c.querySelectorAll("[data-use]").forEach((b) => b.addEventListener("click", () => useSlot(b.dataset.use)));
     c.querySelectorAll("[data-over]").forEach((b) => b.addEventListener("click", () => overwriteSlot(b.dataset.over)));
+    c.querySelectorAll("[data-restore]").forEach((b) => b.addEventListener("click", () => restoreSlotPrev(b.dataset.restore)));
     c.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteSlot(b.dataset.del)));
   });
+  const rc = document.querySelector("#recycleBtn");
+  if (rc) { const n = Object.keys((accountData && accountData.recycle) || {}).length; rc.textContent = "🗑 回收站" + (n ? " (" + n + ")" : ""); }
 }
 
 function useSlot(slotId) {
+  if (slotPreviewMode) { toast("預覽模式：實際會切換到此存檔。"); return; }
   if (!accountData || !accountData.slots[slotId]) return;
   const slot = accountData.slots[slotId];
   activeSlot = slotId;
@@ -1497,7 +1612,27 @@ function useSlot(slotId) {
   toast("使用存檔：" + (slot.name || slotId));
 }
 
+function promptNewSlotName() {
+  const ov = document.createElement("div");
+  ov.className = "gift-box"; ov.style.zIndex = "120";
+  ov.innerHTML = '<div class="gift-card pond-confirm">' +
+    '<p>新遊戲：輸入新存檔名稱</p>' +
+    '<input id="newGameName" type="text" maxlength="16" placeholder="新存檔名稱" class="newgame-input" />' +
+    '<div class="pond-confirm-btns">' +
+      '<button type="button" class="pond-btn" id="ngOk">確定</button>' +
+      '<button type="button" class="pond-btn pond-close-btn" id="ngNo">取消</button>' +
+    '</div></div>';
+  document.body.appendChild(ov);
+  const inp = ov.querySelector("#newGameName");
+  setTimeout(() => { try { inp.focus(); } catch (e) {} }, 50);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#ngNo").addEventListener("click", close);
+  ov.querySelector("#ngOk").addEventListener("click", () => { const v = inp.value; close(); createSlot(v); });
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { const v = inp.value; close(); createSlot(v); } });
+}
 function createSlot(name) {
+  if (slotPreviewMode) { toast("預覽模式：實際會新增一個空白存檔。"); return; }
   if (!accountData) return;
   name = String(name || "").trim() || ("存檔" + (Object.keys(accountData.slots).length + 1));
   const id = "s" + Date.now().toString(36);
@@ -1508,20 +1643,26 @@ function createSlot(name) {
 }
 
 async function deleteSlot(slotId) {
+  if (slotPreviewMode) { toast("預覽模式：實際會刪除此存檔。"); return; }
   if (!accountData || !accountData.slots[slotId]) return;
-  if (!window.confirm("確定刪除存檔「" + (accountData.slots[slotId].name || slotId) + "」？此動作無法復原。")) return;
-  delete accountData.slots[slotId];
-  try {
-    const upd = {}; upd["slots." + slotId] = firebase.firestore.FieldValue.delete();
-    await fbDb.collection("saves").doc(fbUser.uid).update(upd);
-  } catch (e) { console.warn("刪除存檔失敗", e); }
-  if (slotId === activeSlot) { activeSlot = ""; slotReady = false; }
-  renderSlotList();
+  const s = accountData.slots[slotId];
+  slotConfirmDialog('<p>刪除這個存檔？</p><p class="sc-name">' + (s.name || slotId) + '</p><p class="sc-meta">' + slotSummary(s) + '</p><p class="sc-warn">會移到回收站，可還原。</p>', async () => {
+    accountData.recycle = accountData.recycle || {};
+    accountData.recycle[slotId] = { name: s.name, stateJson: s.stateJson, rev: s.rev || 0, savedAt: s.savedAt || Date.now(), deletedAt: Date.now() };
+    delete accountData.slots[slotId];
+    try {
+      const upd = {}; upd["slots." + slotId] = firebase.firestore.FieldValue.delete();
+      upd["recycle." + slotId] = accountData.recycle[slotId];
+      if (fbDb && fbUser) await fbDb.collection("saves").doc(fbUser.uid).update(upd);
+    } catch (e) { console.warn("刪除存檔失敗", e); }
+    if (slotId === activeSlot) { activeSlot = ""; slotReady = false; }
+    renderSlotList();
+    toast("已移到回收站：" + (s.name || slotId));
+  }, "確認刪除", "放棄");
 }
 
 function startCloudTimers() {
   if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
-  if (!idleTimer) idleTimer = setInterval(idleCheck, 30000);
   if (!mailTimer) mailTimer = setInterval(() => { if (fbUser) loadMail(); }, 25000);
   loadMail();
   attachSaveListener();
@@ -1562,25 +1703,40 @@ function attachSaveListener() {
 
 function resetIdle() { lastActivity = Date.now(); }
 function idleCheck() {
-  if (!fbUser || !slotReady || !activeSlot) return;
+  if (idlePaused) return;
   const box = document.querySelector("#slotPickerBox");
-  if (box && !box.hidden) return;
+  if (box && !box.hidden) { resetIdle(); return; }        // 在選存檔畫面不算閒置
   if (visiting || stockOpen) { resetIdle(); return; }
   if (Date.now() - lastActivity >= IDLE_MS) {
-    cloudSaveNow();
-    showSlotPicker();
-    toast("閒置太久，請重新選擇存檔。");
+    idlePaused = true;              // 暫停存檔，直到點畫面
+    showIdleOverlay();
   }
+}
+function showIdleOverlay() {
+  if (document.querySelector("#idleOverlay")) return;
+  const d = document.createElement("div");
+  d.id = "idleOverlay"; d.className = "idle-overlay";
+  d.innerHTML = '<div class="idle-msg">💤 短暫離線<br><small>請點擊畫面繼續使用</small></div>';
+  d.addEventListener("pointerdown", dismissIdle);
+  document.body.appendChild(d);
+}
+function dismissIdle() {
+  idlePaused = false;
+  const d = document.querySelector("#idleOverlay"); if (d) d.remove();
+  resetIdle();
+  if (slotReady) cloudSaveNow();     // 回來補存一次
 }
 
 function cloudSync() {
+  if (idlePaused) return;           // 短暫離線中：暫停雲端存檔
   if (!cloudReady || !slotReady || !fbUser || !fbDb || !activeSlot) return;
   pendingLocalSave = true;          // 有本機改動還沒寫到雲端
   clearTimeout(cloudSaveTimer);
-  cloudSaveTimer = setTimeout(cloudSaveNow, 1500);
+  cloudSaveTimer = setTimeout(cloudSaveNow, 5000);
 }
 
 async function cloudSaveNow() {
+  if (idlePaused) return;           // 短暫離線中：暫停雲端存檔
   if (!fbUser || !fbDb || !activeSlot) return;
   try {
     lastSelfSavedAt = state.savedAt || Date.now();
@@ -2752,6 +2908,65 @@ function gmInvDismiss() {
   hideGmBox("#gmInvBox");
 }
 
+function gmCaptureFish() {
+  return { fryBag: JSON.parse(JSON.stringify(state.fryBag || {})), fishBag: JSON.parse(JSON.stringify(state.fishBag || {})) };
+}
+function gmApplyFish(s) {
+  if (!s) return;
+  state.fryBag = JSON.parse(JSON.stringify(s.fryBag || {}));
+  state.fishBag = JSON.parse(JSON.stringify(s.fishBag || {}));
+}
+function gmSetFry(name, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  state.fryBag = state.fryBag || {}; state.fryBag[name] = v;
+  const num = document.querySelector('[data-gm-fry-num="' + name + '"]');
+  const rng = document.querySelector('[data-gm-fry-range="' + name + '"]');
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+}
+function gmSetFish(name, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  state.fishBag = state.fishBag || {}; state.fishBag[name] = v;
+  const num = document.querySelector('[data-gm-fish-num="' + name + '"]');
+  const rng = document.querySelector('[data-gm-fish-range="' + name + '"]');
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+}
+function gmFishRow(name, label, kind, v) {
+  return '<div class="gm-inv-row"><span class="gm-inv-name">' + label + '</span>' +
+    '<div class="gm-ctrl"><button class="gm-step" data-gm-' + kind + '-dec="' + name + '" type="button">−</button>' +
+    '<input class="gm-num" data-gm-' + kind + '-num="' + name + '" type="number" min="0" max="999" value="' + v + '" />' +
+    '<button class="gm-step" data-gm-' + kind + '-inc="' + name + '" type="button">＋</button></div>' +
+    '<input class="gm-slider" data-gm-' + kind + '-range="' + name + '" type="range" min="0" max="999" step="1" value="' + v + '" /></div>';
+}
+function buildGmFishList() {
+  const list = document.querySelector("#gmFishList");
+  if (!list) return;
+  state.fryBag = state.fryBag || {}; state.fishBag = state.fishBag || {};
+  const fry = FISH_MARKET.map((f) => gmFishRow(f.k, f.k + "(苗)", "fry", state.fryBag[f.k] || 0)).join("");
+  const fish = FISH_MARKET.map((f) => gmFishRow(f.k, f.k, "fish", state.fishBag[f.k] || 0)).join("");
+  list.innerHTML = '<div class="gm-inv-divider">魚苗</div>' + fry + '<div class="gm-inv-divider">成魚</div>' + fish;
+  list.querySelectorAll("[data-gm-fry-dec]").forEach((b) => b.addEventListener("click", () => gmSetFry(b.dataset.gmFryDec, (state.fryBag[b.dataset.gmFryDec] || 0) - 1)));
+  list.querySelectorAll("[data-gm-fry-inc]").forEach((b) => b.addEventListener("click", () => gmSetFry(b.dataset.gmFryInc, (state.fryBag[b.dataset.gmFryInc] || 0) + 1)));
+  list.querySelectorAll("[data-gm-fry-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetFry(n.dataset.gmFryNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-fry-range]").forEach((r) => r.addEventListener("input", () => gmSetFry(r.dataset.gmFryRange, parseInt(r.value, 10))));
+  list.querySelectorAll("[data-gm-fish-dec]").forEach((b) => b.addEventListener("click", () => gmSetFish(b.dataset.gmFishDec, (state.fishBag[b.dataset.gmFishDec] || 0) - 1)));
+  list.querySelectorAll("[data-gm-fish-inc]").forEach((b) => b.addEventListener("click", () => gmSetFish(b.dataset.gmFishInc, (state.fishBag[b.dataset.gmFishInc] || 0) + 1)));
+  list.querySelectorAll("[data-gm-fish-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetFish(n.dataset.gmFishNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-fish-range]").forEach((r) => r.addEventListener("input", () => gmSetFish(r.dataset.gmFishRange, parseInt(r.value, 10))));
+}
+function gmFishMax() {
+  state.fryBag = state.fryBag || {}; state.fishBag = state.fishBag || {};
+  FISH_MARKET.forEach((f) => { state.fryBag[f.k] = 999; state.fishBag[f.k] = 999; });
+  saveState(); buildGmFishList(); toast("漁貨全部調到最大。");
+}
+function gmFishConfirm() { gmFishSnap = gmCaptureFish(); saveState(); toast("已套用漁貨。"); }
+function gmFishRevert() { if (gmFishSnap) gmApplyFish(gmFishSnap); saveState(); buildGmFishList(); toast("已回復漁貨。"); }
+function gmFishBack() { gmFishSnap = gmCaptureFish(); saveState(); hideGmBox("#gmFishBox"); showGmBox("#gmEdit"); }
+function gmFishDismiss() { gmFishSnap = gmCaptureFish(); saveState(); hideGmBox("#gmFishBox"); }
+
 function buildGmInvList() {
   const list = document.querySelector("#gmInvList");
   if (!list) return;
@@ -3489,6 +3704,7 @@ function bindStaticEvents() {
   if (importBtn) importBtn.addEventListener("click", importCode);
   if (saveBoxClose) saveBoxClose.addEventListener("click", closeSaveBox);
   document.querySelector("#googleLoginBtn")?.addEventListener("click", () => { fbUser ? googleLogout() : googleLogin(); });
+  document.querySelector("#slotPreviewBtn")?.addEventListener("click", openSlotPreview);
   if (saveBox) {
     saveBox.addEventListener("click", (event) => {
       if (event.target === saveBox) closeSaveBox();
@@ -3635,6 +3851,13 @@ function bindStaticEvents() {
   document.querySelector("#gmInvBack")?.addEventListener("click", gmInvBack);
   const gmInvBox = document.querySelector("#gmInvBox");
   if (gmInvBox) gmInvBox.addEventListener("click", (e) => { if (e.target === gmInvBox) gmInvDismiss(); });
+  document.querySelector("#gmFishOpen")?.addEventListener("click", () => { gmFishSnap = gmCaptureFish(); buildGmFishList(); hideGmBox("#gmEdit"); showGmBox("#gmFishBox"); });
+  document.querySelector("#gmFishConfirm")?.addEventListener("click", gmFishConfirm);
+  document.querySelector("#gmFishMax")?.addEventListener("click", gmFishMax);
+  document.querySelector("#gmFishRevert")?.addEventListener("click", gmFishRevert);
+  document.querySelector("#gmFishBack")?.addEventListener("click", gmFishBack);
+  const gmFishBox = document.querySelector("#gmFishBox");
+  if (gmFishBox) gmFishBox.addEventListener("click", (e) => { if (e.target === gmFishBox) gmFishDismiss(); });
   document.querySelector("#gmItemOpen")?.addEventListener("click", () => { gmItemSnap = gmCaptureItems(); buildGmItemList(); hideGmBox("#gmEdit"); showGmBox("#gmItemBox"); });
   document.querySelector("#gmItemConfirm")?.addEventListener("click", gmItemConfirm);
   document.querySelector("#gmItemMax")?.addEventListener("click", gmItemMax);
@@ -3649,17 +3872,15 @@ function bindStaticEvents() {
   document.querySelector("#gmSeedBack")?.addEventListener("click", gmSeedBack);
   const gmSeedBox = document.querySelector("#gmSeedBox");
   if (gmSeedBox) gmSeedBox.addEventListener("click", (e) => { if (e.target === gmSeedBox) gmSeedDismiss(); });
-  document.querySelector("#newSlotBtn")?.addEventListener("click", () => {
-    const inp = document.querySelector("#newSlotName");
-    createSlot(inp ? inp.value : "");
-    if (inp) inp.value = "";
-  });
+  document.querySelector("#newSlotBtn")?.addEventListener("click", promptNewSlotName);
   document.querySelector("#saveAsBtn")?.addEventListener("click", () => {
     const inp = document.querySelector("#newSlotName");
     saveAsNewSlot(inp ? inp.value : "");
     if (inp) inp.value = "";
   });
   document.querySelector("#slotCancel")?.addEventListener("click", cancelSlotPicker);
+  document.querySelector("#slotOtherLock")?.addEventListener("click", unlockOtherConfirm);
+  document.querySelector("#recycleBtn")?.addEventListener("click", openRecycle);
   // 工作面板內容點擊不冒泡到「點空白關閉面板」，避免買一個就關閉
   if (elements.tabContent) elements.tabContent.addEventListener("click", (e) => e.stopPropagation());
   document.querySelector("#switchSlotBtn")?.addEventListener("click", () => {
