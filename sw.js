@@ -1,4 +1,4 @@
-const CACHE = 'happyfarm-cache-v11';
+const CACHE = 'happyfarm-cache-v12';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 

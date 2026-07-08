@@ -400,11 +400,11 @@ function setFishBtns(s) {
 }
 
 function genFishZones() {
-  const gw = 1 / 15, ow = 1 / 6;
-  const blocks = [{ c: "gold", w: gw }, { c: "orange", w: ow }, { c: "orange", w: ow }];
+  const gw = 1 / 20, ow = 1 / 12;   // 金1/20(原1/15再縮1/4)；橘/藍1/12；紅=金/3
+  const blocks = [{ c: "gold", w: gw }, { c: "orange", w: ow }, { c: "orange", w: ow }, { c: "blue", w: ow }, { c: "blue", w: ow }, { c: "blue", w: ow }, { c: "red", w: gw / 3 }];
   for (let i = blocks.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = blocks[i]; blocks[i] = blocks[j]; blocks[j] = t; }
   const greenTotal = 1 - blocks.reduce((a, b) => a + b.w, 0);
-  const r = [Math.random(), Math.random(), Math.random(), Math.random()];
+  const r = []; for (let i = 0; i <= blocks.length; i++) r.push(Math.random());
   const rs = r.reduce((a, b) => a + b, 0) || 1;
   const gaps = r.map((v) => v / rs * greenTotal);
   const zones = []; let x = gaps[0];
@@ -417,7 +417,7 @@ function buildFishBar() {
   if (!sp) return;
   let zonesHtml = "";
   fishZones.forEach((z) => {
-    const col = z.color === "gold" ? "#f4c430" : "#e8863a";
+    const col = z.color === "gold" ? "#f4c430" : z.color === "orange" ? "#e8863a" : z.color === "red" ? "#d0393a" : "#3d7fd0";
     zonesHtml += '<div class="fish-zone" style="left:' + (z.start * 100).toFixed(2) + '%;width:' + ((z.end - z.start) * 100).toFixed(2) + '%;background:' + col + '"></div>';
   });
   sp.innerHTML = '<div class="fish-bar-wrap">' +
@@ -455,6 +455,15 @@ function startFishRound() {
   fishRAF = requestAnimationFrame(tick);
 }
 
+function ffFeedData(data, times) {
+  data.sat = 100; data.satAt = Date.now();   // 瞬間餵飽
+  for (let k = 0; k < times; k++) {
+    const stage = data.stage || 0;
+    if (stage >= 2) break;   // 成魚不再成長
+    data.eaten = (data.eaten || 0) + 1;
+    if (data.eaten >= (stage + 1) * FF_GROW_PELLETS) data.stage = stage + 1;
+  }
+}
 function onFishStop() {
   if (!fishRunning) return;
   fishRunning = false;
@@ -462,7 +471,7 @@ function onFishStop() {
   let color = "green";
   for (const z of fishZones) { if (fishPos >= z.start && fishPos <= z.end) { color = z.color; break; } }
   const img = document.querySelector("#pondImg");
-  if (img) img.src = "./assets/decor/pond-fishing2.png";   // 水池釣魚2
+  if (img) img.src = (color === "gold") ? "./assets/decor/pond-fishing3.png" : "./assets/decor/pond-fishing2.png";   // 寶箱(金)換釣魚3，其餘釣魚2
   const mult = Math.pow(2, fishSpeedLevel);   // 每繼續一級獎勵 ×2
   if (color === "green") {
     const item = FISH_TRASH[Math.floor(Math.random() * FISH_TRASH.length)];
@@ -481,16 +490,51 @@ function onFishStop() {
       for (let k = adultIdx.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); const t = adultIdx[k]; adultIdx[k] = adultIdx[j]; adultIdx[j] = t; }
       const chosen = adultIdx.slice(0, take).sort((a, b) => b - a);   // 由大到小 splice 才安全
       const caught = {};
-      state.fishBag = state.fishBag || {};
+      state.fishBag = state.fishBag || {}; state.fryBag = state.fryBag || {};
       chosen.forEach((idx) => {
         const e = state.pondFish[idx]; const tp = (e && e.type) || e;
         caught[tp] = (caught[tp] || 0) + 1;
         state.fishBag[tp] = (state.fishBag[tp] || 0) + 1;
+        state.fryBag[tp] = (state.fryBag[tp] || 0) + 10;   // 附贈同種魚苗 ×10
         state.pondFish.splice(idx, 1);
       });
       const parts = Object.keys(caught).map((t) => t + " " + caught[t]);
-      pondMsg("從養魚池釣起 " + parts.join("、") + "，共 " + take + " 隻！");
+      pondMsg("從養魚池釣起 " + parts.join("、") + "，共 " + take + " 隻！附贈同種魚苗各 ×10。");
     }
+  } else if (color === "red") {
+    state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
+    state.items = state.items || {}; state.fryBag = state.fryBag || {}; state.fishBag = state.fishBag || {};
+    const pick = ["shark", "octopus", "mermaid"][Math.floor(Math.random() * 3)];
+    if (pick === "shark") {
+      const removeN = Math.floor(state.pondFish.length / 3);
+      for (let k = 0; k < removeN; k++) { const i = Math.floor(Math.random() * state.pondFish.length); state.pondFish.splice(i, 1); }
+      state.items.treasureChest = (state.items.treasureChest || 0) + 10;
+      pondMsg("🦈 大白鯊來襲！養魚池的魚少了 " + removeN + " 隻…但獲得寶箱 ×10！");
+    } else if (pick === "octopus") {
+      const types = Array.from(new Set(state.pondFish.map((e) => e.type)));
+      let removed = 0, tp = "";
+      if (types.length) {
+        tp = types[Math.floor(Math.random() * types.length)];
+        for (let k = 0; k < 3; k++) { const i = state.pondFish.findIndex((e) => e.type === tp); if (i >= 0) { state.pondFish.splice(i, 1); removed++; } }
+      }
+      for (let k = 0; k < 10; k++) { const t = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fryBag[t] = (state.fryBag[t] || 0) + 1; }
+      state.items.treasureChest = (state.items.treasureChest || 0) + 1;
+      pondMsg("🐙 章魚出沒！" + (removed ? (tp + " 少了 " + removed + " 隻，") : "") + "獲得隨機魚苗 ×10 ＋寶箱 ×1！");
+    } else {
+      state.pondFish.forEach((data) => ffFeedData(data, 4));
+      state.items.treasureChest = (state.items.treasureChest || 0) + 3;
+      const pool = FISH_NAMES.slice(), chosen = [];
+      for (let k = 0; k < 3 && pool.length; k++) { const j = Math.floor(Math.random() * pool.length); const t = pool.splice(j, 1)[0]; chosen.push(t); state.fryBag[t] = (state.fryBag[t] || 0) + 5; }
+      pondMsg("🧜‍♀️ 美人魚祝福！全池魚吃飽長大，獲得寶箱 ×3 ＋魚苗：" + chosen.map((t) => t + "×5").join("、") + "。");
+    }
+  } else if (color === "blue") {
+    state.fryBag = state.fryBag || {}; state.fishBag = state.fishBag || {};
+    const fryN = 3 * mult, adultN = 1 * mult;
+    for (let k = 0; k < fryN; k++) { const t = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fryBag[t] = (state.fryBag[t] || 0) + 1; }
+    const bonus = {};
+    for (let k = 0; k < adultN; k++) { const t = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fishBag[t] = (state.fishBag[t] || 0) + 1; bonus[t] = (bonus[t] || 0) + 1; }
+    const bp = Object.keys(bonus).map((t) => t + " " + bonus[t]);
+    pondMsg("藍區！隨機魚苗 ×" + fryN + "，額外贈成魚：" + bp.join("、") + "。");
   } else {
     state.items = state.items || {};
     state.items.treasureChest = (state.items.treasureChest || 0) + mult;
@@ -523,7 +567,7 @@ function closePondDialog() {
 
 const FRY_COLORS = { "吳郭魚": "#8a9a5b", "鯽魚": "#b0a07a", "溪哥": "#7fb0d0", "苦花": "#9fbf8f", "香魚": "#c8d09a", "泥鰍": "#6b5a3a", "馬口魚": "#d08fa8", "石賓": "#7a8a9a", "羅漢魚": "#e0a45c", "大肚魚": "#a6c6ea" };
 let ffFish = [], ffFeed = [], ffMode = "", ffPlaceType = "", ffRAF = 0, ffLast = 0;
-const FF_SAT_DRAIN = 0.05, FF_SAT_PER = 25, FF_GROW_PELLETS = 16;   // 飽食每秒降、每顆+25%、每16顆長大一階
+const FF_SAT_DRAIN = 0.15, FF_SAT_PER = 25, FF_GROW_PELLETS = 16;   // 飽食每秒降、每顆+25%、每16顆長大一階
 
 function openFishFarm() {
   const pb = document.querySelector("#pondBox"); if (pb) pb.style.display = "none";
@@ -531,8 +575,7 @@ function openFishFarm() {
   if (ffRAF) { cancelAnimationFrame(ffRAF); ffRAF = 0; }
   ffFish = []; ffFeed = []; ffMode = ""; ffPlaceType = ""; ffLast = 0;
   const v = document.createElement("div"); v.id = "fishFarmView"; v.className = "fishfarm";
-  v.innerHTML = '<div class="ff-sky"></div><div class="ff-grass ff-grass-l"></div><div class="ff-grass ff-grass-r"></div><div class="ff-water"></div>' +
-    '<div id="ffPanel" class="ff-panel">' +
+  v.innerHTML = '<div id="ffPanel" class="ff-panel">' +
       '<button type="button" id="fishFarmExit" class="ff-exit">離開</button>' +
       '<button type="button" class="ff-ctrl ff-ctrl-place" data-ff="place">放魚苗</button>' +
       '<button type="button" class="ff-ctrl ff-ctrl-feed" data-ff="feed">餵魚</button>' +
@@ -543,11 +586,14 @@ function openFishFarm() {
   v.querySelectorAll(".ff-ctrl").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); ffCtrlClick(b.dataset.ff); }));
   v.addEventListener("click", ffWaterClick);
   state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
-  state.pondFish.forEach((data) => ffSpawnFish(data, 5 + Math.random() * 90, 20 + Math.random() * 72));
+  state.pondFish.forEach((data) => ffSpawnFish(data, 5 + Math.random() * 90, 28 + Math.random() * 66));
   ffLast = 0; ffRAF = requestAnimationFrame(ffStep);
 }
 function closeFishFarm() {
   if (ffRAF) { cancelAnimationFrame(ffRAF); ffRAF = 0; }
+  const now = Date.now();
+  ffFish.forEach((f) => { f.data.sat = f.sat; f.data.satAt = now; });
+  if (ffFish.length) saveState();
   const v = document.querySelector("#fishFarmView"); if (v) v.remove();
   const pb = document.querySelector("#pondBox"); if (pb) pb.style.display = "";
 }
@@ -610,6 +656,7 @@ function ffUpdateFishEl(f) {
 function ffFishEat(f) {
   const stage = f.data.stage || 0;
   f.sat = Math.min(100, f.sat + FF_SAT_PER);
+  f.data.sat = f.sat; f.data.satAt = Date.now();   // 快照，供離開/重進時算
   if (stage >= 2) return;   // 成魚只補飽食、不再成長
   f.data.eaten = (f.data.eaten || 0) + 1;
   if (f.data.eaten >= (stage + 1) * FF_GROW_PELLETS) {
@@ -618,13 +665,18 @@ function ffFishEat(f) {
     saveState();
   }
 }
+function ffCurSat(data, now) {
+  let s = (typeof data.sat === "number") ? data.sat : 50;
+  s -= FF_SAT_DRAIN * ((now - (data.satAt || now)) / 1000);   // 離開期間也照實際時間下降
+  return Math.max(0, Math.min(100, s));
+}
 function ffSpawnFish(data, x, y) {
   const view = document.querySelector("#fishFarmView"); if (!view) return;
   const el = ffMakeFishEl(data.type); view.appendChild(el);
   const bar = document.createElement("div"); bar.className = "ff-sat"; bar.innerHTML = '<div class="ff-sat-fill"></div>';
   view.appendChild(bar);
   const a = Math.random() * Math.PI * 2;
-  const f = { data: data, type: data.type, x: x, y: y, vx: Math.cos(a) * 8, vy: Math.sin(a) * 5, el: el, bar: bar, fill: bar.firstChild, sat: 50, retarget: 1 + Math.random() * 2 };
+  const f = { data: data, type: data.type, x: x, y: y, vx: Math.cos(a) * 8, vy: Math.sin(a) * 5, el: el, bar: bar, fill: bar.firstChild, sat: ffCurSat(data, Date.now()), retarget: 1 + Math.random() * 2 };
   ffFish.push(f); ffUpdateFishEl(f);
 }
 function ffAddFeed(x, y) {
@@ -668,7 +720,7 @@ function ffStep(ts) {
     }
     f.x += f.vx * dt; f.y += f.vy * dt;
     if (f.x < 4) { f.x = 4; f.vx = Math.abs(f.vx); } if (f.x > 96) { f.x = 96; f.vx = -Math.abs(f.vx); }
-    if (f.y < 14) { f.y = 14; f.vy = Math.abs(f.vy); } if (f.y > 95) { f.y = 95; f.vy = -Math.abs(f.vy); }
+    if (f.y < 27) { f.y = 27; f.vy = Math.abs(f.vy); } if (f.y > 95) { f.y = 95; f.vy = -Math.abs(f.vy); }
     ffUpdateFishEl(f);
   });
   ffRAF = requestAnimationFrame(ffStep);
@@ -678,20 +730,20 @@ function ffWaterClick(e) {
   const view = document.querySelector("#fishFarmView"); if (!view) return;
   const r = view.getBoundingClientRect();
   const x = (e.clientX - r.left) / r.width * 100, y = (e.clientY - r.top) / r.height * 100;
-  if (y < 11) return;   // 上方草地不算
+  if (y < 25) return;   // 水線以上(草泥岸/天空)不算
   if (ffMode === "place") {
     state.fryBag = state.fryBag || {};
     if ((state.fryBag[ffPlaceType] || 0) <= 0) { toast("這種魚苗不夠了。"); ffMode = ""; ffUpdateBtns(); return; }
     state.fryBag[ffPlaceType] -= 1;
     state.pondFish = state.pondFish || [];
-    const data = { type: ffPlaceType, eaten: 0, stage: 0 };
+    const data = { type: ffPlaceType, eaten: 0, stage: 0, sat: 50, satAt: Date.now() };
     state.pondFish.push(data);
     ffSpawnFish(data, x, y); saveState();
   } else if (ffMode === "feed") {
     const n = 3 + Math.floor(Math.random() * 2);   // 一次 3~4 顆
     for (let k = 0; k < n; k++) {
       const fx = Math.max(4, Math.min(96, x + (Math.random() * 6 - 3)));
-      const fy = Math.max(12, Math.min(90, y + (Math.random() * 4 - 2)));
+      const fy = Math.max(27, Math.min(94, y + (Math.random() * 4 - 2)));
       ffAddFeed(fx, fy);
     }
   }
@@ -992,7 +1044,7 @@ function setupBuildingDrag() {
   }
   document.addEventListener("pointerdown", (e) => {
     if (visiting) { cur = null; return; }   // 參觀好友時不互動建築
-    if (e.target && e.target.closest && e.target.closest(".work-panel, .inventory-panel, .panel, .gm-box, .save-box, .slot-box, .gift-box, #dogBox, #stockView, .main-nav, .topbar, .scene-toolbar, .bottom-tool-row, button, input, a")) { cur = null; return; }
+    if (e.target && e.target.closest && e.target.closest("#fishFarmView, .work-panel, .inventory-panel, .panel, .gm-box, .save-box, .slot-box, .gift-box, #dogBox, #stockView, .main-nav, .topbar, .scene-toolbar, .bottom-tool-row, button, input, a")) { cur = null; return; }
     const h = hitTest(e.clientX, e.clientY);
     if (!h) { cur = null; return; }
     cur = h.el; key = h.k; label = h.lb; openable = h.op; moved = false; sx = e.clientX; sy = e.clientY;
