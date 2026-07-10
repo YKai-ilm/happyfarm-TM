@@ -2237,6 +2237,9 @@ async function refreshVisit() {
     const snap = await fbDb.collection("profiles").doc(visiting.uid).get();
     if (!snap.exists || !visiting) return;
     visiting = Object.assign({ kind: "cloud" }, snap.data() || {});
+    const _cut = Date.now() - 60000;
+    for (const k in visitPendingBug) { if (visitPendingBug[k] < _cut) delete visitPendingBug[k]; }
+    for (const k in visitPendingSpray) { if (visitPendingSpray[k] < _cut) delete visitPendingSpray[k]; }
     if (visitScene === "ranch") renderVisitingRanch(); else renderVisitingFarm();
     updateVisitBanner();
   } catch (e) { /* 靜默重試 */ }
@@ -2278,7 +2281,7 @@ function renderVisitingFarm() {
       if (pl.s === "locked") return { locked: true };
       if (pl.s === "broken") return { broken: true };
       if (pl.s === "empty" || !pl.crop) return { empty: true };
-      var _pendBug = !!visitPendingBug[idx];
+      var _pendBug = visitPendingBug[idx] && (now - visitPendingBug[idx] < 60000);
       const prog = (pl.readyAt && pl.plantedAt && pl.readyAt > pl.plantedAt)
         ? Math.max(0, Math.min(1, (now - pl.plantedAt) / (pl.readyAt - pl.plantedAt))) : 1;
       return { crop: pl.crop, prog: prog, ready: pl.readyAt ? now >= pl.readyAt : true, hazard: (pl.pest || _pendBug) ? "bug" : (pl.weed ? "weed" : null) };
@@ -2342,7 +2345,7 @@ function renderVisitingRanch() {
       el.addEventListener("click", () => handleVisitRanchClick(i));
       box.appendChild(el);
     }
-    const st = visitPendingSpray[i] ? "dirty" : a.status;
+    const st = (visitPendingSpray[i] && (Date.now() - visitPendingSpray[i] < 60000)) ? "dirty" : a.status;
     const b = el.querySelector(".animal-badge");
     if (b) {
       if (st === "ready") { b.textContent = cfg.productEmoji; b.className = "animal-badge animal-prod"; }
@@ -2399,7 +2402,7 @@ function cloudRanchSpray(i) {
   if (!a) return;
   if (a.status === "dirty" || visitPendingSpray[i]) { toast("這隻已經髒了 💩，不用再噴。"); return; }
   writeFriendEvent(visiting.uid, { type: "spray", animalIndex: i });
-  visitPendingSpray[i] = true;
+  visitPendingSpray[i] = Date.now();
   renderVisitingRanch();
   toast("你朝 " + (visiting.farmName || "好友") + " 的動物噴了髒水 💩（牠髒了，主人要先洗才能照顧）");
 }
@@ -2618,7 +2621,7 @@ function cloudFarmBug(index) {
   if (ready) { toast("已成熟的作物放蟲沒用。"); return; }
   if (pl.pest || pl.pestUsed || visitPendingBug[index]) { toast("這塊田這一輪已經放過蟲了 🐛"); return; }
   writeFriendEvent(visiting.uid, { type: "bug", plotIndex: index });
-  visitPendingBug[index] = true;
+  visitPendingBug[index] = Date.now();
   renderVisitingFarm();
   toast("你在 " + (visiting.farmName || "好友") + " 的田裡放了蟲 🐛");
 }
@@ -4191,7 +4194,7 @@ function bindStaticEvents() {
     const t = event.target;
     if (t.closest && (t.closest(".work-panel, .inventory-panel") || t.closest("[data-tab], [data-panel-target]"))) return;
     openPanel("");
-    render();
+    if (visiting) rerenderVisit(); else render();
   });
 
   // 點空白處（非工具鈕／田地／動物／面板等）自動取消目前選取的工具（農場＋牧場）
@@ -4203,7 +4206,7 @@ function bindStaticEvents() {
     let changed = false;
     if (state.selectedTool) { state.selectedTool = ""; changed = true; }
     if (state.ranchTool) { state.ranchTool = ""; changed = true; }
-    if (changed) { saveState(); render(); }
+    if (changed) { saveState(); if (visiting) rerenderVisit(); else render(); }
   });
 
   // 直接綁在田框上：點場景背景（天空/泥土/草地等非互動物件）也取消工具
@@ -4216,7 +4219,7 @@ function bindStaticEvents() {
       let changed = false;
       if (state.selectedTool) { state.selectedTool = ""; changed = true; }
       if (state.ranchTool) { state.ranchTool = ""; changed = true; }
-      if (changed) { saveState(); render(); }
+      if (changed) { saveState(); if (visiting) rerenderVisit(); else render(); }
     });
   }
 
