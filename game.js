@@ -401,7 +401,7 @@ function setFishBtns(s) {
 
 function genFishZones() {
   const gw = 1 / 20, ow = 1 / 12;   // 金1/20(原1/15再縮1/4)；橘/藍1/12；紅=金/3
-  const blocks = [{ c: "gold", w: gw }, { c: "orange", w: ow }, { c: "orange", w: ow }, { c: "blue", w: ow }, { c: "blue", w: ow }, { c: "blue", w: ow }, { c: "red", w: gw / 3 }];
+  const blocks = [{ c: "gold", w: gw }, { c: "orange", w: ow }, { c: "blue", w: ow }, { c: "blue", w: ow }, { c: "red", w: gw / 3 }];
   for (let i = blocks.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = blocks[i]; blocks[i] = blocks[j]; blocks[j] = t; }
   const greenTotal = 1 - blocks.reduce((a, b) => a + b.w, 0);
   const r = []; for (let i = 0; i <= blocks.length; i++) r.push(Math.random());
@@ -495,11 +495,11 @@ function onFishStop() {
         const e = state.pondFish[idx]; const tp = (e && e.type) || e;
         caught[tp] = (caught[tp] || 0) + 1;
         state.fishBag[tp] = (state.fishBag[tp] || 0) + 1;
-        state.fryBag[tp] = (state.fryBag[tp] || 0) + 10;   // 附贈同種魚苗 ×10
+        state.fryBag[tp] = (state.fryBag[tp] || 0) + 2;   // 附贈同種魚苗 ×2
         state.pondFish.splice(idx, 1);
       });
       const parts = Object.keys(caught).map((t) => t + " " + caught[t]);
-      pondMsg("從養魚池釣起 " + parts.join("、") + "，共 " + take + " 隻！附贈同種魚苗各 ×10。");
+      pondMsg("從養魚池釣起 " + parts.join("、") + "，共 " + take + " 隻！附贈同種魚苗各 ×2。");
     }
   } else if (color === "red") {
     state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
@@ -529,7 +529,7 @@ function onFishStop() {
     }
   } else if (color === "blue") {
     state.fryBag = state.fryBag || {}; state.fishBag = state.fishBag || {};
-    const fryN = 3 * mult, adultN = 1 * mult;
+    const fryN = 2 * mult, adultN = 1 * mult;
     for (let k = 0; k < fryN; k++) { const t = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fryBag[t] = (state.fryBag[t] || 0) + 1; }
     const bonus = {};
     for (let k = 0; k < adultN; k++) { const t = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fishBag[t] = (state.fishBag[t] || 0) + 1; bonus[t] = (bonus[t] || 0) + 1; }
@@ -2222,7 +2222,7 @@ function enterVisit(profile) {
   render();
   toast("正在參觀 " + (profile.farmName || "好友") + " 的農場");
   if (visitRefreshTimer) clearInterval(visitRefreshTimer);
-  if (visiting.kind === "cloud" && visiting.uid) visitRefreshTimer = setInterval(refreshVisit, 7000);
+  if (visiting.kind === "cloud" && visiting.uid) visitRefreshTimer = setInterval(refreshVisit, 1500);
   // 預載好友牧場底圖，避免切換到牧場時才載入造成延遲
   try {
     const lvl = (visiting.ranchSnapshot && visiting.ranchSnapshot.ranchLevel) || 1;
