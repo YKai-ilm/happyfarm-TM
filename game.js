@@ -1455,7 +1455,8 @@ let pendingWeatherCard = false;
 let pendingFertilize = false;
 let lastTickTime = Date.now();
 let lastVisitHash = "";
-let lastFarmSig = "";
+let lastPlotSigs = [];
+let lastVisitCellSigs = [];
 let lastFriendSteal = Date.now();
 let giftSectionOpen = { newbie: true, event: false, friend: false };
 const GM_PASSWORDS = ["70629", "ykai"];
@@ -2220,6 +2221,7 @@ function enterVisit(profile) {
   visitScene = "farm";
   visitPendingBug = {}; visitPendingSpray = {};
   lastVisitHash = "";
+  lastVisitCellSigs = [];
   closeFriends();
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   render();
@@ -2267,8 +2269,32 @@ function exitVisit() {
   render();
 }
 
+function visitCellSig(c) {
+  if (c.locked) return "L";
+  if (c.broken) return "B";
+  if (c.empty) return "E";
+  const stage = c.ready ? "ripe" : (c.prog >= 0.4 ? "leaf" : "sprout");
+  return c.crop + "," + stage + "," + (c.ready ? 1 : 0) + "," + (c.hazard || "");
+}
+function visitCellHtml(c, index) {
+  const slot = 'data-plot="' + index + '" data-slot="' + (index + 1) + '"';
+  if (c.locked) return '<button class="plot locked" ' + slot + '><span class="plot-label">未開墾</span></button>';
+  if (c.broken) return '<button class="plot broken" ' + slot + '><span class="plot-info"><span class="plot-label">損壞</span></span></button>';
+  if (c.empty) return '<button class="plot empty" ' + slot + '><span></span><span class="plot-info"><span class="plot-label">空地</span></span></button>';
+  const crop = CROPS[c.crop];
+  const nm = crop ? crop.name : c.crop;
+  const stage = c.ready ? "ripe" : (c.prog >= 0.4 ? "leaf" : "sprout");
+  const pct = Math.round((c.prog || 0) * 100);
+  const haz = c.hazard ? '<span class="stolen-badge" aria-hidden="true">' + (({ weed: "🌿", bug: "🐛", dry: "💧" })[c.hazard] || "⚠️") + '</span>' : '';
+  return '<button class="plot ' + (c.ready ? "ready" : "growing") + '" ' + slot + ' title="' + nm + '">'
+    + haz
+    + '<span class="crop-visual">' + cropVisual(c.crop, stage) + '</span>'
+    + '<span class="plot-info"><span class="plot-label">' + nm + '</span>'
+    + '<span class="plot-time">' + (c.ready ? "可收成" : (pct + "%")) + '</span>'
+    + '<span class="plot-meter" aria-hidden="true"><span style="width:' + pct + '%"></span></span></span></button>';
+}
 function renderVisitingFarm() {
-  lastFarmSig = "";
+  lastPlotSigs = [];
   if (visitScene === "ranch") { renderVisitingRanch(); return; }
   const fr0 = document.querySelector(".field-frame");
   if (fr0) { fr0.style.removeProperty("--scene-image"); const ab = fr0.querySelector("#ranchAnimals"); if (ab) ab.remove(); }
@@ -2296,24 +2322,25 @@ function renderVisitingFarm() {
       return { crop: pl.crop, prog: prog, ready: pl.readyAt ? now >= pl.readyAt : true, hazard: (pl.pest || _pendBug) ? "bug" : (pl.weed ? "weed" : null) };
     });
   }
-  grid.innerHTML = cells.map((c, index) => {
-    const slot = 'data-plot="' + index + '" data-slot="' + (index + 1) + '"';
-    if (c.locked) return '<button class="plot locked" ' + slot + '><span class="plot-label">未開墾</span></button>';
-    if (c.broken) return '<button class="plot broken" ' + slot + '><span class="plot-info"><span class="plot-label">損壞</span></span></button>';
-    if (c.empty) return '<button class="plot empty" ' + slot + '><span></span><span class="plot-info"><span class="plot-label">空地</span></span></button>';
-    const crop = CROPS[c.crop];
-    const nm = crop ? crop.name : c.crop;
-    const stage = c.ready ? "ripe" : (c.prog >= 0.4 ? "leaf" : "sprout");
-    const pct = Math.round((c.prog || 0) * 100);
-    const haz = c.hazard ? '<span class="stolen-badge" aria-hidden="true">' + (({ weed: "🌿", bug: "🐛", dry: "💧" })[c.hazard] || "⚠️") + '</span>' : '';
-    return '<button class="plot ' + (c.ready ? "ready" : "growing") + '" ' + slot + ' title="' + nm + '">'
-      + haz
-      + '<span class="crop-visual">' + cropVisual(c.crop, stage) + '</span>'
-      + '<span class="plot-info"><span class="plot-label">' + nm + '</span>'
-      + '<span class="plot-time">' + (c.ready ? "可收成" : (pct + "%")) + '</span>'
-      + '<span class="plot-meter" aria-hidden="true"><span style="width:' + pct + '%"></span></span></span></button>';
-  }).join("");
-  grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
+  const sigs = cells.map(visitCellSig);
+  const btns = grid.querySelectorAll("[data-plot]");
+  if (btns.length !== cells.length || lastVisitCellSigs.length !== cells.length) {
+    grid.innerHTML = cells.map((c, i) => visitCellHtml(c, i)).join("");
+    grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
+    lastVisitCellSigs = sigs;
+  } else {
+    for (let i = 0; i < sigs.length; i++) {
+      if (sigs[i] !== lastVisitCellSigs[i]) {   // 只重繪有變動的那格
+        const oldEl = grid.querySelector('[data-plot="' + i + '"]');
+        const tmp = document.createElement("div");
+        tmp.innerHTML = visitCellHtml(cells[i], i);
+        const fresh = tmp.firstElementChild;
+        fresh.addEventListener("click", () => handleVisitPlotClick(i));
+        if (oldEl) oldEl.replaceWith(fresh); else grid.appendChild(fresh);
+      }
+    }
+    lastVisitCellSigs = sigs;
+  }
   renderDogWalker();
   updateVisitBanner();
   updateVisitToolUI();
@@ -2348,7 +2375,7 @@ function updateVisitFarmTimers() {
   });
 }
 function renderVisitingRanch() {
-  lastFarmSig = "";
+  lastPlotSigs = [];
   const grid = elements.farmGrid;
   grid.className = "farm-grid";
   grid.innerHTML = "";
@@ -5760,85 +5787,71 @@ function renderHeader() {
   }
 }
 
+function plotSig(p) {
+  if (!p.unlocked) return "L";
+  if (p.broken) return "B";
+  if (!p.crop) return "E";
+  const pr = getPlotProgress(p);
+  return [p.crop, getPlotStage(p, pr), p.watered ? 1 : 0, p.soakMs > 0 ? 1 : 0,
+    (state.weather === "snow" && pr < 1) ? 1 : 0, (p.typhoonHalf && pr < 1) ? 1 : 0,
+    p.pest ? 1 : 0, p.weed ? 1 : 0, p.thief ? 1 : 0, Math.round((p.stolenPct || 0) * 100), pr >= 1 ? 1 : 0].join(",");
+}
+function plotHtml(plot, index) {
+  if (!plot.unlocked) {
+    return '<button class="plot locked" type="button" data-plot="' + index + '" data-slot="' + (index + 1) + '" title="未開墾"><span class="plot-stake plot-sign"' + stakeStyle(index) + ' aria-hidden="true"><img src="./assets/sign-uncultivated.png" alt="" /></span></button>';
+  }
+  if (plot.broken) {
+    return '<button class="plot broken" type="button" data-plot="' + index + '" data-slot="' + (index + 1) + '" title="損壞農地"><span class="plot-stake"' + stakeStyle(index) + ' aria-hidden="true">🚩</span><span class="plot-info"><span class="plot-label">損壞</span><span class="plot-time">需修復</span></span></button>';
+  }
+  if (!plot.crop) {
+    return '<button class="plot empty" type="button" data-plot="' + index + '" data-slot="' + (index + 1) + '" title="空地"><span></span><span class="plot-info"><span class="plot-label">空地</span><span class="plot-time">可播種</span></span></button>';
+  }
+  const crop = CROPS[plot.crop];
+  const progress = getPlotProgress(plot);
+  const ready = progress >= 1;
+  const stage = getPlotStage(plot, progress);
+  const remaining = Math.max(0, getPlotDuration(plot) * (1 - progress));
+  return '<button class="plot ' + (ready ? "ready" : "growing") + ' ' + (plot.watered ? "watered" : "") + ' ' + (plot.soakMs > 0 ? "soaked" : "") + ' ' + (state.weather === "snow" && !ready ? "frosted" : "") + ' ' + (plot.thief ? "has-thief" : "") + '" type="button" data-plot="' + index + '" data-slot="' + (index + 1) + '" title="' + crop.name + '">' +
+    (plot.watered ? '<span class="water-badge" aria-hidden="true">' + ICONS.drop + '</span>' : "") +
+    (plot.soakMs > 0 ? '<span class="soak-badge" aria-hidden="true">💧浸水</span>' : "") +
+    (state.weather === "snow" && !ready ? '<span class="frost-badge" aria-hidden="true">❄️凍傷</span>' : "") +
+    (plot.typhoonHalf && !ready ? '<span class="typhoon-badge" aria-hidden="true">🌀颱風</span>' : "") +
+    (plot.stolenPct ? '<span class="stolen-badge" aria-hidden="true">🤏 -' + Math.round(plot.stolenPct * 100) + '%</span>' : "") +
+    (plot.pest ? '<span class="stolen-badge" aria-hidden="true">🐛 蟲害</span>' : "") +
+    (plot.weed ? '<span class="stolen-badge" aria-hidden="true">🌿 雜草</span>' : "") +
+    (plot.thief ? '<span class="thief-wrap" aria-hidden="true"><span class="thief-label">趕走 ' + Math.max(0, Math.ceil((plot.thief.expiresAt - Date.now()) / 1000)) + 's</span><img class="thief-person" src="./assets/thief.png" alt="" draggable="false" /></span>' : "") +
+    '<span class="crop-visual">' + cropVisual(plot.crop, stage) + '</span>' +
+    '<span class="plot-info"><span class="plot-label">' + crop.name + '</span>' +
+    '<span class="plot-time">' + (ready ? "可收成" : formatTime(remaining)) + '</span>' +
+    '<span class="plot-meter" aria-hidden="true"><span style="width:' + Math.min(100, Math.round(progress * 100)) + '%"></span></span></span></button>';
+}
 function renderFarm() {
   if (visiting) { renderVisitingFarm(); return; }
-  elements.farmGrid.className = "farm-grid";
-  const sig = state.plots.map((p) => {
-    if (!p.unlocked) return "L";
-    if (p.broken) return "B";
-    if (!p.crop) return "E";
-    const pr = getPlotProgress(p);
-    return [p.crop, getPlotStage(p, pr), p.watered ? 1 : 0, p.soakMs > 0 ? 1 : 0,
-      (state.weather === "snow" && pr < 1) ? 1 : 0, (p.typhoonHalf && pr < 1) ? 1 : 0,
-      p.pest ? 1 : 0, p.weed ? 1 : 0, p.thief ? 1 : 0, Math.round((p.stolenPct || 0) * 100), pr >= 1 ? 1 : 0].join(",");
-  }).join("|");
-  if (sig === lastFarmSig && elements.farmGrid.querySelector("[data-plot]")) return;   // 田況沒變→不整片重建(倒數由 updateFarmTimers 原地更新)
-  lastFarmSig = sig;
-  elements.farmGrid.innerHTML = state.plots
-    .map((plot, index) => {
-      if (!plot.unlocked) {
-        return `
-          <button class="plot locked" type="button" data-plot="${index}" data-slot="${index + 1}" title="未開墾">
-            <span class="plot-stake plot-sign"${stakeStyle(index)} aria-hidden="true"><img src="./assets/sign-uncultivated.png" alt="" /></span>
-          </button>
-        `;
-      }
-
-      if (plot.broken) {
-        return `
-          <button class="plot broken" type="button" data-plot="${index}" data-slot="${index + 1}" title="損壞農地">
-            <span class="plot-stake"${stakeStyle(index)} aria-hidden="true">🚩</span>
-            <span class="plot-info">
-              <span class="plot-label">損壞</span>
-              <span class="plot-time">需修復</span>
-            </span>
-          </button>
-        `;
-      }
-
-      if (!plot.crop) {
-        return `
-          <button class="plot empty" type="button" data-plot="${index}" data-slot="${index + 1}" title="空地">
-            <span></span>
-            <span class="plot-info">
-              <span class="plot-label">空地</span>
-              <span class="plot-time">可播種</span>
-            </span>
-          </button>
-        `;
-      }
-
-      const crop = CROPS[plot.crop];
-      const progress = getPlotProgress(plot);
-      const ready = progress >= 1;
-      const stage = getPlotStage(plot, progress);
-      const remaining = Math.max(0, getPlotDuration(plot) * (1 - progress));
-
-      return `
-        <button class="plot ${ready ? "ready" : "growing"} ${plot.watered ? "watered" : ""} ${plot.soakMs > 0 ? "soaked" : ""} ${state.weather === "snow" && !ready ? "frosted" : ""} ${plot.thief ? "has-thief" : ""}" type="button" data-plot="${index}" data-slot="${index + 1}" title="${crop.name}">
-          ${plot.watered ? `<span class="water-badge" aria-hidden="true">${ICONS.drop}</span>` : ""}
-          ${plot.soakMs > 0 ? `<span class="soak-badge" aria-hidden="true">💧浸水</span>` : ""}
-          ${state.weather === "snow" && !ready ? `<span class="frost-badge" aria-hidden="true">❄️凍傷</span>` : ""}
-          ${plot.typhoonHalf && !ready ? `<span class="typhoon-badge" aria-hidden="true">🌀颱風</span>` : ""}
-          ${plot.stolenPct ? `<span class="stolen-badge" aria-hidden="true">🤏 -${Math.round(plot.stolenPct * 100)}%</span>` : ""}
-          ${plot.pest ? `<span class="stolen-badge" aria-hidden="true">🐛 蟲害</span>` : ""}
-          ${plot.weed ? `<span class="stolen-badge" aria-hidden="true">🌿 雜草</span>` : ""}
-          ${plot.thief ? `<span class="thief-wrap" aria-hidden="true"><span class="thief-label">趕走 ${Math.max(0, Math.ceil((plot.thief.expiresAt - Date.now()) / 1000))}s</span><img class="thief-person" src="./assets/thief.png" alt="" draggable="false" /></span>` : ""}
-          <span class="crop-visual">${cropVisual(plot.crop, stage)}</span>
-          <span class="plot-info">
-            <span class="plot-label">${crop.name}</span>
-            <span class="plot-time">${ready ? "可收成" : formatTime(remaining)}</span>
-            <span class="plot-meter" aria-hidden="true"><span style="width:${Math.min(100, Math.round(progress * 100))}%"></span></span>
-          </span>
-        </button>
-      `;
-    })
-    .join("");
-
-  elements.farmGrid.querySelectorAll("[data-plot]").forEach((plotButton) => {
-    plotButton.addEventListener("click", () => handlePlotClick(Number(plotButton.dataset.plot)));
-  });
-  setupGmStakes();
+  const grid = elements.farmGrid;
+  grid.className = "farm-grid";
+  const sigs = state.plots.map(plotSig);
+  const btns = grid.querySelectorAll("[data-plot]");
+  if (btns.length !== state.plots.length || lastPlotSigs.length !== state.plots.length) {
+    grid.innerHTML = state.plots.map((p, i) => plotHtml(p, i)).join("");
+    grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handlePlotClick(Number(b.dataset.plot))));
+    setupGmStakes();
+    lastPlotSigs = sigs;
+    return;
+  }
+  let changed = false;
+  for (let i = 0; i < sigs.length; i++) {
+    if (sigs[i] !== lastPlotSigs[i]) {   // 只重繪有變動的那一格，其他格 DOM 不動
+      changed = true;
+      const oldEl = grid.querySelector('[data-plot="' + i + '"]');
+      const tmp = document.createElement("div");
+      tmp.innerHTML = plotHtml(state.plots[i], i);
+      const fresh = tmp.firstElementChild;
+      fresh.addEventListener("click", () => handlePlotClick(i));
+      if (oldEl) oldEl.replaceWith(fresh); else grid.appendChild(fresh);
+    }
+  }
+  lastPlotSigs = sigs;
+  if (changed) setupGmStakes();
 }
 
 function exportStakePos() {
