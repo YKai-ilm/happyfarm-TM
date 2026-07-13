@@ -5697,6 +5697,7 @@ function applyFieldWeather(delta) {
 }
 
 function updateFarmTimers() {
+  if (visiting) return;   // 參觀好友時田格屬於好友，別用自家 state.plots 蓋掉作物圖
   if (!elements.farmGrid) {
     return;
   }
