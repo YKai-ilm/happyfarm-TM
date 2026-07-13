@@ -1454,6 +1454,8 @@ let spinning = false;
 let pendingWeatherCard = false;
 let pendingFertilize = false;
 let lastTickTime = Date.now();
+let lastVisitHash = "";
+let lastFarmSig = "";
 let lastFriendSteal = Date.now();
 let giftSectionOpen = { newbie: true, event: false, friend: false };
 const GM_PASSWORDS = ["70629", "ykai"];
@@ -2217,6 +2219,7 @@ function enterVisit(profile) {
   state.dogChasedCount = 0;   // 切換到別的好友農場：被趕跑次數歸零
   visitScene = "farm";
   visitPendingBug = {}; visitPendingSpray = {};
+  lastVisitHash = "";
   closeFriends();
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   render();
@@ -2236,11 +2239,16 @@ async function refreshVisit() {
   try {
     const snap = await fbDb.collection("profiles").doc(visiting.uid).get();
     if (!snap.exists || !visiting) return;
-    visiting = Object.assign({ kind: "cloud" }, snap.data() || {});
+    const _d = snap.data() || {};
+    visiting = Object.assign({ kind: "cloud" }, _d);
     const _cut = Date.now() - 60000;
     for (const k in visitPendingBug) { if (visitPendingBug[k] < _cut) delete visitPendingBug[k]; }
     for (const k in visitPendingSpray) { if (visitPendingSpray[k] < _cut) delete visitPendingSpray[k]; }
-    if (visitScene === "ranch") renderVisitingRanch(); else renderVisitingFarm();
+    const _hash = JSON.stringify([_d.farmSnapshot, _d.ranchSnapshot, _d.dogGuard, _d.weather]);
+    if (_hash !== lastVisitHash) {   // 只有好友端資料真的變了才整頁重繪
+      lastVisitHash = _hash;
+      if (visitScene === "ranch") renderVisitingRanch(); else renderVisitingFarm();
+    }
     updateVisitBanner();
   } catch (e) { /* 靜默重試 */ }
 }
@@ -2260,6 +2268,7 @@ function exitVisit() {
 }
 
 function renderVisitingFarm() {
+  lastFarmSig = "";
   if (visitScene === "ranch") { renderVisitingRanch(); return; }
   const fr0 = document.querySelector(".field-frame");
   if (fr0) { fr0.style.removeProperty("--scene-image"); const ab = fr0.querySelector("#ranchAnimals"); if (ab) ab.remove(); }
@@ -2310,7 +2319,36 @@ function renderVisitingFarm() {
   updateVisitToolUI();
 }
 
+function updateVisitFarmTimers() {
+  const grid = elements.farmGrid; if (!grid || !visiting) return;
+  const now = Date.now();
+  const isNpc = visiting.kind === "npc";
+  const friend = isNpc ? state.friends.find((f) => f.id === visiting.id) : null;
+  const plots = isNpc ? null : (Array.isArray(visiting.farmSnapshot) ? visiting.farmSnapshot : []);
+  grid.querySelectorAll("[data-plot]").forEach((btn) => {
+    const idx = Number(btn.dataset.plot);
+    let prog, ready, hasCrop;
+    if (isNpc) {
+      const p = friend && friend.plots[idx];
+      hasCrop = !!(p && p.crop);
+      if (hasCrop) { prog = friendProgress(p); ready = prog >= 1; }
+    } else {
+      const pl = plots[idx];
+      hasCrop = !!(pl && pl.crop);
+      if (hasCrop) {
+        prog = (pl.readyAt && pl.plantedAt && pl.readyAt > pl.plantedAt) ? Math.max(0, Math.min(1, (now - pl.plantedAt) / (pl.readyAt - pl.plantedAt))) : 1;
+        ready = pl.readyAt ? now >= pl.readyAt : true;
+      }
+    }
+    if (!hasCrop) return;
+    const pct = Math.round((prog || 0) * 100);
+    const t = btn.querySelector(".plot-time"); if (t) { const txt = ready ? "可收成" : (pct + "%"); if (t.textContent !== txt) t.textContent = txt; }
+    const m = btn.querySelector(".plot-meter span"); if (m) m.style.width = pct + "%";
+    if (btn.classList.contains("ready") !== ready) { btn.classList.toggle("ready", ready); btn.classList.toggle("growing", !ready); }
+  });
+}
 function renderVisitingRanch() {
+  lastFarmSig = "";
   const grid = elements.farmGrid;
   grid.className = "farm-grid";
   grid.innerHTML = "";
@@ -2345,7 +2383,9 @@ function renderVisitingRanch() {
       el.addEventListener("click", () => handleVisitRanchClick(i));
       box.appendChild(el);
     }
-    const st = (visitPendingSpray[i] && (Date.now() - visitPendingSpray[i] < 60000)) ? "dirty" : a.status;
+    let st = (visitPendingSpray[i] && (Date.now() - visitPendingSpray[i] < 60000)) ? "dirty" : a.status;
+    if (a._cleaned && st === "dirty") st = "clean";   // 幫忙清完→不再顯示髒污
+    if (a._fed && st === "hungry") st = "clean";       // 幫忙餵完→不再顯示飢餓
     const b = el.querySelector(".animal-badge");
     if (b) {
       if (st === "ready") { b.textContent = cfg.productEmoji; b.className = "animal-badge animal-prod"; }
@@ -5518,7 +5558,7 @@ function tick() {
       const f = state.friends.find((x) => x.id === visiting.id);
       if (f) refreshFriendFarm(f);
     }
-    renderVisitingFarm();
+    if (visitScene === "ranch") renderVisitingRanch(); else updateVisitFarmTimers();
   }
   maybeRefreshOrders();
   const wp = document.querySelector(".work-panel");
@@ -5723,6 +5763,17 @@ function renderHeader() {
 function renderFarm() {
   if (visiting) { renderVisitingFarm(); return; }
   elements.farmGrid.className = "farm-grid";
+  const sig = state.plots.map((p) => {
+    if (!p.unlocked) return "L";
+    if (p.broken) return "B";
+    if (!p.crop) return "E";
+    const pr = getPlotProgress(p);
+    return [p.crop, getPlotStage(p, pr), p.watered ? 1 : 0, p.soakMs > 0 ? 1 : 0,
+      (state.weather === "snow" && pr < 1) ? 1 : 0, (p.typhoonHalf && pr < 1) ? 1 : 0,
+      p.pest ? 1 : 0, p.weed ? 1 : 0, p.thief ? 1 : 0, Math.round((p.stolenPct || 0) * 100), pr >= 1 ? 1 : 0].join(",");
+  }).join("|");
+  if (sig === lastFarmSig && elements.farmGrid.querySelector("[data-plot]")) return;   // 田況沒變→不整片重建(倒數由 updateFarmTimers 原地更新)
+  lastFarmSig = sig;
   elements.farmGrid.innerHTML = state.plots
     .map((plot, index) => {
       if (!plot.unlocked) {
@@ -5761,7 +5812,7 @@ function renderFarm() {
       const progress = getPlotProgress(plot);
       const ready = progress >= 1;
       const stage = getPlotStage(plot, progress);
-      const remaining = Math.max(0, getPlotDuration(plot) - (Date.now() - plot.plantedAt));
+      const remaining = Math.max(0, getPlotDuration(plot) * (1 - progress));
 
       return `
         <button class="plot ${ready ? "ready" : "growing"} ${plot.watered ? "watered" : ""} ${plot.soakMs > 0 ? "soaked" : ""} ${state.weather === "snow" && !ready ? "frosted" : ""} ${plot.thief ? "has-thief" : ""}" type="button" data-plot="${index}" data-slot="${index + 1}" title="${crop.name}">
