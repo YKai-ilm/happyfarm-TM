@@ -2322,25 +2322,8 @@ function renderVisitingFarm() {
       return { crop: pl.crop, prog: prog, ready: pl.readyAt ? now >= pl.readyAt : true, hazard: (pl.pest || _pendBug) ? "bug" : (pl.weed ? "weed" : null) };
     });
   }
-  const sigs = cells.map(visitCellSig);
-  const btns = grid.querySelectorAll("[data-plot]");
-  if (btns.length !== cells.length || lastVisitCellSigs.length !== cells.length) {
-    grid.innerHTML = cells.map((c, i) => visitCellHtml(c, i)).join("");
-    grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
-    lastVisitCellSigs = sigs;
-  } else {
-    for (let i = 0; i < sigs.length; i++) {
-      if (sigs[i] !== lastVisitCellSigs[i]) {   // 只重繪有變動的那格
-        const oldEl = grid.querySelector('[data-plot="' + i + '"]');
-        const tmp = document.createElement("div");
-        tmp.innerHTML = visitCellHtml(cells[i], i);
-        const fresh = tmp.firstElementChild;
-        fresh.addEventListener("click", () => handleVisitPlotClick(i));
-        if (oldEl) oldEl.replaceWith(fresh); else grid.appendChild(fresh);
-      }
-    }
-    lastVisitCellSigs = sigs;
-  }
+  grid.innerHTML = cells.map((c, i) => visitCellHtml(c, i)).join("");   // 好友農場整片重建(頻率低、絕不殘留)
+  grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
   renderDogWalker();
   updateVisitBanner();
   updateVisitToolUI();
@@ -5574,6 +5557,7 @@ function tick() {
   applyWeatherPassive();
   applyFieldWeather(delta);
   rotateWeather();
+  if (!visiting && state.scene !== "ranch") renderFarm();
   updateFarmTimers();
   friendStealTick(now);
   resolveThieves(now);
@@ -5724,9 +5708,6 @@ function updateFarmTimers() {
     }
     const progress = getPlotProgress(plot);
     const ready = progress >= 1;
-    button.classList.toggle("ready", ready);
-    button.classList.toggle("growing", !ready);
-    button.classList.toggle("watered", !!plot.watered);
 
     const timeEl = button.querySelector(".plot-time");
     if (timeEl) {
