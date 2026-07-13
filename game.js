@@ -1457,6 +1457,7 @@ let lastTickTime = Date.now();
 let lastVisitHash = "";
 let lastPlotSigs = [];
 let lastVisitCellSigs = [];
+let lastVisitFarmSig = "";
 let lastFriendSteal = Date.now();
 let giftSectionOpen = { newbie: true, event: false, friend: false };
 const GM_PASSWORDS = ["70629", "ykai"];
@@ -2222,6 +2223,7 @@ function enterVisit(profile) {
   visitPendingBug = {}; visitPendingSpray = {};
   lastVisitHash = "";
   lastVisitCellSigs = [];
+  lastVisitFarmSig = "";
   closeFriends();
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   render();
@@ -2322,8 +2324,12 @@ function renderVisitingFarm() {
       return { crop: pl.crop, prog: prog, ready: pl.readyAt ? now >= pl.readyAt : true, hazard: (pl.pest || _pendBug) ? "bug" : (pl.weed ? "weed" : null) };
     });
   }
-  grid.innerHTML = cells.map((c, i) => visitCellHtml(c, i)).join("");   // 好友農場整片重建(頻率低、絕不殘留)
-  grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
+  const vsig = cells.map(visitCellSig).join("|");
+  if (vsig !== lastVisitFarmSig || !grid.querySelector("[data-plot]")) {   // 作物/階段/狀態變了才整片重建
+    lastVisitFarmSig = vsig;
+    grid.innerHTML = cells.map((c, i) => visitCellHtml(c, i)).join("");
+    grid.querySelectorAll("[data-plot]").forEach((b) => b.addEventListener("click", () => handleVisitPlotClick(Number(b.dataset.plot))));
+  }
   renderDogWalker();
   updateVisitBanner();
   updateVisitToolUI();
