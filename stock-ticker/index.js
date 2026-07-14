@@ -83,11 +83,50 @@ function sessionIndexNow(nowMs){
   return { state:"open", idx: SESSION_MIN };
 }
 
+// 玩家下單衝擊參數(有上限，避免被拉爆或操縱)
+const IMP_K = 0.0000015;   // 每股淨買壓 → 價格比例衝擊
+const IMP_MAX = 0.03;      // 累積衝擊上限 ±3%
+const IMP_DECAY = 0.75;    // 每輪衰減(約每5分鐘)
+
 async function main(){
   const nowMs = Date.now();
   const dayNum = dayNumTaipei(nowMs);
   const s = sessionIndexNow(nowMs);
   const cache = {};
+  const liveRef = db.collection("market").doc("live");
+
+  // 讀上一輪狀態(累積衝擊 imp、玩家成交量 pvol)；換日重置
+  const prevSnap = await liveRef.get();
+  const prev = prevSnap.exists ? prevSnap.data() : {};
+  let imp = (prev && prev.imp) || {};
+  let pvol = (prev && prev.pvol) || {};
+  if (!prev || prev.dayNum !== dayNum){ imp = {}; pvol = {}; }
+
+  // 讀取並彙總玩家下單(跨玩家)，處理後刪除
+  const agg = {};
+  const toDelete = [];
+  try {
+    const ordSnap = await db.collection("orders").get();
+    ordSnap.forEach((doc) => {
+      const o = doc.data() || {};
+      toDelete.push(doc.ref);
+      const code = o.c, side = o.s, n = Math.max(0, Math.min(1000000, Number(o.n) || 0));
+      if (!code || n <= 0) return;
+      if (!agg[code]) agg[code] = { buy:0, sell:0 };
+      if (side === "b") agg[code].buy += n; else if (side === "s") agg[code].sell += n;
+    });
+  } catch (e) { console.error("讀取 orders 失敗", e && e.message); }
+
+  // 更新每檔累積衝擊與玩家成交量
+  for (const st of STOCKS){
+    const a = agg[st.code] || { buy:0, sell:0 };
+    let v = (imp[st.code] || 0) * IMP_DECAY + IMP_K * (a.buy - a.sell);
+    v = Math.max(-IMP_MAX, Math.min(IMP_MAX, v));
+    imp[st.code] = v;
+    if (!pvol[st.code]) pvol[st.code] = { buy:0, sell:0 };
+    pvol[st.code].buy += a.buy; pvol[st.code].sell += a.sell;
+  }
+
   const stocks = {};
   for (const st of STOCKS){
     const prevClose = stockClose(st, dayNum-1, cache);
@@ -96,17 +135,32 @@ async function main(){
       const full = stockPath(st, dayNum, cache);
       const shown = Math.min(s.idx, SESSION_MIN);
       open = full[0]; now = full[shown];
+      // 疊上玩家累積衝擊(限漲跌停 ±10%)
+      const impact = imp[st.code] || 0;
+      if (impact){
+        const limHi = prevClose*1.10, limLo = prevClose*0.90;
+        now = Math.max(limLo, Math.min(limHi, now*(1+impact)));
+      }
       const seg = full.slice(0, shown+1);   // 只發到「現在」為止，未來走勢不外洩
+      seg[seg.length-1] = now;              // 讓最後一點反映衝擊後現價
       hi = Math.max.apply(null, seg); lo = Math.min.apply(null, seg);
       path = seg.map(r2);   // 完整每分鐘路徑(索引=盤中分鐘)，前端圖表用
     }
     stocks[st.code] = { open: open==null?null:r2(open), now:r2(now), hi:r2(hi), lo:r2(lo), prevClose:r2(prevClose), path };
   }
-  await db.collection("market").doc("live").set({
+
+  await liveRef.set({
     dayNum, session: s.state, idx: s.idx,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    stocks,
+    stocks, imp, pvol,
   });
-  console.log("published dayNum=" + dayNum + " session=" + s.state + " idx=" + s.idx);
+
+  // 刪除已處理的下單(分批，每批上限 500)
+  for (let i=0; i<toDelete.length; i+=450){
+    const batch = db.batch();
+    toDelete.slice(i, i+450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+  console.log("published dayNum=" + dayNum + " session=" + s.state + " idx=" + s.idx + " orders=" + toDelete.length);
 }
 main().then(()=>process.exit(0)).catch((e)=>{ console.error(e); process.exit(1); });

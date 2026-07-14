@@ -3476,8 +3476,6 @@ const STOCKS = [
 const SESSION_MIN = 892;  // 早9:00-13:25 / 午13:30-18:55 / 夜19:00-24:00（盤間留5分鐘）
 // 行情改由伺服器(GitHub Actions＋秘密種子)寫進 Firestore market/live，前端只讀→無法被預測
 let liveMarket = null; let liveMarketUnsub = null;
-let gmStockVolPos = { left: 30.8, top: 23.3 };
-try { const _svp = JSON.parse(localStorage.getItem("gm-stockvol-pos") || "null"); if (_svp && isFinite(_svp.left)) gmStockVolPos = _svp; } catch (e) {}
 function startLiveMarket() {
   if (!fbDb || liveMarketUnsub) return;
   liveMarketUnsub = fbDb.collection("market").doc("live").onSnapshot(function (doc) {
@@ -3501,6 +3499,8 @@ function stockInfo(stock) {
     buy += mvv * bias; sell += mvv * (1 - bias);
   }
   buy = Math.round(buy); sell = Math.round(sell);
+  const pv = liveMarket.pvol && liveMarket.pvol[stock.code];
+  if (pv) { buy += (pv.buy || 0); sell += (pv.sell || 0); }
   return { price: price, prevClose: prevClose, chg: chg, chgPct: chgPct, path: path, shown: Math.max(0, path.length - 1), state: (liveMarket.session || "open"), limit: limit, buy: buy, sell: sell, vol: buy + sell };
 }
 function stockStatusText(state) {
@@ -3666,6 +3666,16 @@ function refreshStockBuyPrices() {
   });
 }
 
+function submitStockOrder(code, side, shares) {
+  // 把玩家下單寫進 Firestore，伺服器排程算價時會納入(小幅衝擊價格＋累計成交量)
+  if (!fbDb || !shares || shares < 1) return;
+  try {
+    fbDb.collection("orders").add({
+      c: code, s: side, n: Math.min(1000000, Math.round(shares)),
+      t: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {}
+}
 function buyStock(code, shares) {
   const stk = STOCKS.find((x) => x.code === code);
   if (!stk || shares < 1) return;
@@ -3677,6 +3687,7 @@ function buyStock(code, shares) {
   state.coins -= cost;
   const hold = stockHold(code);
   hold.sh += shares; hold.cost += cost;
+  submitStockOrder(code, "b", shares);
   saveState();
   renderHeader();
   renderStockBuy();
@@ -3697,6 +3708,7 @@ function sellStock(code, shares) {
   state.coins += proceeds;
   hold.sh -= shares; hold.cost -= costRemoved;
   if (hold.sh <= 0) { hold.sh = 0; hold.cost = 0; }
+  submitStockOrder(code, "s", shares);
   saveState();
   renderHeader();
   renderStockBuy();
@@ -3722,50 +3734,21 @@ function renderStock() {
       '<div class="stk-price ' + (up ? "up" : "down") + '">' + info.price.toFixed(2) +
         ' <span class="stk-chg">' + sign + info.chg.toFixed(2) + ' (' + sign + info.chgPct.toFixed(2) + '%)</span></div>' +
       (info.limit === "up" ? '<div class="stk-limit up">🔴 漲停</div>' : info.limit === "down" ? '<div class="stk-limit down">🟢 跌停</div>' : '') +
+      '<div id="stkVolBox" class="stk-vol">' +
+        '<div class="stk-vol-row buy">買盤 <b>' + (info.buy || 0).toLocaleString() + '</b></div>' +
+        '<div class="stk-vol-row sell">賣盤 <b>' + (info.sell || 0).toLocaleString() + '</b></div>' +
+        '<div class="stk-vol-row tot">總量 <b>' + (info.vol || 0).toLocaleString() + '</b></div>' +
+      '</div>' +
       '</div>' +
     '<div class="stk-body"><canvas id="stkChart" class="stk-chart"></canvas>' +
     '<div class="stk-actions" id="stkActions">' +
       ['all','am','noon','pm'].map(function(r){var L={all:'全日',am:'早盤',noon:'午盤',pm:'夜盤'};return '<button type="button" class="stk-range'+(stockRange===r?' is-active':'')+'" data-stk-range="'+r+'">'+L[r]+'</button>';}).join('') +
-    '</div></div>' +
-    '<div id="stkVolBox" class="stk-vol">' +
-      '<div class="stk-vol-row buy">買盤 <b>' + (info.buy || 0).toLocaleString() + '</b></div>' +
-      '<div class="stk-vol-row sell">賣盤 <b>' + (info.sell || 0).toLocaleString() + '</b></div>' +
-      '<div class="stk-vol-row tot">總量 <b>' + (info.vol || 0).toLocaleString() + '</b></div>' +
-    '</div>';
+    '</div></div>';
   view.querySelectorAll("[data-stk]").forEach((b) => b.addEventListener("click", () => { stockSel = Number(b.dataset.stk); renderStock(); }));
   view.querySelectorAll("[data-stk-range]").forEach((b) => b.addEventListener("click", () => { stockRange = b.dataset.stkRange; renderStock(); }));
-  setupStockVol();
   drawStockChart(stock, info);
 }
 
-function setupStockVol() {
-  const box = document.querySelector("#stkVolBox");
-  const view = document.querySelector("#stockView");
-  if (!box || !view) return;
-  box.style.left = gmStockVolPos.left + "%"; box.style.top = gmStockVolPos.top + "%";
-  box.classList.toggle("gm-draggable", !!state.gm);
-  if (!state.gm) { box.onpointerdown = null; return; }
-  let sx = 0, sy = 0, ol = 0, ot = 0, dragging = false;
-  box.onpointerdown = (e) => {
-    dragging = true; sx = e.clientX; sy = e.clientY; ol = gmStockVolPos.left; ot = gmStockVolPos.top;
-    try { box.setPointerCapture(e.pointerId); } catch (err) {}
-    e.preventDefault(); e.stopPropagation();
-  };
-  box.onpointermove = (e) => {
-    if (!dragging) return;
-    const r = view.getBoundingClientRect(); if (!r.width || !r.height) return;
-    let l = ol + (e.clientX - sx) / r.width * 100, t = ot + (e.clientY - sy) / r.height * 100;
-    l = Math.max(0, Math.min(96, l)); t = Math.max(0, Math.min(96, t));
-    gmStockVolPos.left = l; gmStockVolPos.top = t;
-    box.style.left = l + "%"; box.style.top = t + "%";
-  };
-  const end = () => {
-    if (!dragging) return; dragging = false;
-    try { localStorage.setItem("gm-stockvol-pos", JSON.stringify(gmStockVolPos)); } catch (e) {}
-    toast("成交量框位置 left " + gmStockVolPos.left.toFixed(1) + "% / top " + gmStockVolPos.top.toFixed(1) + "%");
-  };
-  box.onpointerup = end; box.onpointercancel = end;
-}
 function pointClock(i) {
   if (i <= 265) return 540 + i;          // 早盤 9:00-13:25
   if (i <= 591) return 810 + (i - 266);  // 午盤 13:30-18:55
@@ -5830,14 +5813,6 @@ function renderFarm() {
 }
 
 function exportStakePos() {
-  if (document.body.classList.contains("is-stock")) {
-    const t = "成交量框:left " + gmStockVolPos.left.toFixed(1) + "%,top " + gmStockVolPos.top.toFixed(1) + "%";
-    try { if (navigator.clipboard) navigator.clipboard.writeText(t); } catch (e) {}
-    try { console.log("STOCKVOL_POS:", t); } catch (e) {}
-    try { window.prompt("已複製，貼到對話給 Claude 即可：", t); } catch (e) {}
-    toast("成交量框座標已匯出（已複製到剪貼簿）。");
-    return;
-  }
   if (!elements.farmGrid) { toast("找不到農場。"); return; }
   const out = [];
   elements.farmGrid.querySelectorAll(".plot-stake").forEach((stake) => {
