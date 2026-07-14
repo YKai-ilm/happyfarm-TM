@@ -4005,12 +4005,12 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .ff-ctrl.active { background: #e3b53f; box-shadow: 0 0 10px 3px rgba(227,181,63,0.9); }
 .ff-ctrl-place { left: 93px; top: 139px; }
 .ff-ctrl-feed { left: 96px; top: 204px; }
-.ff-ctrl-snail { left: 144px; top: 88px; }
-.ff-fish { position: absolute; width: 40px; height: 25px; pointer-events: none; z-index: 20; }
+.ff-ctrl-catch { left: 144px; top: 88px; }
+.ff-fish { position: absolute; left: 0; top: 0; width: 40px; height: 25px; pointer-events: none; z-index: 20; will-change: transform; }
 .ff-fish svg { width: 100%; height: 100%; transform-origin: 32% 50%; animation: ffwiggle 0.42s ease-in-out infinite alternate; }
 @keyframes ffwiggle { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
-.ff-feed { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: #7a5230; border: 1px solid #5a3a20; transform: translate(-50%,-50%); z-index: 15; }
-.ff-sat { position: absolute; width: 22px; height: 4px; transform: translate(-50%,-50%); border-radius: 2px; background: rgba(0,0,0,0.4); overflow: hidden; z-index: 21; pointer-events: none; }
+.ff-feed { position: absolute; left: 0; top: 0; width: 9px; height: 9px; border-radius: 50%; background: #7a5230; border: 1px solid #5a3a20; transform: translate(-50%,-50%); z-index: 15; will-change: transform; }
+.ff-sat { position: absolute; left: 0; top: 0; width: 22px; height: 4px; transform: translate(-50%,-50%); border-radius: 2px; background: rgba(0,0,0,0.4); overflow: hidden; z-index: 21; pointer-events: none; will-change: transform; }
 .ff-sat-fill { height: 100%; width: 50%; background: #4caf50; }
 .ff-fry-card { max-width: 340px; width: 90%; }
 .ff-fry-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; margin-bottom: 10px; }
@@ -4023,3 +4023,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .stk-vol-row.buy b { color: #d0392f; }
 .stk-vol-row.sell b { color: #1f9d55; }
 .stk-vol-row.tot b { color: #333; }
+
+/* 撈魚爪子 */
+#ffClawSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+.ff-claw-btn { position: absolute; top: 9%; left: 60%; z-index: 32; min-width: 58px; padding: 8px 14px; border-radius: 18px; border: 2px solid #fff; background: #e3b53f; color: #2a2113; font-weight: 800; font-size: 0.92rem; cursor: pointer; box-shadow: 0 2px 7px rgba(0,0,0,0.45); }
+.ff-claw-btn:active { transform: scale(0.96); }

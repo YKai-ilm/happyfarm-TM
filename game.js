@@ -566,20 +566,20 @@ function closePondDialog() {
 }
 
 const FRY_COLORS = { "吳郭魚": "#8a9a5b", "鯽魚": "#b0a07a", "溪哥": "#7fb0d0", "苦花": "#9fbf8f", "香魚": "#c8d09a", "泥鰍": "#6b5a3a", "馬口魚": "#d08fa8", "石賓": "#7a8a9a", "羅漢魚": "#e0a45c", "大肚魚": "#a6c6ea" };
-let ffFish = [], ffFeed = [], ffMode = "", ffPlaceType = "", ffRAF = 0, ffLast = 0;
+let ffFish = [], ffFeed = [], ffMode = "", ffPlaceType = "", ffRAF = 0, ffLast = 0, ffClaw = null;
 const FF_SAT_DRAIN = 0.15, FF_SAT_PER = 25, FF_GROW_PELLETS = 16;   // 飽食每秒降、每顆+25%、每16顆長大一階
 
 function openFishFarm() {
   const pb = document.querySelector("#pondBox"); if (pb) pb.style.display = "none";
   const oldV = document.querySelector("#fishFarmView"); if (oldV) oldV.remove();
   if (ffRAF) { cancelAnimationFrame(ffRAF); ffRAF = 0; }
-  ffFish = []; ffFeed = []; ffMode = ""; ffPlaceType = ""; ffLast = 0;
+  ffFish = []; ffFeed = []; ffMode = ""; ffPlaceType = ""; ffLast = 0; ffClaw = null;
   const v = document.createElement("div"); v.id = "fishFarmView"; v.className = "fishfarm";
   v.innerHTML = '<div id="ffPanel" class="ff-panel">' +
       '<button type="button" id="fishFarmExit" class="ff-exit">離開</button>' +
       '<button type="button" class="ff-ctrl ff-ctrl-place" data-ff="place">放魚苗</button>' +
       '<button type="button" class="ff-ctrl ff-ctrl-feed" data-ff="feed">餵魚</button>' +
-      '<button type="button" class="ff-ctrl ff-ctrl-snail" data-ff="snail">清螺</button>' +
+      '<button type="button" class="ff-ctrl ff-ctrl-catch" data-ff="catch">撈魚</button>' +
     '</div>';
   document.body.appendChild(v);
   v.querySelector("#fishFarmExit").addEventListener("click", (e) => { e.stopPropagation(); closeFishFarm(); });
@@ -590,6 +590,7 @@ function openFishFarm() {
   ffLast = 0; ffRAF = requestAnimationFrame(ffStep);
 }
 function closeFishFarm() {
+  ffClawStop();
   if (ffRAF) { cancelAnimationFrame(ffRAF); ffRAF = 0; }
   const now = Date.now();
   ffFish.forEach((f) => { f.data.sat = f.sat; f.data.satAt = now; });
@@ -601,11 +602,13 @@ function ffUpdateBtns() {
   const p = document.querySelector(".ff-ctrl-place"), f = document.querySelector(".ff-ctrl-feed");
   if (p) p.classList.toggle("active", ffMode === "place");
   if (f) f.classList.toggle("active", ffMode === "feed");
+  const ca = document.querySelector(".ff-ctrl-catch");
+  if (ca) ca.classList.toggle("active", !!ffClaw);
 }
 function ffCtrlClick(kind) {
   if (kind === "place") { if (ffMode === "place") { ffMode = ""; ffUpdateBtns(); } else ffOpenFrySelect(); }
   else if (kind === "feed") { ffMode = (ffMode === "feed") ? "" : "feed"; ffUpdateBtns(); if (ffMode === "feed") toast("點水面撒飼料，小魚會來搶。"); }
-  else if (kind === "snail") { toast("清螺功能開發中。"); }
+  else if (kind === "catch") { if (ffClaw) { ffClawStop(); } else { ffMode = ""; ffClawStart(); } ffUpdateBtns(); }
 }
 function ffOpenFrySelect() {
   const bag = state.fryBag || {};
@@ -644,14 +647,16 @@ function ffMakeFishEl(type) {
     '</svg>';
   return el;
 }
-function ffUpdateFishEl(f) {
+function ffUpdateFishEl(f, W, H) {
   const stage = f.data.stage || 0;
   const g = Math.pow(1.3, stage), dir = f.vx > 0 ? -1 : 1, adult = stage >= 2;
-  f.el.style.left = f.x + "%"; f.el.style.top = f.y + "%";
-  f.el.style.transform = "translate(-50%,-50%) scale(" + (g * dir) + "," + g + ")";
-  f.bar.style.left = f.x + "%"; f.bar.style.top = (f.y - 3.2 * g) + "%";
-  f.fill.style.width = Math.max(0, Math.min(100, f.sat)) + "%";
-  f.fill.style.background = adult ? "#9aa0a6" : "#4caf50";
+  if (W === undefined) { const v = document.querySelector("#fishFarmView"); W = v ? v.clientWidth : 0; H = v ? v.clientHeight : 0; }
+  const px = f.x / 100 * W, py = f.y / 100 * H;
+  f.el.style.transform = "translate3d(" + px.toFixed(1) + "px," + py.toFixed(1) + "px,0) translate(-50%,-50%) scale(" + (g * dir) + "," + g + ")";
+  f.bar.style.transform = "translate3d(" + px.toFixed(1) + "px," + ((f.y - 3.2 * g) / 100 * H).toFixed(1) + "px,0) translate(-50%,-50%)";
+  const w = Math.max(0, Math.min(100, Math.round(f.sat)));
+  if (w !== f._fw) { f.fill.style.width = w + "%"; f._fw = w; }
+  if (adult !== f._adult) { f.fill.style.background = adult ? "#9aa0a6" : "#4caf50"; f._adult = adult; }
 }
 function ffFishEat(f) {
   const stage = f.data.stage || 0;
@@ -682,15 +687,122 @@ function ffSpawnFish(data, x, y) {
 function ffAddFeed(x, y) {
   const view = document.querySelector("#fishFarmView"); if (!view) return;
   const el = document.createElement("div"); el.className = "ff-feed";
-  el.style.left = x + "%"; el.style.top = y + "%"; view.appendChild(el);
+  const _w = view.clientWidth, _h = view.clientHeight;
+  el.style.transform = "translate3d(" + (x / 100 * _w).toFixed(1) + "px," + (y / 100 * _h).toFixed(1) + "px,0) translate(-50%,-50%)";
+  view.appendChild(el);
   ffFeed.push({ x: x, y: y, vy: 8 + Math.random() * 5, phase: Math.random() * 6.28, life: 18, el: el });
 }
 function ffRemoveFeed(fd) {
   const i = ffFeed.indexOf(fd); if (i >= 0) ffFeed.splice(i, 1);
   if (fd.el && fd.el.parentNode) fd.el.remove();
 }
+// ===== 撈魚：娃娃機爪子 =====
+const FF_CLAW_PIVOT = { x: 50, y: 5 };
+const FF_CLAW_MAXROT = 0.31;   // 弧擺幅 ±約18度(縮小1/2)
+const FF_CLAW_AIMSPD = 0.5;    // 瞄準掃動速度(rad/s，慢)
+const FF_CLAW_DROP = 50;       // 下爪速度(%/s)
+const FF_CLAW_UP = 62;         // 收回速度(%/s)
+const FF_CLAW_R = 7;           // 夾取判定半徑(%)
+const FF_CLAW_ARC_R = 16;      // 弧線半徑(%)
+function ffPos(theta, r) { return { x: FF_CLAW_PIVOT.x + r * Math.sin(theta), y: FF_CLAW_PIVOT.y + r * Math.cos(theta) }; }
+function ffClawStart() {
+  const view = document.querySelector("#fishFarmView"); if (!view) return;
+  ffClawStop();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.id = "ffClawSvg"; svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("preserveAspectRatio", "none");
+  svg.innerHTML =
+    '<path id="ffArc" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>' +
+    '<line id="ffRope" stroke="#585858" stroke-width="2.2" vector-effect="non-scaling-stroke"/>' +
+    '<path id="ffClawDark" fill="none" stroke="#33383d" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+    '<path id="ffClawLite" fill="none" stroke="#aeb4ba" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+    '<circle id="ffHub" r="2.4" fill="#7a8087" stroke="#33383d" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
+    '<circle id="ffHubHi" r="0.9" fill="#eef1f4" vector-effect="non-scaling-stroke"/>' +
+    '<circle id="ffMarker" r="1.9" fill="#ffd24a" stroke="#a06a00" stroke-width="0.6" vector-effect="non-scaling-stroke"/>';
+  view.appendChild(svg);
+  const arc = svg.querySelector("#ffArc"); let d = ""; const steps = 18;
+  for (let i = 0; i <= steps; i++) { const th = -FF_CLAW_MAXROT + (2 * FF_CLAW_MAXROT) * (i / steps); const pp = ffPos(th, FF_CLAW_ARC_R); d += (i ? " L" : "M") + pp.x.toFixed(1) + " " + pp.y.toFixed(1); }
+  arc.setAttribute("d", d);
+  const btn = document.createElement("button"); btn.type = "button"; btn.id = "ffClawBtn"; btn.className = "ff-claw-btn"; btn.textContent = "確定";
+  btn.addEventListener("click", (e) => { e.stopPropagation(); ffClawBtnClick(); });
+  view.appendChild(btn);
+  ffClaw = { phase: "aim", theta: 0, dir: 1, len: 0, caught: null };
+}
+function ffClawStop() {
+  ffClaw = null;
+  const s = document.querySelector("#ffClawSvg"); if (s) s.remove();
+  const b = document.querySelector("#ffClawBtn"); if (b) b.remove();
+}
+function ffClawBtnClick() {
+  if (!ffClaw) return;
+  const b = document.querySelector("#ffClawBtn");
+  if (ffClaw.phase === "aim") { ffClaw.phase = "drop"; if (b) b.style.display = "none"; }
+  else if (ffClaw.phase === "done") { ffClaw.phase = "aim"; ffClaw.len = 0; ffClaw.caught = null; if (b) { b.textContent = "確定"; b.style.display = ""; } }
+}
+function ffClawStep(dt, W, H) {
+  const svg = document.querySelector("#ffClawSvg"); if (!svg) return;
+  const c = ffClaw;
+  if (c.phase === "aim") {
+    c.theta += c.dir * FF_CLAW_AIMSPD * dt;
+    if (c.theta >= FF_CLAW_MAXROT) { c.theta = FF_CLAW_MAXROT; c.dir = -1; }
+    if (c.theta <= -FF_CLAW_MAXROT) { c.theta = -FF_CLAW_MAXROT; c.dir = 1; }
+  } else if (c.phase === "drop") {
+    c.len += FF_CLAW_DROP * dt;
+    const tip = ffPos(c.theta, c.len);
+    let hit = null;
+    for (let i = 0; i < ffFish.length; i++) { const f = ffFish[i]; if ((f.data.stage || 0) < 2) continue; const dx = f.x - tip.x, dy = f.y - tip.y; if (dx * dx + dy * dy <= FF_CLAW_R * FF_CLAW_R) { hit = f; break; } }
+    if (hit) { c.caught = hit; hit.caught = true; c.phase = "retract"; }
+    else if (tip.y >= 95) { c.phase = "retract"; }
+  } else if (c.phase === "retract") {
+    c.len -= FF_CLAW_UP * dt;
+    if (c.caught) { const tip = ffPos(c.theta, Math.max(0, c.len)); c.caught.x = tip.x; c.caught.y = tip.y; ffUpdateFishEl(c.caught, W, H); }
+    if (c.len <= 0) { c.len = 0; ffClawFinish(); }
+  }
+  const tip = ffPos(c.theta, c.phase === "aim" ? 0 : c.len);
+  const rope = svg.querySelector("#ffRope");
+  rope.setAttribute("x1", FF_CLAW_PIVOT.x); rope.setAttribute("y1", FF_CLAW_PIVOT.y);
+  rope.setAttribute("x2", tip.x.toFixed(1)); rope.setAttribute("y2", tip.y.toFixed(1));
+  const nx = Math.sin(c.theta), ny = Math.cos(c.theta), perpx = ny, perpy = -nx;
+  const spread = c.caught ? 1.0 : 2.9;   // 夾到就閉合
+  const wx = tip.x, wy = tip.y;          // 手腕(繩末端/關節)
+  const F = (a, b) => a.toFixed(1) + " " + b.toFixed(1);
+  // 兩支勾爪：手腕→外張→勾回
+  const Lm = [wx + nx * 3.4 - perpx * spread, wy + ny * 3.4 - perpy * spread];
+  const Le = [wx + nx * 5.6 - perpx * spread * 0.35, wy + ny * 5.6 - perpy * spread * 0.35];
+  const Rm = [wx + nx * 3.4 + perpx * spread, wy + ny * 3.4 + perpy * spread];
+  const Re = [wx + nx * 5.6 + perpx * spread * 0.35, wy + ny * 5.6 + perpy * spread * 0.35];
+  const dd = "M" + F(wx, wy) + " L" + F(Lm[0], Lm[1]) + " L" + F(Le[0], Le[1]) + " M" + F(wx, wy) + " L" + F(Rm[0], Rm[1]) + " L" + F(Re[0], Re[1]);
+  svg.querySelector("#ffClawDark").setAttribute("d", dd);
+  svg.querySelector("#ffClawLite").setAttribute("d", dd);
+  const hub = svg.querySelector("#ffHub"), hhi = svg.querySelector("#ffHubHi");
+  const hx = wx - nx * 1.4, hy = wy - ny * 1.4;   // 關節略往繩上
+  hub.setAttribute("cx", hx.toFixed(1)); hub.setAttribute("cy", hy.toFixed(1));
+  hhi.setAttribute("cx", (hx - perpx * 0.8 - nx * 0.7).toFixed(1)); hhi.setAttribute("cy", (hy - perpy * 0.8 - ny * 0.7).toFixed(1));
+  const mk = svg.querySelector("#ffMarker");
+  if (c.phase === "aim") { const mp = ffPos(c.theta, FF_CLAW_ARC_R); mk.setAttribute("cx", mp.x.toFixed(1)); mk.setAttribute("cy", mp.y.toFixed(1)); mk.style.display = ""; }
+  else mk.style.display = "none";
+}
+function ffClawFinish() {
+  const c = ffClaw; if (!c) return;
+  const btn = document.querySelector("#ffClawBtn");
+  if (c.caught) {
+    const f = c.caught;
+    const di = state.pondFish.indexOf(f.data); if (di >= 0) state.pondFish.splice(di, 1);
+    const tp = f.data.type; state.fishBag = state.fishBag || {}; state.fishBag[tp] = (state.fishBag[tp] || 0) + 1;
+    const fi = ffFish.indexOf(f); if (fi >= 0) ffFish.splice(fi, 1);
+    if (f.el && f.el.parentNode) f.el.remove(); if (f.bar && f.bar.parentNode) f.bar.remove();
+    saveState();
+    if (document.querySelector("#fmStock")) renderFishMarket();
+    toast("撈起一隻成魚「" + tp + "」，已放進漁市場成魚庫存！");
+  } else {
+    toast("這一爪沒撈到成魚，再試一次吧。");
+  }
+  c.caught = null; c.phase = "done";
+  if (btn) { btn.textContent = "繼續"; btn.style.display = ""; }
+}
 function ffStep(ts) {
-  if (!document.querySelector("#fishFarmView")) { ffRAF = 0; return; }
+  const view = document.querySelector("#fishFarmView");
+  if (!view) { ffRAF = 0; return; }
+  const W = view.clientWidth, H = view.clientHeight;
   if (!ffLast) ffLast = ts;
   const dt = Math.min(0.05, (ts - ffLast) / 1000); ffLast = ts;
   for (let i = ffFeed.length - 1; i >= 0; i--) {
@@ -700,10 +812,10 @@ function ffStep(ts) {
     fd.y += fd.vy * dt;
     if (fd.y >= 94) { ffRemoveFeed(fd); continue; }   // 沉到底就消失
     fd.phase += dt * 2.5;
-    fd.el.style.top = fd.y + "%";
-    fd.el.style.left = (fd.x + Math.sin(fd.phase) * 0.4) + "%";
+    fd.el.style.transform = "translate3d(" + ((fd.x + Math.sin(fd.phase) * 0.4) / 100 * W).toFixed(1) + "px," + (fd.y / 100 * H).toFixed(1) + "px,0) translate(-50%,-50%)";
   }
   ffFish.forEach((f) => {
+    if (f.caught) return;   // 被爪子夾住的魚交給爪子動畫處理
     const adult = (f.data.stage || 0) >= 2;
     f.sat -= FF_SAT_DRAIN * dt; if (f.sat < 0) f.sat = 0;   // 成魚也會下降
     let tf = null, td = 1e9;
@@ -721,8 +833,9 @@ function ffStep(ts) {
     f.x += f.vx * dt; f.y += f.vy * dt;
     if (f.x < 4) { f.x = 4; f.vx = Math.abs(f.vx); } if (f.x > 96) { f.x = 96; f.vx = -Math.abs(f.vx); }
     if (f.y < 27) { f.y = 27; f.vy = Math.abs(f.vy); } if (f.y > 95) { f.y = 95; f.vy = -Math.abs(f.vy); }
-    ffUpdateFishEl(f);
+    ffUpdateFishEl(f, W, H);
   });
+  if (ffClaw) ffClawStep(dt, W, H);
   ffRAF = requestAnimationFrame(ffStep);
 }
 function ffWaterClick(e) {
