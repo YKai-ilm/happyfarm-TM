@@ -3476,7 +3476,7 @@ const STOCKS = [
 const SESSION_MIN = 892;  // 早9:00-13:25 / 午13:30-18:55 / 夜19:00-24:00（盤間留5分鐘）
 // 行情改由伺服器(GitHub Actions＋秘密種子)寫進 Firestore market/live，前端只讀→無法被預測
 let liveMarket = null; let liveMarketUnsub = null;
-let gmStockVolPos = { left: 50, top: 8 };
+let gmStockVolPos = { left: 30.8, top: 23.3 };
 try { const _svp = JSON.parse(localStorage.getItem("gm-stockvol-pos") || "null"); if (_svp && isFinite(_svp.left)) gmStockVolPos = _svp; } catch (e) {}
 function startLiveMarket() {
   if (!fbDb || liveMarketUnsub) return;
@@ -3722,8 +3722,7 @@ function renderStock() {
       '<div class="stk-price ' + (up ? "up" : "down") + '">' + info.price.toFixed(2) +
         ' <span class="stk-chg">' + sign + info.chg.toFixed(2) + ' (' + sign + info.chgPct.toFixed(2) + '%)</span></div>' +
       (info.limit === "up" ? '<div class="stk-limit up">🔴 漲停</div>' : info.limit === "down" ? '<div class="stk-limit down">🟢 跌停</div>' : '') +
-      '<div class="stk-status">' + stockStatusText(info.state) + '　昨收 ' + info.prevClose.toFixed(2) + '</div>' +
-    '</div>' +
+      '</div>' +
     '<div class="stk-body"><canvas id="stkChart" class="stk-chart"></canvas>' +
     '<div class="stk-actions" id="stkActions">' +
       ['all','am','noon','pm'].map(function(r){var L={all:'全日',am:'早盤',noon:'午盤',pm:'夜盤'};return '<button type="button" class="stk-range'+(stockRange===r?' is-active':'')+'" data-stk-range="'+r+'">'+L[r]+'</button>';}).join('') +
@@ -5831,6 +5830,14 @@ function renderFarm() {
 }
 
 function exportStakePos() {
+  if (document.body.classList.contains("is-stock")) {
+    const t = "成交量框:left " + gmStockVolPos.left.toFixed(1) + "%,top " + gmStockVolPos.top.toFixed(1) + "%";
+    try { if (navigator.clipboard) navigator.clipboard.writeText(t); } catch (e) {}
+    try { console.log("STOCKVOL_POS:", t); } catch (e) {}
+    try { window.prompt("已複製，貼到對話給 Claude 即可：", t); } catch (e) {}
+    toast("成交量框座標已匯出（已複製到剪貼簿）。");
+    return;
+  }
   if (!elements.farmGrid) { toast("找不到農場。"); return; }
   const out = [];
   elements.farmGrid.querySelectorAll(".plot-stake").forEach((stake) => {
