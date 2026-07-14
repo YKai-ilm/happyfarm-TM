@@ -3653,7 +3653,7 @@ function stockHold(code) {
   if (!state.stocks[code]) state.stocks[code] = { sh: 0, cost: 0 };
   return state.stocks[code];
 }
-function stockQtyOf(code) { const n = Math.floor(stockQty[code]); return n >= 1 ? n : 1; }
+function stockQtyOf(code) { const n = Math.floor(stockQty[code] || 0); return n >= 0 ? n : 0; }
 function stockPnl(code, price) {
   const h = stockHold(code);
   if (h.sh <= 0) return null;
@@ -3713,7 +3713,7 @@ function renderStockBuy() {
       '<div class="sbr-ctrl">' +
         '<span class="sell-stepper">' +
           '<button class="qty-btn" type="button" data-sq-dec="' + s.code + '" aria-label="減">−</button>' +
-          '<input class="qty-num" type="number" inputmode="numeric" min="1" data-sq="' + s.code + '" value="' + n + '" />' +
+          '<input class="qty-num" type="number" inputmode="numeric" min="0" data-sq="' + s.code + '" value="' + n + '" />' +
           '<button class="qty-btn" type="button" data-sq-inc="' + s.code + '" aria-label="加">＋</button>' +
         '</span>' +
         '<button class="sbr-clear" type="button" data-sqclr="' + s.code + '">清空</button>' +
@@ -3740,20 +3740,22 @@ function renderStockBuy() {
     const target = rowTop - (list.clientHeight - nowRow.clientHeight) / 2;  // 置中
     list.scrollTop = Math.max(0, target);
   }
-  function setQty(code, v) { stockQty[code] = Math.max(1, Math.floor(v) || 1); updateCostRow(code); }
+  function setQty(code, v, writeInput) {
+    stockQty[code] = Math.max(0, Math.floor(v) || 0);
+    if (writeInput) { const inp = panel.querySelector('[data-sq="' + code + '"]'); if (inp) inp.value = stockQty[code]; }
+    updateCostRow(code);
+  }
   function updateCostRow(code) {
     const stk = STOCKS.find((x) => x.code === code);
     const price = stockInfo(stk).price, n = stockQtyOf(code);
     const el = panel.querySelector('[data-cost="' + code + '"]');
-    const inp = panel.querySelector('[data-sq="' + code + '"]');
-    if (inp) inp.value = n;
     if (el) el.textContent = (stockPanelMode === "sell" ? "可得 " : "") + "整張 " + n + " 張＝$" + Math.round(price * n * 1000).toLocaleString() +
       "　·　零股 " + n + " 股＝$" + Math.round(price * n).toLocaleString();
   }
-  panel.querySelectorAll("[data-sq-dec]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqDec, stockQtyOf(b.dataset.sqDec) - 1)));
-  panel.querySelectorAll("[data-sq-inc]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqInc, stockQtyOf(b.dataset.sqInc) + 1)));
-  panel.querySelectorAll("[data-sq]").forEach((inp) => inp.addEventListener("input", () => setQty(inp.dataset.sq, Number(inp.value))));
-  panel.querySelectorAll("[data-sqclr]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqclr, 1)));
+  panel.querySelectorAll("[data-sq-dec]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqDec, stockQtyOf(b.dataset.sqDec) - 1, true)));
+  panel.querySelectorAll("[data-sq-inc]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqInc, stockQtyOf(b.dataset.sqInc) + 1, true)));
+  panel.querySelectorAll("[data-sq]").forEach((inp) => inp.addEventListener("input", () => setQty(inp.dataset.sq, Number(inp.value), false)));
+  panel.querySelectorAll("[data-sqclr]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.sqclr, 0, true)));
   panel.querySelectorAll("[data-buylot]").forEach((b) => b.addEventListener("click", () => buyStock(b.dataset.buylot, stockQtyOf(b.dataset.buylot) * 1000)));
   panel.querySelectorAll("[data-buyodd]").forEach((b) => b.addEventListener("click", () => buyStock(b.dataset.buyodd, stockQtyOf(b.dataset.buyodd))));
   panel.querySelectorAll("[data-selllot]").forEach((b) => b.addEventListener("click", () => sellStock(b.dataset.selllot, stockQtyOf(b.dataset.selllot) * 1000)));
@@ -3791,7 +3793,8 @@ function submitStockOrder(code, side, shares) {
 }
 function buyStock(code, shares) {
   const stk = STOCKS.find((x) => x.code === code);
-  if (!stk || shares < 1) return;
+  if (!stk) return;
+  if (shares < 1) { toast("請先輸入張數／股數。"); return; }
   const si = stockInfo(stk);
   if (si.state !== "open") { toast("目前暫停交易（盤間休息／休市）。"); return; }
   const price = si.price;
@@ -3810,7 +3813,8 @@ function buyStock(code, shares) {
 
 function sellStock(code, shares) {
   const stk = STOCKS.find((x) => x.code === code);
-  if (!stk || shares < 1) return;
+  if (!stk) return;
+  if (shares < 1) { toast("請先輸入張數／股數。"); return; }
   if (stockInfo(stk).state !== "open") { toast("目前暫停交易（盤間休息／休市）。"); return; }
   const hold = stockHold(code);
   if (hold.sh < shares) { toast("持股不足，目前 " + hold.sh + " 股。"); return; }
