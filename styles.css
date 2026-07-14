@@ -4019,7 +4019,7 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 
 /* 股市成交量框(GM 可拖曳) */
 #stockView { position: relative; }
-.stk-vol { position: absolute; z-index: 6; background: rgba(255,255,255,0.92); border: 1px solid var(--line); border-radius: 9px; padding: 6px 11px; font-size: 0.82rem; line-height: 1.55; box-shadow: 0 1px 5px rgba(0,0,0,0.16); pointer-events: none; white-space: nowrap; }
+.stk-vol { position: absolute; z-index: 6; display: flex; gap: 14px; align-items: baseline; background: rgba(255,255,255,0.92); border: 1px solid var(--line); border-radius: 9px; padding: 5px 12px; font-size: 0.82rem; line-height: 1.4; box-shadow: 0 1px 5px rgba(0,0,0,0.16); pointer-events: none; white-space: nowrap; }
 .stk-vol.gm-draggable { pointer-events: auto; cursor: grab; outline: 1px dashed #3da0ff; touch-action: none; }
 .stk-vol-row b { font-weight: 800; }
 .stk-vol-row.buy b { color: #d0392f; }
