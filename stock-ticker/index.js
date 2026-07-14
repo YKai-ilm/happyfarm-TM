@@ -86,7 +86,7 @@ function sessionIndexNow(nowMs){
 // 玩家下單衝擊參數(有上限，避免被拉爆或操縱)
 const IMP_K = 0.0000015;   // 每股淨買壓 → 價格比例衝擊
 const IMP_MAX = 0.03;      // 累積衝擊上限 ±3%
-const IMP_DECAY = 0.75;    // 每輪衰減(約每5分鐘)
+const IMP_DECAY = 0.95;    // 每輪(每分鐘)衰減，累積衝擊約 20 分鐘內淡出
 
 async function main(){
   const nowMs = Date.now();
@@ -163,4 +163,13 @@ async function main(){
   }
   console.log("published dayNum=" + dayNum + " session=" + s.state + " idx=" + s.idx + " orders=" + toDelete.length);
 }
-main().then(()=>process.exit(0)).catch((e)=>{ console.error(e); process.exit(1); });
+const LOOP_MIN = Number(process.env.LOOP_MINUTES || 0);
+async function runLoop(){
+  const endAt = Date.now() + LOOP_MIN*60000;
+  for(;;){
+    try { await main(); } catch(e){ console.error("tick 失敗:", e && e.message); }
+    if (LOOP_MIN <= 0 || Date.now() >= endAt) break;
+    await new Promise((r)=>setTimeout(r, 60000));   // 每分鐘發一次
+  }
+}
+runLoop().then(()=>process.exit(0)).catch((e)=>{ console.error(e); process.exit(1); });

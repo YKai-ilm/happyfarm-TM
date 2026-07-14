@@ -1,13 +1,18 @@
 name: Stock Ticker
 on:
   schedule:
-    - cron: "*/5 * * * *"   # 每 5 分鐘(UTC)；GitHub 可能延遲幾分鐘
+    - cron: "*/15 * * * *"   # 每 15 分鐘觸發一次(安全網)；每個 job 內部自己每分鐘發、連續跑約 55 分鐘
   workflow_dispatch: {}
 permissions:
   contents: read
+# 新觸發自動取消舊的，接手繼續 → 不會堆疊、涵蓋連續
+concurrency:
+  group: stock-ticker
+  cancel-in-progress: true
 jobs:
   tick:
     runs-on: ubuntu-latest
+    timeout-minutes: 58
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,4 +26,5 @@ jobs:
         env:
           STOCK_SECRET: ${{ secrets.STOCK_SECRET }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          LOOP_MINUTES: "55"
         run: node index.js
