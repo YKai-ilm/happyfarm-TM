@@ -3473,86 +3473,30 @@ const STOCKS = [
   { code: "STORM", name: "雷雨重工",     base: 10, vol: 0.029 },
   { code: "HONEY", name: "蜜豐食品",     base: 10, vol: 0.012 },
 ];
-const STOCK_EPOCH = Date.UTC(2026, 5, 1) / 86400000;  // 走勢起點(天)
-function stkHash(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function stkRng(seed) { let a = seed >>> 0; return function () { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function dayNumber(d) { return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000); }
-const _closeCache = {};
-function stockClose(stock, dayNum) {
-  const key = stock.code + ":" + dayNum;
-  if (_closeCache[key] != null) return _closeCache[key];
-  let price = stock.base;
-  for (let d = STOCK_EPOCH + 1; d <= dayNum; d++) {
-    const rr = stkRng(stkHash(stock.code + "|" + d));
-    let ret = (rr() * 2 - 1) * (stock.vol * 2.0);   // 每日總漲跌幅
-    if (rr() > 0.88) {                              // ~12% 大波動日：朝同方向暴衝
-      const dir = ret >= 0 ? 1 : -1;
-      ret = dir * (0.06 + rr() * 0.045);
-    }
-    ret = Math.max(-0.10, Math.min(0.10, ret));     // 台股 ±10% 漲跌停
-    price = Math.max(1, price * (1 + ret));
-  }
-  _closeCache[key] = price;
-  return price;
-}
-function stockOpenPrice(stock, dayNum) {
-  const prev = stockClose(stock, dayNum - 1);
-  const prev2 = stockClose(stock, dayNum - 2);
-  const yReturn = prev2 > 0 ? (prev / prev2 - 1) : 0;        // 前一天總漲跌幅
-  const jitter = (stkRng(stkHash(stock.code + "open" + dayNum))() * 2 - 1) * 0.01;
-  let gap = yReturn * 0.8 + jitter;                          // 偏向昨日方向
-  gap = Math.max(-0.04, Math.min(0.04, gap));                // 限 ±4%
-  return prev * (1 + gap);
-}
 const SESSION_MIN = 892;  // 早9:00-13:25 / 午13:30-18:55 / 夜19:00-24:00（盤間留5分鐘）
-function stockPath(stock, dayNum) {
-  const key = "p" + stock.code + ":" + dayNum;
-  if (_closeCache[key]) return _closeCache[key];
-  const open = stockOpenPrice(stock, dayNum);
-  const close = stockClose(stock, dayNum);
-  const prevC = stockClose(stock, dayNum - 1);
-  const limHi = prevC * 1.1, limLo = prevC * 0.9;
-  const N = SESSION_MIN;
-  const rng = stkRng(stkHash(stock.code + "path" + dayNum));
-  const noise = [0]; let acc = 0;
-  for (let i = 1; i <= N; i++) { acc += (rng() * 2 - 1) * stock.vol; noise.push(acc); }
-  const end = noise[N];
-  const path = [];
-  for (let i = 0; i <= N; i++) {
-    const lin = open + (close - open) * (i / N);
-    const bridged = noise[i] - end * (i / N);  // 兩端歸零的布朗橋
-    path.push(Math.max(limLo, Math.min(limHi, lin + open * bridged)));
-  }
-  _closeCache[key] = path;
-  return path;
+// 行情改由伺服器(GitHub Actions＋秘密種子)寫進 Firestore market/live，前端只讀→無法被預測
+let liveMarket = null; let liveMarketUnsub = null;
+function startLiveMarket() {
+  if (!fbDb || liveMarketUnsub) return;
+  liveMarketUnsub = fbDb.collection("market").doc("live").onSnapshot(function (doc) {
+    if (doc.exists) { liveMarket = doc.data(); if (stockOpen) { renderStock(); refreshStockBuyPrices(); } }
+  }, function () {});
 }
-function sessionIndexNow() {
-  const d = new Date();
-  const mod = d.getHours() * 60 + d.getMinutes();
-  if (mod < 540) return { state: "pre", idx: 0 };                        // 9:00前 休市
-  if (mod <= 805) return { state: "open", idx: mod - 540 };              // 早盤 9:00-13:25
-  if (mod < 810) return { state: "closed", idx: 265 };                   // 13:25-13:30 預留禁交易
-  if (mod <= 1135) return { state: "open", idx: 266 + (mod - 810) };     // 午盤 13:30-18:55
-  if (mod < 1140) return { state: "closed", idx: 591 };                  // 18:55-19:00 預留禁交易
-  if (mod <= 1440) return { state: "open", idx: 592 + (mod - 1140) };    // 夜盤 19:00-24:00
-  return { state: "open", idx: SESSION_MIN };
-}
+function stopLiveMarket() { if (liveMarketUnsub) { liveMarketUnsub(); liveMarketUnsub = null; } }
 function stockInfo(stock) {
-  const d = new Date();
-  const dayNum = dayNumber(d);
-  const s = sessionIndexNow();
-  const prevClose = stockClose(stock, dayNum - 1);
-  let price, path, shown;
-  if (s.state === "pre") { price = prevClose; path = []; shown = 0; }
-  else { path = stockPath(stock, dayNum); shown = s.idx; price = path[Math.min(shown, SESSION_MIN)]; }
-  const chg = price - prevClose;
-  const chgPct = prevClose > 0 ? (chg / prevClose * 100) : 0;
-  let limit = "";
-  if (chgPct >= 9.9) limit = "up";
-  else if (chgPct <= -9.9) limit = "down";
-  return { price, prevClose, chg, chgPct, path, shown, state: s.state, limit };
+  const lm = liveMarket && liveMarket.stocks && liveMarket.stocks[stock.code];
+  if (!lm) return { price: 0, prevClose: 0, chg: 0, chgPct: 0, path: [], shown: 0, state: "loading", limit: "", vol: 0 };
+  const price = lm.now, prevClose = lm.prevClose;
+  const chg = price - prevClose, chgPct = prevClose > 0 ? (chg / prevClose * 100) : 0;
+  const path = Array.isArray(lm.path) ? lm.path : [];
+  let limit = ""; if (chgPct >= 9.9) limit = "up"; else if (chgPct <= -9.9) limit = "down";
+  // 假成交量：由價格漲幅逆推(累積每分鐘變動幅度 × 波動係數)
+  let mv = 0; for (let i = 1; i < path.length; i++) { mv += Math.abs(path[i] - path[i - 1]) / (path[i - 1] || 1); }
+  const vol = Math.round(mv * 45000 * (1 + stock.vol * 18) + path.length * 4);
+  return { price: price, prevClose: prevClose, chg: chg, chgPct: chgPct, path: path, shown: Math.max(0, path.length - 1), state: (liveMarket.session || "open"), limit: limit, vol: vol };
 }
 function stockStatusText(state) {
+  if (state === "loading") return "行情載入中…";
   if (state === "pre") return "休市・早上 9:00 開盤";
   if (state === "lunch") return "休息・晚上 7:00 續盤";
   if (state === "closed") return "暫停交易・盤間休息（預留5分鐘）";
@@ -3565,6 +3509,7 @@ function enterStock() {
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   stockOpen = true;
   document.body.classList.add("is-stock");
+  startLiveMarket();
   renderStock();
   if (stockTimer) clearInterval(stockTimer);
   stockTimer = setInterval(function () { renderStock(); refreshStockBuyPrices(); }, 15000);
@@ -3572,6 +3517,7 @@ function enterStock() {
 function exitStock() {
   stockOpen = false;
   document.body.classList.remove("is-stock");
+  stopLiveMarket();
   closeStockBuy();
   if (stockTimer) { clearInterval(stockTimer); stockTimer = null; }
   ["#stockView", "#stockBuyPanel", "#stockBuyBackdrop"].forEach((sel) => {
@@ -3768,7 +3714,7 @@ function renderStock() {
       '<div class="stk-price ' + (up ? "up" : "down") + '">' + info.price.toFixed(2) +
         ' <span class="stk-chg">' + sign + info.chg.toFixed(2) + ' (' + sign + info.chgPct.toFixed(2) + '%)</span></div>' +
       (info.limit === "up" ? '<div class="stk-limit up">🔴 漲停</div>' : info.limit === "down" ? '<div class="stk-limit down">🟢 跌停</div>' : '') +
-      '<div class="stk-status">' + stockStatusText(info.state) + '　昨收 ' + info.prevClose.toFixed(2) + '</div>' +
+      '<div class="stk-status">' + stockStatusText(info.state) + '　昨收 ' + info.prevClose.toFixed(2) + '　量 ' + (info.vol || 0).toLocaleString() + '</div>' +
     '</div>' +
     '<div class="stk-body"><canvas id="stkChart" class="stk-chart"></canvas>' +
     '<div class="stk-actions" id="stkActions">' +
