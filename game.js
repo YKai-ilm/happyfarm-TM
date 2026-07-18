@@ -1646,6 +1646,8 @@ function createDefaultState() {
     customAvatars: [],
     ranchAnimals: [],
     ranchProducts: {},
+    dishBag: {},
+    weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0 },
     ranchTool: "",
     ranchLevel: 1,
     farmName: "",
@@ -2183,8 +2185,10 @@ async function publishProfile(force) {
       level: state.level || 1,
       coins: state.coins || 0,
       ordersCompleted: state.ordersCompleted || 0,
-      sabotage: (state.stats && state.stats.sabotage) || 0,
-      help: (state.stats && state.stats.help) || 0,
+      weekStart: ensureWeek().weekStart,
+      wOrders: (state.weekly && state.weekly.orders) || 0,
+      wSabotage: (state.weekly && state.weekly.sabotage) || 0,
+      wHelp: (state.weekly && state.weekly.help) || 0,
       dogGuard: dogWorking(),
       dogState: dogStateForProfile(),
       windmill: (state.upgrades && state.upgrades.windmill) || 0,
@@ -2553,7 +2557,7 @@ function cloudRanchHelp(i) {
     a._cleaned = true;
     writeFriendEvent(visiting.uid, { type: "rhelp", animalIndex: i });
     state.coins = (state.coins || 0) + 8; addXp(3);
-    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
+    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1; bumpWeekly("help");
     saveState(); rerenderVisit();
     toast("幫 " + (visiting.farmName || "好友") + " 的動物洗乾淨了，獲得 8 金幣！");
     return;
@@ -2563,7 +2567,7 @@ function cloudRanchHelp(i) {
     a._fed = true;
     writeFriendEvent(visiting.uid, { type: "rhelp", animalIndex: i });
     state.coins = (state.coins || 0) + 8; addXp(3);
-    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
+    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1; bumpWeekly("help");
     saveState(); rerenderVisit();
     toast("幫 " + (visiting.farmName || "好友") + " 餵了飼料，獲得 8 金幣！");
     return;
@@ -2577,7 +2581,7 @@ function cloudRanchSpray(i) {
   if (!a) return;
   if (a.status === "dirty" || visitPendingSpray[i]) { toast("這隻已經髒了 💩，不用再噴。"); return; }
   writeFriendEvent(visiting.uid, { type: "spray", animalIndex: i });
-  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; saveState();
+  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; bumpWeekly("sabotage"); saveState();
   visitPendingSpray[i] = Date.now();
   renderVisitingRanch();
   toast("你朝 " + (visiting.farmName || "好友") + " 的動物噴了髒水 💩（牠髒了，主人要先洗才能照顧）");
@@ -2769,7 +2773,7 @@ function cloudFarmHelp(index) {
     writeFriendEvent(visiting.uid, { type: "depest", plotIndex: index });
     state.coins = (state.coins || 0) + 8; addXp(3);
     if (state.stats) state.stats.bug = (state.stats.bug || 0) + 1;
-    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
+    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1; bumpWeekly("help");
     saveState(); rerenderVisit();
     toast("幫 " + (visiting.farmName || "好友") + " 除掉蟲害／雜草，獲得 8 金幣！");
     return;
@@ -2786,7 +2790,7 @@ function cloudFarmHelp(index) {
   writeFriendEvent(visiting.uid, { type: "help", plotIndex: index });
   state.coins = (state.coins || 0) + 8; addXp(3);
   if (state.stats) state.stats.water = (state.stats.water || 0) + 1;
-  state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
+  state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1; bumpWeekly("help");
   saveState(); rerenderVisit();
   toast("幫 " + (visiting.farmName || "好友") + " 澆了水，獲得 8 金幣！");
 }
@@ -2799,7 +2803,7 @@ function cloudFarmBug(index) {
   if (ready) { toast("已成熟的作物放蟲沒用。"); return; }
   if (pl.pest || pl.pestUsed || visitPendingBug[index]) { toast("這塊田這一輪已經放過蟲了 🐛"); return; }
   writeFriendEvent(visiting.uid, { type: "bug", plotIndex: index });
-  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; saveState();
+  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; bumpWeekly("sabotage"); saveState();
   visitPendingBug[index] = Date.now();
   renderVisitingFarm();
   toast("你在 " + (visiting.farmName || "好友") + " 的田裡放了蟲 🐛");
@@ -2816,7 +2820,7 @@ function npcPutBug(index) {
   p.hazard = "bug";
   p.hazardPlaced = true;
   p.bugUsed = true;
-  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1;
+  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; bumpWeekly("sabotage");
   saveState();
   renderVisitingFarm();
   toast("你在 " + friend.name + " 的田裡放了蟲 🐛");
@@ -3956,6 +3960,223 @@ function drawStockChart(stock, info) {
   ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tag, tagX + tw / 2, lastY);
 }
 
+/* ===== 廚房功能 ===== */
+const KSVGNS = "http://www.w3.org/2000/svg";
+const KFRUITS = new Set(["apple","strawberry","watermelon","banana","peach","orange","grape","pomegranate"]);
+const KITCHEN_ING = [].concat(
+  Object.keys(CROPS).map((id) => ({ key: id, name: CROPS[id].name, cat: (KFRUITS.has(id) ? "fruit" : "veg"), src: "crop" })),
+  [{ key: "egg", name: "蛋", cat: "egg", src: "ranch", rk: "chicken" },
+   { key: "pork", name: "豬肉", cat: "pork", src: "ranch", rk: "pig" },
+   { key: "milk", name: "牛奶", cat: "milk", src: "ranch", rk: "cow" }],
+  FISH_MARKET.map((f) => ({ key: "fish:" + f.k, name: f.k, cat: "fish", src: "fish", fk: f.k }))
+);
+const KITCHEN_ING_MAP = {}; KITCHEN_ING.forEach((i) => { KITCHEN_ING_MAP[i.key] = i; });
+const RECIPES = [
+  { id: "fries", name: "黃金薯條", ing: ["potato"], sell: 60 },
+  { id: "cornroast", name: "烤玉米", ing: ["corn"], sell: 55 },
+  { id: "boiledegg", name: "水煮蛋", ing: ["egg"], sell: 45 },
+  { id: "sausage", name: "炭烤香腸", ing: ["pork"], sell: 230 },
+  { id: "eggplantgrill", name: "炭烤茄子", ing: ["eggplant"], sell: 60 },
+  { id: "pomjuice", name: "石榴汁", ing: ["pomegranate"], sell: 110 },
+  { id: "tomategg", name: "番茄炒蛋", ing: ["tomato", "egg"], sell: 130 },
+  { id: "cornsoup", name: "玉米濃湯", ing: ["corn", "milk"], sell: 230 },
+  { id: "mash", name: "奶香薯泥", ing: ["potato", "milk"], sell: 200 },
+  { id: "pumpkinsoup", name: "南瓜濃湯", ing: ["pumpkin", "milk"], sell: 250 },
+  { id: "strawshake", name: "草莓奶昔", ing: ["strawberry", "milk"], sell: 230 },
+  { id: "spicypork", name: "辣炒豬肉", ing: ["pork", "pepper"], sell: 270 },
+  { id: "juice2", name: "綜合果汁", ing: ["cat:fruit", "cat:fruit"], sell: 150 },
+  { id: "stirveg", name: "什錦炒蔬", ing: ["cat:veg", "cat:veg"], sell: 140 },
+  { id: "grillfish", name: "鹽烤鮮魚", ing: ["cat:fish"], sell: 220 },
+  { id: "fishsoup", name: "味噌魚湯", ing: ["cat:fish", "milk"], sell: 300 },
+  { id: "salad", name: "田園沙拉", ing: ["tomato", "carrot", "pepper"], sell: 180 },
+  { id: "kebab", name: "炭烤肉串", ing: ["pork", "pepper", "eggplant"], sell: 330 },
+  { id: "sweetfish", name: "糖醋魚", ing: ["cat:fish", "tomato", "pepper"], sell: 390 },
+  { id: "fruitplate", name: "繽紛水果盤", ing: ["cat:fruit", "cat:fruit", "cat:fruit"], sell: 220 },
+  { id: "applepie", name: "蘋果派", ing: ["apple", "egg", "milk"], sell: 320 },
+  { id: "porkbowl", name: "豬肉蓋飯", ing: ["pork", "egg", "corn"], sell: 350 },
+  { id: "stew", name: "農夫燉菜", ing: ["potato", "carrot", "tomato"], sell: 200 },
+  { id: "fishburger", name: "鮮魚堡", ing: ["cat:fish", "egg", "tomato"], sell: 350 },
+];
+const RECIPE_MAP = {}; RECIPES.forEach((r) => { RECIPE_MAP[r.id] = r; });
+function kIngCount(ing) {
+  if (!ing) return 0;
+  if (ing.src === "crop") return (state.inventory && state.inventory[ing.key]) || 0;
+  if (ing.src === "ranch") return (state.ranchProducts && state.ranchProducts[ing.rk]) || 0;
+  if (ing.src === "fish") return (state.fishBag && state.fishBag[ing.fk]) || 0;
+  return 0;
+}
+function kIngConsume(ing, n) {
+  if (ing.src === "crop") { state.inventory = state.inventory || {}; state.inventory[ing.key] = Math.max(0, (state.inventory[ing.key] || 0) - n); }
+  else if (ing.src === "ranch") { state.ranchProducts = state.ranchProducts || {}; state.ranchProducts[ing.rk] = Math.max(0, (state.ranchProducts[ing.rk] || 0) - n); }
+  else if (ing.src === "fish") { state.fishBag = state.fishBag || {}; state.fishBag[ing.fk] = Math.max(0, (state.fishBag[ing.fk] || 0) - n); }
+}
+function ingMatchesToken(ingKey, token) {
+  if (token.indexOf("cat:") === 0) { const ing = KITCHEN_ING_MAP[ingKey]; return !!ing && ing.cat === token.slice(4); }
+  return ingKey === token;
+}
+function kCanAssign(keys, tokens) {
+  if (!tokens.length) return true;
+  const token = tokens[0];
+  for (let i = 0; i < keys.length; i++) {
+    if (ingMatchesToken(keys[i], token)) { const kk = keys.slice(); kk.splice(i, 1); if (kCanAssign(kk, tokens.slice(1))) return true; }
+  }
+  return false;
+}
+function matchRecipe(chosenKeys) {
+  const specificity = (r) => r.ing.filter((t) => t.indexOf("cat:") !== 0).length;
+  const rs = RECIPES.slice().sort((a, b) => specificity(b) - specificity(a));
+  for (const r of rs) { if (r.ing.length !== chosenKeys.length) continue; if (kCanAssign(chosenKeys.slice(), r.ing.slice())) return r; }
+  return null;
+}
+// GM 穀倉框(不規則七邊形)
+const KPOLY_DEFAULT = [{ x: 82.5, y: 23.2 }, { x: 85.7, y: 27.5 }, { x: 86.7, y: 34.5 }, { x: 86.5, y: 46.8 }, { x: 78.7, y: 43.0 }, { x: 78.4, y: 33.6 }, { x: 79.0, y: 27.5 }];
+let kitchenPoly = KPOLY_DEFAULT.map((p) => ({ x: p.x, y: p.y }));
+try { const _kp = JSON.parse(localStorage.getItem("kitchen-poly") || "null"); if (Array.isArray(_kp) && _kp.length === 7) kitchenPoly = _kp; } catch (e) {}
+let kitchenOpen = false;
+let kSlots = [null, null, null];
+function kPolyStr() { return kitchenPoly.map((p) => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" "); }
+function updateKitchenZone() {
+  const frame = document.querySelector(".field-frame");
+  let svg = document.querySelector("#kitchenZone");
+  const show = frame && state.scene === "farm" && !visiting && !kitchenOpen;
+  if (!show) { if (svg) svg.remove(); return; }
+  if (!svg) { svg = document.createElementNS(KSVGNS, "svg"); svg.id = "kitchenZone"; svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("preserveAspectRatio", "none"); frame.appendChild(svg); }
+  const gm = !!state.gm;
+  let inner = '<polygon points="' + kPolyStr() + '" class="kz-poly' + (gm ? " gm" : "") + '" />';
+  if (gm) kitchenPoly.forEach((p, i) => { inner += '<circle cx="' + p.x + '" cy="' + p.y + '" r="1.9" class="kz-handle" data-kzi="' + i + '" />'; });
+  svg.innerHTML = inner;
+  svg.classList.toggle("gm", gm);
+  const poly = svg.querySelector(".kz-poly");
+  if (!gm) { if (poly) poly.addEventListener("click", (e) => { e.stopPropagation(); enterKitchen(); }); }
+  else {
+    svg.querySelectorAll(".kz-handle").forEach((h) => {
+      let drag = false;
+      h.onpointerdown = (e) => { drag = true; try { h.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); e.stopPropagation(); };
+      h.onpointermove = (e) => {
+        if (!drag) return; const r = frame.getBoundingClientRect(); if (!r.width) return;
+        let x = (e.clientX - r.left) / r.width * 100, y = (e.clientY - r.top) / r.height * 100;
+        x = Math.max(0, Math.min(100, x)); y = Math.max(0, Math.min(100, y));
+        const i = Number(h.dataset.kzi); kitchenPoly[i] = { x: x, y: y };
+        h.setAttribute("cx", x); h.setAttribute("cy", y);
+        const pl = svg.querySelector(".kz-poly"); if (pl) pl.setAttribute("points", kPolyStr());
+      };
+      const end = () => { if (drag) { drag = false; try { localStorage.setItem("kitchen-poly", JSON.stringify(kitchenPoly)); } catch (_) {} } };
+      h.onpointerup = end; h.onpointercancel = end;
+    });
+  }
+}
+function enterKitchen() { if (kitchenOpen) return; kitchenOpen = true; kSlots = [null, null, null]; buildKitchenView(); applyAudio(); }
+function exitKitchen() { kitchenOpen = false; const v = document.querySelector("#kitchenView"); if (v) v.remove(); const m = document.querySelector("#cookModal"); if (m) m.remove(); applyAudio(); render(); }
+function buildKitchenView() {
+  const old = document.querySelector("#kitchenView"); if (old) old.remove();
+  const v = document.createElement("div"); v.id = "kitchenView"; v.className = "kitchen";
+  v.innerHTML =
+    '<div class="kit-scene">' +
+      '<button type="button" id="kitPot" class="kit-pot" aria-label="點烤爐開始煮"></button>' +
+    '</div>' +
+    '<nav class="kit-nav">' +
+      '<button type="button" class="kit-nav-btn" data-kit="back"><span class="kit-nav-ico">🌾</span><span class="kit-nav-txt">回農場</span></button>' +
+      '<button type="button" class="kit-nav-btn" data-kit="cut"><span class="kit-nav-ico">🔪</span><span class="kit-nav-txt">切菜</span></button>' +
+      '<button type="button" class="kit-nav-btn" data-kit="wash"><span class="kit-nav-ico">🚿</span><span class="kit-nav-txt">洗菜</span></button>' +
+      '<button type="button" class="kit-nav-btn" data-kit="cook"><span class="kit-nav-ico">🍲</span><span class="kit-nav-txt">煮菜</span></button>' +
+      '<button type="button" class="kit-nav-btn" data-kit="stock"><span class="kit-nav-ico">🍱</span><span class="kit-nav-txt">成品存貨</span></button>' +
+    '</nav>';
+  document.body.appendChild(v);
+  v.querySelector("#kitPot").addEventListener("click", openCookPot);
+  v.querySelectorAll("[data-kit]").forEach((b) => b.addEventListener("click", () => kitNav(b.dataset.kit)));
+}
+function kitNav(k) {
+  if (k === "back") exitKitchen();
+  else if (k === "cook") openCookPot();
+  else if (k === "stock") openDishStock();
+  else if (k === "cut") toast("切菜功能開發中，之後加入。");
+  else if (k === "wash") toast("洗菜功能開發中，之後加入。");
+}
+function openDishStock() {
+  const old = document.querySelector("#dishStockModal"); if (old) old.remove();
+  const m = document.createElement("div"); m.id = "dishStockModal"; m.className = "cook-modal";
+  m.innerHTML = '<div class="cook-card"><h3>🍱 成品存貨（點「賣」換金幣）</h3><div id="dishStockList" class="kit-dishes"></div><button type="button" class="kit-sub" id="dsClose">關閉</button></div>';
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+  m.querySelector("#dsClose").addEventListener("click", () => m.remove());
+  renderKitchenDishes();
+}
+function renderKitchenDishes() {
+  const box = document.querySelector("#dishStockList"); if (!box) return;
+  state.dishBag = state.dishBag || {};
+  const ids = Object.keys(state.dishBag).filter((id) => (state.dishBag[id] || 0) > 0 && RECIPE_MAP[id]);
+  if (!ids.length) { box.innerHTML = '<p class="item-empty">還沒有料理，點鍋子做一道吧。</p>'; return; }
+  box.innerHTML = ids.map((id) => {
+    const r = RECIPE_MAP[id], n = state.dishBag[id];
+    return '<div class="kit-dish"><span class="kit-dish-name">' + r.name + ' ×' + n + '</span><span class="kit-dish-sell">$' + r.sell + '/份</span>' +
+      '<button type="button" class="kit-sell" data-sell="' + id + '">賣1</button>' +
+      '<button type="button" class="kit-sell all" data-sellall="' + id + '">全賣</button></div>';
+  }).join("");
+  box.querySelectorAll("[data-sell]").forEach((b) => b.addEventListener("click", () => sellDish(b.dataset.sell, 1)));
+  box.querySelectorAll("[data-sellall]").forEach((b) => b.addEventListener("click", () => sellDish(b.dataset.sellall, state.dishBag[b.dataset.sellall] || 0)));
+}
+function sellDish(id, n) {
+  const r = RECIPE_MAP[id]; if (!r) return;
+  state.dishBag = state.dishBag || {};
+  n = Math.min(n, state.dishBag[id] || 0); if (n <= 0) return;
+  state.dishBag[id] -= n; if (state.dishBag[id] <= 0) delete state.dishBag[id];
+  const gain = r.sell * n; state.coins = (state.coins || 0) + gain;
+  saveState(); renderHeader(); renderKitchenDishes();
+  toast("賣出 " + r.name + " ×" + n + "，得 $" + gain.toLocaleString() + "。");
+}
+function openCookPot() {
+  const old = document.querySelector("#cookModal"); if (old) old.remove();
+  const m = document.createElement("div"); m.id = "cookModal"; m.className = "cook-modal";
+  m.innerHTML = '<div class="cook-card"><h3>組合料理（放 1～3 種食材）</h3><div class="cook-slots" id="cookSlots"></div>' +
+    '<div class="cook-hint" id="cookHint">點空格從庫存放食材，再按「開煮」。</div>' +
+    '<div class="cook-actions"><button type="button" id="cookGo" class="kit-primary">🔥 開煮</button>' +
+    '<button type="button" id="cookClear" class="kit-sub">清空</button>' +
+    '<button type="button" id="cookClose" class="kit-sub">關閉</button></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+  m.querySelector("#cookGo").addEventListener("click", cookGo);
+  m.querySelector("#cookClear").addEventListener("click", () => { kSlots = [null, null, null]; renderCookSlots(); });
+  m.querySelector("#cookClose").addEventListener("click", () => m.remove());
+  renderCookSlots();
+}
+function renderCookSlots() {
+  const wrap = document.querySelector("#cookSlots"); if (!wrap) return;
+  wrap.innerHTML = kSlots.map((k, i) => {
+    if (k && KITCHEN_ING_MAP[k]) return '<button type="button" class="cook-slot filled" data-slot="' + i + '">' + KITCHEN_ING_MAP[k].name + '<small>點我移除</small></button>';
+    return '<button type="button" class="cook-slot" data-slot="' + i + '">＋<small>放食材</small></button>';
+  }).join("");
+  wrap.querySelectorAll("[data-slot]").forEach((b) => b.addEventListener("click", () => {
+    const i = Number(b.dataset.slot);
+    if (kSlots[i]) { kSlots[i] = null; renderCookSlots(); } else openIngredientPicker(i);
+  }));
+}
+function openIngredientPicker(slotIndex) {
+  const ov = document.createElement("div"); ov.className = "cook-modal"; ov.style.zIndex = "95";
+  const avail = KITCHEN_ING.filter((ing) => kIngCount(ing) > 0);
+  let rows = avail.map((ing) => '<button type="button" class="cook-pick" data-pick="' + ing.key + '">' + ing.name + ' <small>×' + kIngCount(ing) + '</small></button>').join("");
+  if (!rows) rows = '<p class="item-empty">庫存沒有可用食材，先去收成／撈魚吧。</p>';
+  ov.innerHTML = '<div class="cook-card"><h3>選一種食材</h3><div class="cook-picklist">' + rows + '</div><button type="button" class="kit-sub" id="pickClose">關閉</button></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  ov.querySelector("#pickClose").addEventListener("click", () => ov.remove());
+  ov.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => { kSlots[slotIndex] = b.dataset.pick; ov.remove(); renderCookSlots(); }));
+}
+function cookGo() {
+  const hint = document.querySelector("#cookHint");
+  const chosen = kSlots.filter(Boolean);
+  if (!chosen.length) { if (hint) hint.textContent = "先放至少一種食材。"; return; }
+  const recipe = matchRecipe(chosen);
+  if (!recipe) { if (hint) hint.textContent = "這些食材組不出料理，換換看 😅"; return; }
+  const need = {}; chosen.forEach((k) => { need[k] = (need[k] || 0) + 1; });
+  for (const k in need) { if (kIngCount(KITCHEN_ING_MAP[k]) < need[k]) { if (hint) hint.textContent = "食材數量不夠。"; return; } }
+  for (const k in need) kIngConsume(KITCHEN_ING_MAP[k], need[k]);
+  state.dishBag = state.dishBag || {}; state.dishBag[recipe.id] = (state.dishBag[recipe.id] || 0) + 1;
+  kSlots = [null, null, null];
+  saveState(); renderCookSlots(); renderKitchenDishes();
+  if (typeof renderInventory === "function") renderInventory();
+  if (hint) hint.textContent = "做出「" + recipe.name + "」！可賣 $" + recipe.sell + "。";
+  toast("🍽️ 做出「" + recipe.name + "」！");
+}
 function bindBgm() {
   const btn = document.querySelector("#bgmToggle");
   if (!btn) return;
@@ -3980,6 +4201,7 @@ function pauseSafe(el) { if (el && typeof el.pause === "function") el.pause(); }
 
 function applyAudio() {
   if (!audioReady) return;
+  if (kitchenOpen) { ALL_AUDIO_IDS.forEach((id) => { const el = document.querySelector("#" + id); if (el) pauseSafe(el); }); return; }
   const btn = document.querySelector("#bgmToggle");
   if (btn) btn.textContent = audioOn ? "🎵 音樂" : "🔇 音樂";
   const wanted = audioOn ? (WEATHER_AUDIO[state.weather] || []) : [];
@@ -5158,12 +5380,24 @@ function openInvite() {
   if (box) box.hidden = false;
 }
 
+function currentWeekStart() {
+  // 台北時間；每週一 00:00 為週界(即週日 24:00 歸零)
+  const t = new Date(Date.now() + 8 * 3600 * 1000);
+  const back = (t.getUTCDay() + 6) % 7;
+  return Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()) - back * 86400000 - 8 * 3600 * 1000;
+}
+function ensureWeek() {
+  const ws = currentWeekStart();
+  if (!state.weekly || state.weekly.weekStart !== ws) state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0 };
+  return state.weekly;
+}
+function bumpWeekly(field) { const w = ensureWeek(); w[field] = (w[field] || 0) + 1; }
 const LB_TABS = [
   { k: "level", label: "等級", fmt: (r) => "Lv." + r.level + " · 🪙" + r.coins.toLocaleString(), cmp: (a, b) => (b.level - a.level) || (b.coins - a.coins) },
   { k: "stock", label: "股市", fmt: null, cmp: null },
-  { k: "orders", label: "訂單", fmt: (r) => "完成訂單 " + r.orders.toLocaleString() + " 筆", cmp: (a, b) => (b.orders - a.orders) || (b.level - a.level) },
-  { k: "sabotage", label: "陷害", fmt: (r) => "放蟲＋噴髒 " + r.sabotage.toLocaleString() + " 次", cmp: (a, b) => (b.sabotage - a.sabotage) || (b.level - a.level) },
-  { k: "help", label: "幫忙", fmt: (r) => "幫忙 " + r.help.toLocaleString() + " 次", cmp: (a, b) => (b.help - a.help) || (b.level - a.level) },
+  { k: "orders", label: "訂單", fmt: (r) => "本週訂單 " + r.orders.toLocaleString() + " 筆", cmp: (a, b) => (b.orders - a.orders) || (b.level - a.level) },
+  { k: "sabotage", label: "陷害", fmt: (r) => "本週惡搞 " + r.sabotage.toLocaleString() + " 次", cmp: (a, b) => (b.sabotage - a.sabotage) || (b.level - a.level) },
+  { k: "help", label: "幫忙", fmt: (r) => "本週幫忙 " + r.help.toLocaleString() + " 次", cmp: (a, b) => (b.help - a.help) || (b.level - a.level) },
 ];
 let lbTab = "level"; let lbRows = null;
 function openLeaderboard() {
@@ -5176,11 +5410,18 @@ function openLeaderboard() {
   renderLeaderboard();
   (async () => {
     const ids = [fbUser.uid].concat((state.cloudFriends || []).map((f) => f.uid));
+    const cw = currentWeekStart();
     const rows = [];
     for (const uid of ids) {
       try {
         const s = await fbDb.collection("profiles").doc(uid).get();
-        if (s.exists) { const d = s.data(); rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, orders: d.ordersCompleted || 0, sabotage: d.sabotage || 0, help: d.help || 0, me: uid === fbUser.uid }); }
+        if (s.exists) {
+          const d = s.data();
+          let ord, sab, hlp;
+          if (uid === fbUser.uid) { const w = ensureWeek(); ord = w.orders; sab = w.sabotage; hlp = w.help; }
+          else { const fresh = (d.weekStart === cw); ord = fresh ? (d.wOrders || 0) : 0; sab = fresh ? (d.wSabotage || 0) : 0; hlp = fresh ? (d.wHelp || 0) : 0; }
+          rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, orders: ord, sabotage: sab, help: hlp, me: uid === fbUser.uid });
+        }
       } catch (_) {}
     }
     lbRows = rows;
@@ -5198,12 +5439,14 @@ function renderLeaderboard() {
   if (lbTab === "stock") { list.innerHTML = '<p class="item-empty">📈 股市收益排行即將推出。<br>等操盤收益統計實裝後就會開放。</p>'; return; }
   if (!lbRows) { list.innerHTML = '<p class="item-empty">載入中…</p>'; return; }
   const tab = LB_TABS.find((t) => t.k === lbTab) || LB_TABS[0];
+  const weekly = (lbTab === "orders" || lbTab === "sabotage" || lbTab === "help");
+  const note = weekly ? '<p class="lb-week-note">🗓️ 本週統計，每週一 00:00 歸零重算</p>' : "";
   const sorted = lbRows.slice().sort(tab.cmp);
-  list.innerHTML = sorted.length ? sorted.map((r, i) =>
+  list.innerHTML = note + (sorted.length ? sorted.map((r, i) =>
     '<div class="friend-row' + (r.me ? " lb-me" : "") + '">' +
       '<span class="lb-rank">' + (i + 1) + '</span>' +
       '<span class="friend-name">' + mailEsc(r.name) + (r.me ? "（你）" : "") + ' <small>' + tab.fmt(r) + '</small></span>' +
-    '</div>').join("") : '<p class="item-empty">沒有資料。</p>';
+    '</div>').join("") : '<p class="item-empty">沒有資料。</p>');
 }
 
 function closeInvite() {
@@ -5402,7 +5645,7 @@ function helpFriend(friendId, idx) {
   const did = labels[p.hazard];
   const hk = { weed: "weed", bug: "bug", dry: "water" }[p.hazard];
   if (hk && state.stats) state.stats[hk] = (state.stats[hk] || 0) + 1;
-  state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
+  state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1; bumpWeekly("help");
   p.hazard = null; p.hazardPlaced = false;
   const coin = 20 + state.level * 3;
   state.coins += coin;
@@ -5659,6 +5902,7 @@ function render() {
   updateGmBadge();
   updateGiftBadge();
   updateWeatherFx();
+  updateKitchenZone();
   applyAudio();
 }
 
@@ -6020,7 +6264,7 @@ function exportStakePos() {
     }
   }
   if (!out.length && !cl.length && !bl.length) { toast("目前畫面沒有可匯出的座標。"); return; }
-  const text = (out.length ? out.join(" | ") : "(無標桿)") + (cl.length ? "\n雲： " + cl.join(" | ") : "") + (bl.length ? "\n建築： " + bl.join(" | ") : "");
+  const text = (out.length ? out.join(" | ") : "(無標桿)") + (cl.length ? "\n雲： " + cl.join(" | ") : "") + (bl.length ? "\n建築： " + bl.join(" | ") : "") + "\n穀倉框(廚房)： " + kitchenPoly.map((p) => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" | ");
   try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
   try { console.log("STAKE_POS:", text); } catch (e) {}
   try { window.prompt("已複製，貼到對話給 Claude 即可：", text); } catch (e) {}
@@ -6904,7 +7148,7 @@ function completeOrder(orderId) {
   });
   state.coins += order.reward;
   addXp(order.xp);
-  state.ordersCompleted = (state.ordersCompleted || 0) + 1;
+  state.ordersCompleted = (state.ordersCompleted || 0) + 1; bumpWeekly("orders");
   state.ordersToday = (state.ordersToday || 0) + 1;
   order.done = true;
   toast(`訂單完成，收到 ${order.reward} 金幣。`);
