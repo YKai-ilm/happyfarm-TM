@@ -4050,9 +4050,22 @@ const KIT_ZONES = [
   { k: "right",  left: 63.0, top: 71.0, w: 21.0, h: 19.0 },
 ];
 const KIT_FILL_ORDER = [1, 0, 2];   // 放置順序：中 → 左 → 右
+const KIT_BIN_NAMES = ["蔬菜類", "穀物根莖類", "蛋奶類", "果實類", "肉類", "魚類"];
+const KIT_BINS = [
+  ["turnip", "carrot", "eggplant", "pepper"],
+  ["corn", "pea", "potato", "pumpkin"],
+  ["egg", "milk"],
+  ["tomato", "apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"],
+  ["pork"],
+  FISH_MARKET.map(function (f) { return "fish:" + f.k; }),
+];
 const KIT_POT = { left: 41.0, top: 24.0, w: 21.0, h: 28.0 };
 const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛" };
 function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
+function kCutHtml(key) {
+  const e = kIngEmoji(key);
+  return '<span class="kit-cut"><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span></span>';
+}
 function tokName(t) {
   if (t === "cat:veg") return "任一蔬菜"; if (t === "cat:fruit") return "任一水果"; if (t === "cat:fish") return "任一魚";
   const ing = KITCHEN_ING_MAP[t]; return ing ? ing.name : t;
@@ -4147,7 +4160,7 @@ function kitSpotClick(i) {
   let zone = -1;
   for (let n = 0; n < KIT_FILL_ORDER.length; n++) { const z = KIT_FILL_ORDER[n]; if (!leafItems[z]) { zone = z; break; } }
   if (zone < 0) { toast("葉子三區都放滿了，先切好拖進鍋子。"); return; }
-  openIngredientPicker(zone);
+  openIngredientPicker(zone, i);
 }
 function kitNav(k) {
   if (k === "back") exitKitchen();
@@ -4196,10 +4209,10 @@ function renderKitStage() {
     if (!it) { el.innerHTML = ""; return; }
     const e = kIngEmoji(it.key);
     el.innerHTML = '<div class="kit-item' + (it.cut ? " is-cut" : "") + '" data-item="' + i + '" title="' + ((KITCHEN_ING_MAP[it.key] || {}).name || "") + '">' +
-      (it.cut ? '<span>' + e + '</span><span>' + e + '</span><span>' + e + '</span>' : '<span>' + e + '</span>') + '</div>';
+      (it.cut ? kCutHtml(it.key) : '<span>' + e + '</span>') + '</div>';
   });
   const pz = v.querySelector("#kitPotZone");
-  if (pz) pz.innerHTML = potItems.map(function (k) { return '<span class="kit-pot-item">' + kIngEmoji(k) + '</span>'; }).join("");
+  if (pz) pz.innerHTML = potItems.map(function (k) { return '<span class="kit-pot-item">' + kCutHtml(k) + '</span>'; }).join("");
   v.classList.toggle("knife", knifeMode);
   bindKitItems(v);
 }
@@ -4234,12 +4247,14 @@ function bindKitItems(v) {
     el.onpointercancel = function () { dragging = false; if (ghost) { ghost.remove(); ghost = null; } };
   });
 }
-function openIngredientPicker(zoneIdx) {
+function openIngredientPicker(zoneIdx, binIdx) {
   const ov = document.createElement("div"); ov.className = "cook-modal"; ov.style.zIndex = "95";
-  const avail = KITCHEN_ING.filter(function (ing) { return kIngCount(ing) > 0; });
+  const bin = (binIdx != null && KIT_BINS[binIdx]) ? KIT_BINS[binIdx] : null;
+  const title = (binIdx != null && kitSpots[binIdx]) ? (kitSpots[binIdx].name + "　" + (KIT_BIN_NAMES[binIdx] || "")) : "選一種食材";
+  const avail = KITCHEN_ING.filter(function (ing) { return kIngCount(ing) > 0 && (!bin || bin.indexOf(ing.key) >= 0); });
   let rows = avail.map(function (ing) { return '<button type="button" class="cook-pick" data-pick="' + ing.key + '">' + ing.name + ' <small>×' + kIngCount(ing) + '</small></button>'; }).join("");
-  if (!rows) rows = '<p class="item-empty">庫存沒有可用食材，先去收成／撈魚吧。</p>';
-  ov.innerHTML = '<div class="cook-card"><h3>選一種食材</h3><div class="cook-picklist">' + rows + '</div><button type="button" class="kit-sub" id="pickClose">關閉</button></div>';
+  if (!rows) rows = '<p class="item-empty">這一籃目前沒有庫存，先去收成／撈魚吧。</p>';
+  ov.innerHTML = '<div class="cook-card"><h3>' + title + '</h3><div class="cook-picklist">' + rows + '</div><button type="button" class="kit-sub" id="pickClose">關閉</button></div>';
   document.body.appendChild(ov);
   ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
   ov.querySelector("#pickClose").addEventListener("click", function () { ov.remove(); });

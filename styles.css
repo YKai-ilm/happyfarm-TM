@@ -4088,10 +4088,15 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 /* 廚房：葉子三區 / 切菜 / 拖曳 / 快煮 */
 .kit-zone { position: absolute; border: 2px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.10); border-radius: 14px; display: flex; align-items: center; justify-content: center; }
 .kit-item { display: flex; align-items: center; gap: 3px; font-size: 2.2rem; line-height: 1; cursor: grab; user-select: none; touch-action: none; }
-.kit-item.is-cut { font-size: 1.2rem; gap: 5px; }
+.kit-item.is-cut { font-size: 2.2rem; }
+.kit-cut { position: relative; display: inline-block; width: 1em; height: 1em; vertical-align: middle; }
+.kit-cut-pc { position: absolute; inset: 0; display: block; line-height: 1; }
+.kit-cut-pc:nth-child(1) { clip-path: inset(0 67% 0 0); transform: translate(-5px, -2px) rotate(-9deg); }
+.kit-cut-pc:nth-child(2) { clip-path: inset(0 34% 0 33%); }
+.kit-cut-pc:nth-child(3) { clip-path: inset(0 0 0 67%); transform: translate(5px, 2px) rotate(9deg); }
 .kit-ghost { position: fixed; transform: translate(-50%, -50%); pointer-events: none; z-index: 99; opacity: 0.9; }
 .kit-potzone { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.kit-pot-item { font-size: 1.4rem; }
+.kit-pot-item { font-size: 1.5rem; display: inline-block; }
 .kitchen.knife .kit-stage { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><path d='M4 28 L20 12 L25 7 L28 10 L23 15 L7 31 Z' fill='%23d7dade' stroke='%23555555' stroke-width='1.4'/></svg>") 4 28, crosshair; }
 .quick-list { display: flex; flex-direction: column; gap: 7px; max-height: 50vh; overflow: auto; margin-bottom: 8px; }
 .quick-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; }
