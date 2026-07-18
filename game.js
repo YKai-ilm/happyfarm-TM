@@ -1621,6 +1621,7 @@ function createDefaultState() {
     mailReadBroadcast: [],
     mailClaimed: [],
     mailNonFriendLog: [],
+    mailDeleted: [],
     doghouseBought: false,
     dog: null,
     candidates: makeBuiltinCandidates(),
@@ -8026,6 +8027,8 @@ async function loadMail() {
     const bs = await fbDb.collection("broadcast").limit(50).get();
     mailBroadcast = bs.docs.map((d) => Object.assign({ id: d.id }, d.data())).sort((a, b) => tsMillis(b.at) - tsMillis(a.at));
   } catch (e) { console.warn("讀公告失敗", e); }
+  const del = state.mailDeleted || [];
+  if (del.length) { mailInbox = mailInbox.filter((m) => !del.includes(m.id)); mailBroadcast = mailBroadcast.filter((b) => !del.includes(b.id)); }
   updateMailBadge();
 }
 
@@ -8145,26 +8148,110 @@ async function sendMail() {
   } catch (e) { console.warn(e); toast("寄送失敗（網路或權限）。"); }
 }
 
+function mailEsc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function mailBuildGroups() {
+  const rb = state.mailReadBroadcast || [];
+  const groups = {};
+  const addItem = (key, uid, fromName, item) => {
+    if (!groups[key]) groups[key] = { key: key, uid: uid, fromName: fromName, items: [], unread: 0, last: 0 };
+    groups[key].items.push(item);
+    if (!item.read) groups[key].unread++;
+    const t = tsMillis(item.at); if (t > groups[key].last) groups[key].last = t;
+  };
+  mailInbox.forEach((m) => {
+    const item = { kind: m.kind || "player", id: m.id, from: m.from || null, fromName: m.fromName || "玩家", subject: m.subject, body: m.body, at: m.at, reward: m.reward, read: !!m.read };
+    addItem(m.from ? ("u:" + m.from) : ("n:" + item.fromName), m.from || null, item.fromName, item);
+  });
+  mailBroadcast.forEach((b) => {
+    const item = { kind: "broadcast", id: b.id, from: null, fromName: b.fromName || "📢 公告", subject: b.subject, body: b.body, at: b.at, reward: b.reward, read: rb.includes(b.id) };
+    addItem("broadcast", null, "📢 公告", item);
+  });
+  Object.keys(groups).forEach((k) => groups[k].items.sort((a, b) => tsMillis(b.at) - tsMillis(a.at)));
+  return groups;
+}
 function renderMailInbox() {
   const box = document.querySelector("#mailBox"); if (!box) return;
-  const rb = state.mailReadBroadcast || [];
-  const list = []
-    .concat(mailBroadcast.map((b) => ({ kind: "broadcast", id: b.id, fromName: b.fromName || "📢 公告", subject: b.subject, body: b.body, at: b.at, reward: b.reward, read: rb.includes(b.id) })))
-    .concat(mailInbox.map((m) => ({ kind: m.kind || "player", id: m.id, fromName: m.fromName || "玩家", subject: m.subject, body: m.body, at: m.at, reward: m.reward, read: !!m.read })))
-    .sort((a, b) => tsMillis(b.at) - tsMillis(a.at));
-  const rows = list.length ? list.map((m, i) => {
-    return '<div class="mail-item ' + (m.read ? "is-read" : "is-unread") + '" data-mi="' + i + '">' +
+  const gmap = mailBuildGroups();
+  const gs = Object.keys(gmap).map((k) => gmap[k]).sort((a, b) => b.last - a.last);
+  const total = mailUnreadCount();
+  const rows = gs.length ? gs.map((g) =>
+    '<div class="mail-item ' + (g.unread ? "is-unread" : "is-read") + '" data-key="' + mailEsc(g.key) + '">' +
       '<span class="mail-dot"></span>' +
-      '<div class="mail-item-main"><div class="mail-item-top"><strong>' + (m.subject || "(無主旨)") + '</strong><span class="mail-item-time">' + fmtMailTime(m.at) + '</span></div>' +
-      '<div class="mail-item-from">' + m.fromName + '</div></div></div>';
-  }).join("") : '<p class="item-empty">沒有信件。</p>';
-  box.innerHTML = '<div class="mail-card"><h2>📥 收信</h2><div class="mail-list">' + rows + '</div>' +
+      '<div class="mail-item-main"><div class="mail-item-top"><strong>' + mailEsc(g.fromName) + '</strong>' +
+        (g.unread ? '<span class="mail-inline-badge">' + g.unread + '</span>' : '') + '</div>' +
+      '<div class="mail-item-from">' + g.items.length + ' 封' + (g.unread ? '　·　' + g.unread + ' 封未讀' : '') + '</div></div></div>'
+  ).join("") : '<p class="item-empty">沒有信件。</p>';
+  box.innerHTML = '<div class="mail-card"><h2>📥 收信' + (total ? '　<span class="mail-inline-badge">' + total + ' 未讀</span>' : '') + '</h2>' +
+    '<div class="mail-list">' + rows + '</div>' +
     '<button type="button" class="mail-close" id="mailBack">返回</button></div>';
   box.querySelector("#mailBack").addEventListener("click", renderMailMenu);
-  box.querySelectorAll("[data-mi]").forEach((el) => el.addEventListener("click", () => openMailItem(list[Number(el.dataset.mi)])));
+  box.querySelectorAll("[data-key]").forEach((el) => el.addEventListener("click", () => renderMailSender(el.dataset.key)));
+}
+function renderMailSender(key) {
+  const box = document.querySelector("#mailBox"); if (!box) return;
+  const g = mailBuildGroups()[key];
+  if (!g || !g.items.length) { renderMailInbox(); return; }
+  const rows = g.items.map((m, i) =>
+    '<div class="mail-item ' + (m.read ? "is-read" : "is-unread") + '">' +
+      '<input type="checkbox" class="mail-check" data-mid="' + mailEsc(m.id) + '" />' +
+      '<span class="mail-dot"></span>' +
+      '<div class="mail-item-main" data-open="' + i + '"><div class="mail-item-top"><strong>' + mailEsc(m.subject || "(無主旨)") + '</strong><span class="mail-item-time">' + fmtMailTime(m.at) + '</span></div>' +
+      '<div class="mail-item-from">' + mailEsc(m.fromName) + '</div></div></div>'
+  ).join("");
+  box.innerHTML = '<div class="mail-card"><h2>' + mailEsc(g.fromName) + '</h2>' +
+    '<div class="mail-list">' + rows + '</div>' +
+    '<div class="mail-del-bar"><label class="mail-selall"><input type="checkbox" id="mailSelAll" /> 全選</label>' +
+    '<button type="button" class="mail-del-btn" id="mailDelSel">🗑️ 刪除勾選</button></div>' +
+    '<button type="button" class="mail-close" id="mailBack">返回寄件人</button></div>';
+  box.querySelector("#mailBack").addEventListener("click", renderMailInbox);
+  box.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", () => openMailItem(g.items[Number(el.dataset.open)], key)));
+  const selAll = box.querySelector("#mailSelAll");
+  if (selAll) selAll.addEventListener("change", () => box.querySelectorAll(".mail-check").forEach((c) => { c.checked = selAll.checked; }));
+  box.querySelector("#mailDelSel").addEventListener("click", () => {
+    const ids = Array.prototype.slice.call(box.querySelectorAll(".mail-check")).filter((c) => c.checked).map((c) => c.dataset.mid);
+    if (!ids.length) { toast("先勾選要刪除的信件。"); return; }
+    deleteMails(ids);
+    const gg = mailBuildGroups()[key];
+    if (gg && gg.items.length) renderMailSender(key); else renderMailInbox();
+    toast("已刪除 " + ids.length + " 封信件。");
+  });
+}
+function deleteMails(ids) {
+  state.mailDeleted = state.mailDeleted || [];
+  ids.forEach((id) => {
+    if (!state.mailDeleted.includes(id)) state.mailDeleted.push(id);
+    const local = mailInbox.find((x) => x.id === id);
+    if (local) { try { fbDb.collection("mail").doc(fbUser.uid).collection("items").doc(id).delete(); } catch (e) {} }
+  });
+  mailInbox = mailInbox.filter((m) => !ids.includes(m.id));
+  mailBroadcast = mailBroadcast.filter((b) => !ids.includes(b.id));
+  saveState();
+  updateMailBadge();
+}
+function renderMailReply(m) {
+  const box = document.querySelector("#mailBox"); if (!box) return;
+  box.innerHTML = '<div class="mail-card"><h2>↩️ 回信</h2>' +
+    '<div class="mail-row"><label>收件人</label><input type="text" value="' + mailEsc(m.fromName) + '" disabled /></div>' +
+    '<div class="mail-row"><label>主旨</label><input id="mailSubject" type="text" maxlength="40" value="Re: ' + mailEsc(String(m.subject || "").slice(0, 36)) + '" /></div>' +
+    '<textarea id="mailBody" maxlength="500" placeholder="回信內容…"></textarea>' +
+    '<div class="mail-send-row"><button type="button" id="mailReplySend" class="mail-primary">寄送回信</button></div>' +
+    '<button type="button" class="mail-close" id="mailBack">返回</button></div>';
+  box.querySelector("#mailBack").addEventListener("click", () => openMailItem(m, m.from ? ("u:" + m.from) : null));
+  box.querySelector("#mailReplySend").addEventListener("click", () => sendReply(m));
+}
+async function sendReply(m) {
+  const box = document.querySelector("#mailBox"); if (!box || !fbDb || !fbUser) return;
+  if (!m.from) { toast("這封信無法回覆。"); return; }
+  if (m.from === fbUser.uid) { toast("不能回給自己啦 😄"); return; }
+  const subject = (box.querySelector("#mailSubject").value || "").trim().slice(0, 40) || "(無主旨)";
+  const body = (box.querySelector("#mailBody").value || "").trim().slice(0, 500);
+  if (!body) { toast("回信內容不能空白。"); return; }
+  const payload = { from: fbUser.uid, fromName: myDisplayName(), subject: subject, body: body, at: firebase.firestore.FieldValue.serverTimestamp(), read: false, kind: "player" };
+  try { await fbDb.collection("mail").doc(m.from).collection("items").add(payload); toast("回信已寄給 " + m.fromName + "！"); renderMailInbox(); }
+  catch (e) { console.warn(e); toast("回信失敗（網路或權限）。"); }
 }
 
-function openMailItem(m) {
+function openMailItem(m, backKey) {
   if (!m) return;
   // 標記已讀 + 領獎(一次)
   if (m.kind === "broadcast") {
@@ -8194,10 +8281,13 @@ function openMailItem(m) {
     '<div class="mail-read-meta">寄件人：' + m.fromName + '　·　' + fmtMailTime(m.at) + '</div>' +
     '<div class="mail-read-body">' + String(m.body || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>") + '</div>' +
     rewardHtml +
+    ((m.from && m.kind !== "broadcast" && m.from !== (fbUser && fbUser.uid)) ? '<button type="button" class="mail-primary" id="mailReply">↩️ 回信給 ' + mailEsc(m.fromName) + '</button>' : '') +
     '<button type="button" class="mail-primary" id="mailDone">閱讀完成</button>' +
-    '<button type="button" class="mail-close" id="mailBack">返回收信</button></div>';
-  box.querySelector("#mailDone").addEventListener("click", renderMailInbox);
-  box.querySelector("#mailBack").addEventListener("click", renderMailInbox);
+    '<button type="button" class="mail-close" id="mailBack">返回</button></div>';
+  const _back = () => backKey ? renderMailSender(backKey) : renderMailInbox();
+  box.querySelector("#mailDone").addEventListener("click", _back);
+  box.querySelector("#mailBack").addEventListener("click", _back);
+  const _rep = box.querySelector("#mailReply"); if (_rep) _rep.addEventListener("click", () => renderMailReply(m));
 }
 
 function claimMailReward(reward, id, isBroadcast) {
