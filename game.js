@@ -1647,6 +1647,7 @@ function createDefaultState() {
     ranchAnimals: [],
     ranchProducts: {},
     dishBag: {},
+    knownRecipes: [],
     weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0 },
     ranchTool: "",
     ranchLevel: 1,
@@ -4032,8 +4033,33 @@ function matchRecipe(chosenKeys) {
 const KPOLY_DEFAULT = [{ x: 82.5, y: 23.2 }, { x: 85.7, y: 27.5 }, { x: 86.7, y: 34.5 }, { x: 86.5, y: 46.8 }, { x: 78.7, y: 43.0 }, { x: 78.4, y: 33.6 }, { x: 79.0, y: 27.5 }];
 let kitchenPoly = KPOLY_DEFAULT.map((p) => ({ x: p.x, y: p.y }));
 try { const _kp = JSON.parse(localStorage.getItem("kitchen-poly") || "null"); if (Array.isArray(_kp) && _kp.length === 7) kitchenPoly = _kp; } catch (e) {}
+const KIT_SPOTS_DEFAULT = [
+  { name: "生菜籃", x: 14.3, y: 37.4, d: 16.5 },
+  { name: "玉米籃", x: 32.4, y: 39.5, d: 14.0 },
+  { name: "雞蛋籃", x: 22.5, y: 60.8, d: 12.5 },
+  { name: "番茄籃", x: 70.8, y: 39.3, d: 13.5 },
+  { name: "豬肉盤", x: 88.2, y: 39.3, d: 15.5 },
+  { name: "鮮魚盤", x: 78.3, y: 60.6, d: 15.5 },
+];
+let kitSpots = KIT_SPOTS_DEFAULT.map((s) => ({ name: s.name, x: s.x, y: s.y, d: s.d }));
+try { const _ks = JSON.parse(localStorage.getItem("kitchen-spots") || "null"); if (Array.isArray(_ks) && _ks.length === 6) kitSpots = _ks; } catch (e) {}
 let kitchenOpen = false;
-let kSlots = [null, null, null];
+const KIT_ZONES = [
+  { k: "left",   left: 16.0, top: 71.0, w: 21.0, h: 19.0 },
+  { k: "middle", left: 39.5, top: 71.0, w: 21.0, h: 19.0 },
+  { k: "right",  left: 63.0, top: 71.0, w: 21.0, h: 19.0 },
+];
+const KIT_FILL_ORDER = [1, 0, 2];   // 放置順序：中 → 左 → 右
+const KIT_POT = { left: 41.0, top: 24.0, w: 21.0, h: 28.0 };
+const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛" };
+function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
+function tokName(t) {
+  if (t === "cat:veg") return "任一蔬菜"; if (t === "cat:fruit") return "任一水果"; if (t === "cat:fish") return "任一魚";
+  const ing = KITCHEN_ING_MAP[t]; return ing ? ing.name : t;
+}
+let leafItems = [null, null, null];   // 實體區索引 0=左 1=中 2=右
+let potItems = [];
+let knifeMode = false;
 function kPolyStr() { return kitchenPoly.map((p) => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" "); }
 function updateKitchenZone() {
   const frame = document.querySelector(".field-frame");
@@ -4065,32 +4091,70 @@ function updateKitchenZone() {
     });
   }
 }
-function enterKitchen() { if (kitchenOpen) return; kitchenOpen = true; kSlots = [null, null, null]; buildKitchenView(); applyAudio(); }
+function enterKitchen() { if (kitchenOpen) return; kitchenOpen = true; leafItems = [null, null, null]; potItems = []; knifeMode = false; buildKitchenView(); applyAudio(); }
 function exitKitchen() { kitchenOpen = false; const v = document.querySelector("#kitchenView"); if (v) v.remove(); const m = document.querySelector("#cookModal"); if (m) m.remove(); applyAudio(); render(); }
 function buildKitchenView() {
   const old = document.querySelector("#kitchenView"); if (old) old.remove();
   const v = document.createElement("div"); v.id = "kitchenView"; v.className = "kitchen";
   v.innerHTML =
-    '<div class="kit-scene">' +
-      '<button type="button" id="kitPot" class="kit-pot" aria-label="點烤爐開始煮"></button>' +
-    '</div>' +
+    '<div class="kit-scene"><div class="kit-stage">' +
+      '<img class="kit-bg" src="./assets/decor/kitchen-bg.png" alt="" />' +
+      kitSpots.map(function (s, i) { return '<button type="button" class="kit-hot" data-hot="' + i + '" style="left:' + s.x + '%;top:' + s.y + '%;width:' + s.d + '%" aria-label="' + s.name + '"></button>'; }).join("") +
+      KIT_ZONES.map(function (z, i) { return '<div class="kit-zone" data-zone="' + i + '" style="left:' + z.left + '%;top:' + z.top + '%;width:' + z.w + '%;height:' + z.h + '%"></div>'; }).join("") +
+      '<div class="kit-potzone" id="kitPotZone" style="left:' + KIT_POT.left + '%;top:' + KIT_POT.top + '%;width:' + KIT_POT.w + '%;height:' + KIT_POT.h + '%"></div>' +
+      (state.gm ? '<button type="button" id="kitExport" class="kit-gm-export">匯出食材圈</button>' : '') +
+    '</div></div>' +
     '<nav class="kit-nav">' +
       '<button type="button" class="kit-nav-btn" data-kit="back"><span class="kit-nav-ico">🌾</span><span class="kit-nav-txt">回農場</span></button>' +
       '<button type="button" class="kit-nav-btn" data-kit="cut"><span class="kit-nav-ico">🔪</span><span class="kit-nav-txt">切菜</span></button>' +
-      '<button type="button" class="kit-nav-btn" data-kit="wash"><span class="kit-nav-ico">🚿</span><span class="kit-nav-txt">洗菜</span></button>' +
       '<button type="button" class="kit-nav-btn" data-kit="cook"><span class="kit-nav-ico">🍲</span><span class="kit-nav-txt">煮菜</span></button>' +
+      '<button type="button" class="kit-nav-btn" data-kit="quick"><span class="kit-nav-ico">⚡</span><span class="kit-nav-txt">快煮</span></button>' +
       '<button type="button" class="kit-nav-btn" data-kit="stock"><span class="kit-nav-ico">🍱</span><span class="kit-nav-txt">成品存貨</span></button>' +
     '</nav>';
   document.body.appendChild(v);
-  v.querySelector("#kitPot").addEventListener("click", openCookPot);
   v.querySelectorAll("[data-kit]").forEach((b) => b.addEventListener("click", () => kitNav(b.dataset.kit)));
+  v.classList.toggle("gm", !!state.gm);
+  setupKitSpots(v);
+  renderKitStage();
+}
+function setupKitSpots(v) {
+  const stage = v.querySelector(".kit-stage");
+  v.querySelectorAll("[data-hot]").forEach((b) => {
+    const i = Number(b.dataset.hot);
+    if (!state.gm) { b.addEventListener("click", () => kitSpotClick(i)); return; }
+    let drag = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    b.onpointerdown = (e) => { drag = true; moved = false; sx = e.clientX; sy = e.clientY; ox = kitSpots[i].x; oy = kitSpots[i].y; try { b.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); e.stopPropagation(); };
+    b.onpointermove = (e) => {
+      if (!drag) return; const r = stage.getBoundingClientRect(); if (!r.width) return;
+      if (Math.abs(e.clientX - sx) > 3 || Math.abs(e.clientY - sy) > 3) moved = true;
+      let x = ox + (e.clientX - sx) / r.width * 100, y = oy + (e.clientY - sy) / r.height * 100;
+      kitSpots[i].x = Math.max(0, Math.min(100, x)); kitSpots[i].y = Math.max(0, Math.min(100, y));
+      b.style.left = kitSpots[i].x + "%"; b.style.top = kitSpots[i].y + "%";
+    };
+    const end = () => { if (!drag) return; drag = false; try { localStorage.setItem("kitchen-spots", JSON.stringify(kitSpots)); } catch (_) {} if (!moved) kitSpotClick(i); };
+    b.onpointerup = end; b.onpointercancel = end;
+  });
+  const ex = v.querySelector("#kitExport");
+  if (ex) ex.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const t = kitSpots.map((s) => s.name + ":" + s.x.toFixed(1) + "," + s.y.toFixed(1) + " 直徑" + s.d).join(" | ");
+    try { if (navigator.clipboard) navigator.clipboard.writeText(t); } catch (_) {}
+    try { window.prompt("已複製，貼給 Claude：", t); } catch (_) {}
+  });
+}
+function kitSpotClick(i) {
+  if (knifeMode) { toast("料理刀模式中，先按一次「切菜」收刀。"); return; }
+  let zone = -1;
+  for (let n = 0; n < KIT_FILL_ORDER.length; n++) { const z = KIT_FILL_ORDER[n]; if (!leafItems[z]) { zone = z; break; } }
+  if (zone < 0) { toast("葉子三區都放滿了，先切好拖進鍋子。"); return; }
+  openIngredientPicker(zone);
 }
 function kitNav(k) {
   if (k === "back") exitKitchen();
-  else if (k === "cook") openCookPot();
+  else if (k === "cut") { knifeMode = !knifeMode; renderKitStage(); toast(knifeMode ? "🔪 料理刀：點葉子上的食材切塊，再按一次「切菜」收刀。" : "已收起料理刀。"); }
+  else if (k === "cook") kitCook();
+  else if (k === "quick") openQuickCook();
   else if (k === "stock") openDishStock();
-  else if (k === "cut") toast("切菜功能開發中，之後加入。");
-  else if (k === "wash") toast("洗菜功能開發中，之後加入。");
 }
 function openDishStock() {
   const old = document.querySelector("#dishStockModal"); if (old) old.remove();
@@ -4124,58 +4188,151 @@ function sellDish(id, n) {
   saveState(); renderHeader(); renderKitchenDishes();
   toast("賣出 " + r.name + " ×" + n + "，得 $" + gain.toLocaleString() + "。");
 }
-function openCookPot() {
-  const old = document.querySelector("#cookModal"); if (old) old.remove();
-  const m = document.createElement("div"); m.id = "cookModal"; m.className = "cook-modal";
-  m.innerHTML = '<div class="cook-card"><h3>組合料理（放 1～3 種食材）</h3><div class="cook-slots" id="cookSlots"></div>' +
-    '<div class="cook-hint" id="cookHint">點空格從庫存放食材，再按「開煮」。</div>' +
-    '<div class="cook-actions"><button type="button" id="cookGo" class="kit-primary">🔥 開煮</button>' +
-    '<button type="button" id="cookClear" class="kit-sub">清空</button>' +
-    '<button type="button" id="cookClose" class="kit-sub">關閉</button></div></div>';
-  document.body.appendChild(m);
-  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
-  m.querySelector("#cookGo").addEventListener("click", cookGo);
-  m.querySelector("#cookClear").addEventListener("click", () => { kSlots = [null, null, null]; renderCookSlots(); });
-  m.querySelector("#cookClose").addEventListener("click", () => m.remove());
-  renderCookSlots();
+function renderKitStage() {
+  const v = document.querySelector("#kitchenView"); if (!v) return;
+  KIT_ZONES.forEach(function (z, i) {
+    const el = v.querySelector('.kit-zone[data-zone="' + i + '"]'); if (!el) return;
+    const it = leafItems[i];
+    if (!it) { el.innerHTML = ""; return; }
+    const e = kIngEmoji(it.key);
+    el.innerHTML = '<div class="kit-item' + (it.cut ? " is-cut" : "") + '" data-item="' + i + '" title="' + ((KITCHEN_ING_MAP[it.key] || {}).name || "") + '">' +
+      (it.cut ? '<span>' + e + '</span><span>' + e + '</span><span>' + e + '</span>' : '<span>' + e + '</span>') + '</div>';
+  });
+  const pz = v.querySelector("#kitPotZone");
+  if (pz) pz.innerHTML = potItems.map(function (k) { return '<span class="kit-pot-item">' + kIngEmoji(k) + '</span>'; }).join("");
+  v.classList.toggle("knife", knifeMode);
+  bindKitItems(v);
 }
-function renderCookSlots() {
-  const wrap = document.querySelector("#cookSlots"); if (!wrap) return;
-  wrap.innerHTML = kSlots.map((k, i) => {
-    if (k && KITCHEN_ING_MAP[k]) return '<button type="button" class="cook-slot filled" data-slot="' + i + '">' + KITCHEN_ING_MAP[k].name + '<small>點我移除</small></button>';
-    return '<button type="button" class="cook-slot" data-slot="' + i + '">＋<small>放食材</small></button>';
-  }).join("");
-  wrap.querySelectorAll("[data-slot]").forEach((b) => b.addEventListener("click", () => {
-    const i = Number(b.dataset.slot);
-    if (kSlots[i]) { kSlots[i] = null; renderCookSlots(); } else openIngredientPicker(i);
-  }));
+function bindKitItems(v) {
+  v.querySelectorAll(".kit-item").forEach(function (el) {
+    const i = Number(el.dataset.item);
+    el.onpointerdown = null; el.onpointermove = null; el.onpointerup = null; el.onclick = null;
+    if (knifeMode) {
+      el.onclick = function () { const it = leafItems[i]; if (it && !it.cut) { it.cut = true; renderKitStage(); toast("切好了！"); } };
+      return;
+    }
+    const it = leafItems[i];
+    if (!it || !it.cut) { el.onclick = function () { toast("要先按「切菜」把它切好，才能下鍋。"); }; return; }
+    let dragging = false, ghost = null;
+    const moveGhost = function (e) { if (ghost) { ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; } };
+    el.onpointerdown = function (e) {
+      dragging = true; e.preventDefault();
+      ghost = el.cloneNode(true); ghost.className = "kit-item is-cut kit-ghost"; document.body.appendChild(ghost); moveGhost(e);
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+    el.onpointermove = function (e) { if (dragging) moveGhost(e); };
+    el.onpointerup = function (e) {
+      if (!dragging) return; dragging = false;
+      if (ghost) { ghost.remove(); ghost = null; }
+      const pz = v.querySelector("#kitPotZone"); if (!pz) return;
+      const r = pz.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        if (potItems.length >= 3) { toast("鍋子最多放 3 種食材。"); return; }
+        potItems.push(leafItems[i].key); leafItems[i] = null; renderKitStage(); toast("下鍋了！");
+      }
+    };
+    el.onpointercancel = function () { dragging = false; if (ghost) { ghost.remove(); ghost = null; } };
+  });
 }
-function openIngredientPicker(slotIndex) {
+function openIngredientPicker(zoneIdx) {
   const ov = document.createElement("div"); ov.className = "cook-modal"; ov.style.zIndex = "95";
-  const avail = KITCHEN_ING.filter((ing) => kIngCount(ing) > 0);
-  let rows = avail.map((ing) => '<button type="button" class="cook-pick" data-pick="' + ing.key + '">' + ing.name + ' <small>×' + kIngCount(ing) + '</small></button>').join("");
+  const avail = KITCHEN_ING.filter(function (ing) { return kIngCount(ing) > 0; });
+  let rows = avail.map(function (ing) { return '<button type="button" class="cook-pick" data-pick="' + ing.key + '">' + ing.name + ' <small>×' + kIngCount(ing) + '</small></button>'; }).join("");
   if (!rows) rows = '<p class="item-empty">庫存沒有可用食材，先去收成／撈魚吧。</p>';
   ov.innerHTML = '<div class="cook-card"><h3>選一種食材</h3><div class="cook-picklist">' + rows + '</div><button type="button" class="kit-sub" id="pickClose">關閉</button></div>';
   document.body.appendChild(ov);
-  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
-  ov.querySelector("#pickClose").addEventListener("click", () => ov.remove());
-  ov.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => { kSlots[slotIndex] = b.dataset.pick; ov.remove(); renderCookSlots(); }));
+  ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+  ov.querySelector("#pickClose").addEventListener("click", function () { ov.remove(); });
+  ov.querySelectorAll("[data-pick]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      leafItems[zoneIdx] = { key: b.dataset.pick, cut: false };
+      ov.remove(); renderKitStage();
+      const ing = KITCHEN_ING_MAP[b.dataset.pick];
+      toast("已放上「" + (ing ? ing.name : "") + "」，記得按「切菜」切好。");
+    });
+  });
 }
-function cookGo() {
-  const hint = document.querySelector("#cookHint");
-  const chosen = kSlots.filter(Boolean);
-  if (!chosen.length) { if (hint) hint.textContent = "先放至少一種食材。"; return; }
-  const recipe = matchRecipe(chosen);
-  if (!recipe) { if (hint) hint.textContent = "這些食材組不出料理，換換看 😅"; return; }
-  const need = {}; chosen.forEach((k) => { need[k] = (need[k] || 0) + 1; });
-  for (const k in need) { if (kIngCount(KITCHEN_ING_MAP[k]) < need[k]) { if (hint) hint.textContent = "食材數量不夠。"; return; } }
+function kitCook() {
+  if (knifeMode) { toast("先按一次「切菜」收刀再煮。"); return; }
+  if (!potItems.length) { toast("鍋子裡沒有食材，先切好再拖進鍋子。"); return; }
+  const recipe = matchRecipe(potItems.slice());
+  if (!recipe) { toast("這些食材組不出料理，換換看 😅"); return; }
+  const need = {}; potItems.forEach(function (k) { need[k] = (need[k] || 0) + 1; });
+  for (const k in need) { if (kIngCount(KITCHEN_ING_MAP[k]) < need[k]) { toast("食材數量不夠。"); return; } }
   for (const k in need) kIngConsume(KITCHEN_ING_MAP[k], need[k]);
   state.dishBag = state.dishBag || {}; state.dishBag[recipe.id] = (state.dishBag[recipe.id] || 0) + 1;
-  kSlots = [null, null, null];
-  saveState(); renderCookSlots(); renderKitchenDishes();
+  state.knownRecipes = state.knownRecipes || [];
+  const isNew = state.knownRecipes.indexOf(recipe.id) < 0;
+  if (isNew) state.knownRecipes.push(recipe.id);
+  potItems = [];
+  saveState(); renderKitStage();
   if (typeof renderInventory === "function") renderInventory();
-  if (hint) hint.textContent = "做出「" + recipe.name + "」！可賣 $" + recipe.sell + "。";
-  toast("🍽️ 做出「" + recipe.name + "」！");
+  toast((isNew ? "🎉 學會新料理「" : "🍽️ 做出「") + recipe.name + "」！可賣 $" + recipe.sell);
+}
+function resolveQuick(recipe, qty, tally) {
+  const need = {};
+  for (let u = 0; u < qty; u++) {
+    for (let t = 0; t < recipe.ing.length; t++) {
+      const token = recipe.ing[t];
+      let key = null;
+      if (token.indexOf("cat:") === 0) {
+        const cat = token.slice(4); let best = null, bestN = 0;
+        KITCHEN_ING.forEach(function (ing) { if (ing.cat === cat) { const n = tally[ing.key] || 0; if (n > bestN) { bestN = n; best = ing.key; } } });
+        key = best;
+      } else key = token;
+      if (!key || (tally[key] || 0) <= 0) return null;
+      tally[key] -= 1; need[key] = (need[key] || 0) + 1;
+    }
+  }
+  return need;
+}
+function openQuickCook() {
+  const known = (state.knownRecipes || []).map(function (id) { return RECIPE_MAP[id]; }).filter(Boolean);
+  if (!known.length) { toast("還沒煮過任何料理，先用「煮菜」做出一道，之後才能快煮。"); return; }
+  const old = document.querySelector("#quickModal"); if (old) old.remove();
+  const m = document.createElement("div"); m.id = "quickModal"; m.className = "cook-modal";
+  m.innerHTML = '<div class="cook-card"><h3>⚡ 快煮（已學會的料理）</h3><div class="quick-list">' +
+    known.map(function (r) {
+      return '<div class="quick-row"><div class="quick-info"><strong>' + r.name + '</strong><small>' + r.ing.map(tokName).join(" ＋ ") + '　$' + r.sell + '</small></div>' +
+        '<div class="quick-qty"><button type="button" class="qty-btn" data-qd="' + r.id + '">−</button>' +
+        '<input class="qty-num" type="number" inputmode="numeric" min="0" value="0" data-qn="' + r.id + '" />' +
+        '<button type="button" class="qty-btn" data-qi="' + r.id + '">＋</button></div></div>';
+    }).join("") +
+    '</div><div class="cook-hint" id="quickHint">設定數量後按「一次做好」，會自動扣掉對應食材。</div>' +
+    '<div class="cook-actions"><button type="button" id="quickGo" class="kit-primary">一次做好</button>' +
+    '<button type="button" id="quickClose" class="kit-sub">關閉</button></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
+  m.querySelector("#quickClose").addEventListener("click", function () { m.remove(); });
+  m.querySelector("#quickGo").addEventListener("click", quickGo);
+  const setQ = function (id, d) { const inp = m.querySelector('[data-qn="' + id + '"]'); if (!inp) return; inp.value = Math.max(0, (Math.floor(Number(inp.value) || 0)) + d); };
+  m.querySelectorAll("[data-qd]").forEach(function (b) { b.addEventListener("click", function () { setQ(b.dataset.qd, -1); }); });
+  m.querySelectorAll("[data-qi]").forEach(function (b) { b.addEventListener("click", function () { setQ(b.dataset.qi, 1); }); });
+}
+function quickGo() {
+  const m = document.querySelector("#quickModal"); if (!m) return;
+  const hint = m.querySelector("#quickHint");
+  const picks = [];
+  m.querySelectorAll("[data-qn]").forEach(function (inp) {
+    const n = Math.max(0, Math.floor(Number(inp.value) || 0));
+    if (n > 0 && RECIPE_MAP[inp.dataset.qn]) picks.push({ r: RECIPE_MAP[inp.dataset.qn], n: n });
+  });
+  if (!picks.length) { if (hint) hint.textContent = "請先設定要做幾份。"; return; }
+  const tally = {}; KITCHEN_ING.forEach(function (ing) { tally[ing.key] = kIngCount(ing); });
+  const total = {};
+  for (let i = 0; i < picks.length; i++) {
+    const need = resolveQuick(picks[i].r, picks[i].n, tally);
+    if (!need) { if (hint) hint.textContent = "「" + picks[i].r.name + "」的食材不夠。"; return; }
+    for (const k in need) total[k] = (total[k] || 0) + need[k];
+  }
+  for (const k in total) kIngConsume(KITCHEN_ING_MAP[k], total[k]);
+  state.dishBag = state.dishBag || {};
+  let cnt = 0;
+  picks.forEach(function (p) { state.dishBag[p.r.id] = (state.dishBag[p.r.id] || 0) + p.n; cnt += p.n; });
+  saveState();
+  if (typeof renderInventory === "function") renderInventory();
+  m.remove();
+  toast("⚡ 一次做好 " + cnt + " 份料理！");
 }
 function bindBgm() {
   const btn = document.querySelector("#bgmToggle");
