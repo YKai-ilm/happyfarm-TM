@@ -1649,7 +1649,7 @@ function createDefaultState() {
     ranchTool: "",
     ranchLevel: 1,
     farmName: "",
-    stats: { planted: 0, harvested: 0, stolen: 0, weed: 0, bug: 0, water: 0 },
+    stats: { planted: 0, harvested: 0, stolen: 0, weed: 0, bug: 0, water: 0, sabotage: 0, help: 0 },
   };
 }
 
@@ -2182,6 +2182,9 @@ async function publishProfile(force) {
       nameLower: name.toLowerCase(),
       level: state.level || 1,
       coins: state.coins || 0,
+      ordersCompleted: state.ordersCompleted || 0,
+      sabotage: (state.stats && state.stats.sabotage) || 0,
+      help: (state.stats && state.stats.help) || 0,
       dogGuard: dogWorking(),
       dogState: dogStateForProfile(),
       windmill: (state.upgrades && state.upgrades.windmill) || 0,
@@ -2550,6 +2553,7 @@ function cloudRanchHelp(i) {
     a._cleaned = true;
     writeFriendEvent(visiting.uid, { type: "rhelp", animalIndex: i });
     state.coins = (state.coins || 0) + 8; addXp(3);
+    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
     saveState(); rerenderVisit();
     toast("幫 " + (visiting.farmName || "好友") + " 的動物洗乾淨了，獲得 8 金幣！");
     return;
@@ -2559,6 +2563,7 @@ function cloudRanchHelp(i) {
     a._fed = true;
     writeFriendEvent(visiting.uid, { type: "rhelp", animalIndex: i });
     state.coins = (state.coins || 0) + 8; addXp(3);
+    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
     saveState(); rerenderVisit();
     toast("幫 " + (visiting.farmName || "好友") + " 餵了飼料，獲得 8 金幣！");
     return;
@@ -2572,6 +2577,7 @@ function cloudRanchSpray(i) {
   if (!a) return;
   if (a.status === "dirty" || visitPendingSpray[i]) { toast("這隻已經髒了 💩，不用再噴。"); return; }
   writeFriendEvent(visiting.uid, { type: "spray", animalIndex: i });
+  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; saveState();
   visitPendingSpray[i] = Date.now();
   renderVisitingRanch();
   toast("你朝 " + (visiting.farmName || "好友") + " 的動物噴了髒水 💩（牠髒了，主人要先洗才能照顧）");
@@ -2763,6 +2769,7 @@ function cloudFarmHelp(index) {
     writeFriendEvent(visiting.uid, { type: "depest", plotIndex: index });
     state.coins = (state.coins || 0) + 8; addXp(3);
     if (state.stats) state.stats.bug = (state.stats.bug || 0) + 1;
+    state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
     saveState(); rerenderVisit();
     toast("幫 " + (visiting.farmName || "好友") + " 除掉蟲害／雜草，獲得 8 金幣！");
     return;
@@ -2779,6 +2786,7 @@ function cloudFarmHelp(index) {
   writeFriendEvent(visiting.uid, { type: "help", plotIndex: index });
   state.coins = (state.coins || 0) + 8; addXp(3);
   if (state.stats) state.stats.water = (state.stats.water || 0) + 1;
+  state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
   saveState(); rerenderVisit();
   toast("幫 " + (visiting.farmName || "好友") + " 澆了水，獲得 8 金幣！");
 }
@@ -2791,6 +2799,7 @@ function cloudFarmBug(index) {
   if (ready) { toast("已成熟的作物放蟲沒用。"); return; }
   if (pl.pest || pl.pestUsed || visitPendingBug[index]) { toast("這塊田這一輪已經放過蟲了 🐛"); return; }
   writeFriendEvent(visiting.uid, { type: "bug", plotIndex: index });
+  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1; saveState();
   visitPendingBug[index] = Date.now();
   renderVisitingFarm();
   toast("你在 " + (visiting.farmName || "好友") + " 的田裡放了蟲 🐛");
@@ -2807,6 +2816,7 @@ function npcPutBug(index) {
   p.hazard = "bug";
   p.hazardPlaced = true;
   p.bugUsed = true;
+  state.stats = state.stats || {}; state.stats.sabotage = (state.stats.sabotage || 0) + 1;
   saveState();
   renderVisitingFarm();
   toast("你在 " + friend.name + " 的田裡放了蟲 🐛");
@@ -5148,31 +5158,52 @@ function openInvite() {
   if (box) box.hidden = false;
 }
 
+const LB_TABS = [
+  { k: "level", label: "等級", fmt: (r) => "Lv." + r.level + " · 🪙" + r.coins.toLocaleString(), cmp: (a, b) => (b.level - a.level) || (b.coins - a.coins) },
+  { k: "stock", label: "股市", fmt: null, cmp: null },
+  { k: "orders", label: "訂單", fmt: (r) => "完成訂單 " + r.orders.toLocaleString() + " 筆", cmp: (a, b) => (b.orders - a.orders) || (b.level - a.level) },
+  { k: "sabotage", label: "陷害", fmt: (r) => "放蟲＋噴髒 " + r.sabotage.toLocaleString() + " 次", cmp: (a, b) => (b.sabotage - a.sabotage) || (b.level - a.level) },
+  { k: "help", label: "幫忙", fmt: (r) => "幫忙 " + r.help.toLocaleString() + " 次", cmp: (a, b) => (b.help - a.help) || (b.level - a.level) },
+];
+let lbTab = "level"; let lbRows = null;
 function openLeaderboard() {
   const box = document.querySelector("#leaderboardBox");
   if (box) box.hidden = false;
   const list = document.querySelector("#leaderboardList");
   if (!list) return;
-  if (!fbUser || !fbDb) { list.innerHTML = '<p class="item-empty">登入 Google 後才能看好友排行榜。</p>'; return; }
-  list.innerHTML = '<p class="item-empty">載入中…</p>';
+  if (!fbUser || !fbDb) { const t = document.querySelector("#leaderboardTabs"); if (t) t.innerHTML = ""; list.innerHTML = '<p class="item-empty">登入 Google 後才能看好友排行榜。</p>'; return; }
+  lbRows = null;
+  renderLeaderboard();
   (async () => {
-    try {
-      const ids = [fbUser.uid].concat((state.cloudFriends || []).map((f) => f.uid));
-      const rows = [];
-      for (const uid of ids) {
-        try {
-          const s = await fbDb.collection("profiles").doc(uid).get();
-          if (s.exists) { const d = s.data(); rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, me: uid === fbUser.uid }); }
-        } catch (_) {}
-      }
-      rows.sort((a, b) => (b.level - a.level) || (b.coins - a.coins));
-      list.innerHTML = rows.length ? rows.map((r, i) => `
-        <div class="friend-row${r.me ? " lb-me" : ""}">
-          <span class="lb-rank">${i + 1}</span>
-          <span class="friend-name">${r.name}${r.me ? "（你）" : ""} <small>Lv.${r.level} · 🪙${r.coins}</small></span>
-        </div>`).join("") : '<p class="item-empty">沒有資料。</p>';
-    } catch (e) { console.warn(e); list.innerHTML = '<p class="item-empty">載入失敗，稍後再試。</p>'; }
+    const ids = [fbUser.uid].concat((state.cloudFriends || []).map((f) => f.uid));
+    const rows = [];
+    for (const uid of ids) {
+      try {
+        const s = await fbDb.collection("profiles").doc(uid).get();
+        if (s.exists) { const d = s.data(); rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, orders: d.ordersCompleted || 0, sabotage: d.sabotage || 0, help: d.help || 0, me: uid === fbUser.uid }); }
+      } catch (_) {}
+    }
+    lbRows = rows;
+    renderLeaderboard();
   })();
+}
+function renderLeaderboard() {
+  const tabsEl = document.querySelector("#leaderboardTabs");
+  const list = document.querySelector("#leaderboardList");
+  if (!list) return;
+  if (tabsEl) {
+    tabsEl.innerHTML = LB_TABS.map((t) => '<button type="button" class="lb-tab' + (t.k === lbTab ? " is-active" : "") + '" data-lbtab="' + t.k + '">' + t.label + '</button>').join("");
+    tabsEl.querySelectorAll("[data-lbtab]").forEach((b) => b.addEventListener("click", () => { lbTab = b.dataset.lbtab; renderLeaderboard(); }));
+  }
+  if (lbTab === "stock") { list.innerHTML = '<p class="item-empty">📈 股市收益排行即將推出。<br>等操盤收益統計實裝後就會開放。</p>'; return; }
+  if (!lbRows) { list.innerHTML = '<p class="item-empty">載入中…</p>'; return; }
+  const tab = LB_TABS.find((t) => t.k === lbTab) || LB_TABS[0];
+  const sorted = lbRows.slice().sort(tab.cmp);
+  list.innerHTML = sorted.length ? sorted.map((r, i) =>
+    '<div class="friend-row' + (r.me ? " lb-me" : "") + '">' +
+      '<span class="lb-rank">' + (i + 1) + '</span>' +
+      '<span class="friend-name">' + mailEsc(r.name) + (r.me ? "（你）" : "") + ' <small>' + tab.fmt(r) + '</small></span>' +
+    '</div>').join("") : '<p class="item-empty">沒有資料。</p>';
 }
 
 function closeInvite() {
@@ -5371,6 +5402,7 @@ function helpFriend(friendId, idx) {
   const did = labels[p.hazard];
   const hk = { weed: "weed", bug: "bug", dry: "water" }[p.hazard];
   if (hk && state.stats) state.stats[hk] = (state.stats[hk] || 0) + 1;
+  state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1;
   p.hazard = null; p.hazardPlaced = false;
   const coin = 20 + state.level * 3;
   state.coins += coin;

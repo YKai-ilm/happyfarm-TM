@@ -4035,3 +4035,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .mail-selall { display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
 .mail-del-btn { background: #d9534f; color: #fff; border: none; border-radius: 9px; padding: 8px 14px; font-weight: 800; cursor: pointer; }
 .mail-del-btn:active { transform: scale(0.97); }
+
+/* 排行榜分頁 */
+.lb-tabs { display: flex; gap: 5px; margin: 4px 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.lb-tab { flex: 0 0 auto; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: #5a5040; font-weight: 700; font-size: 0.86rem; cursor: pointer; white-space: nowrap; }
+.lb-tab.is-active { background: #e3b53f; border-color: #e3b53f; color: #2a2113; }
