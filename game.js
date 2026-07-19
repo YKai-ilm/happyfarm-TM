@@ -585,6 +585,11 @@ function openFishFarm() {
   v.querySelector("#fishFarmExit").addEventListener("click", (e) => { e.stopPropagation(); closeFishFarm(); });
   v.querySelectorAll(".ff-ctrl").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); ffCtrlClick(b.dataset.ff); }));
   v.addEventListener("click", ffWaterClick);
+  if (state.fishFeeder && state.fishFeeder.owned) {
+    const fd = document.createElement("button"); fd.id = "ffFeeder"; fd.type = "button"; fd.className = "ff-feeder"; fd.textContent = "🍚";
+    fd.addEventListener("click", function (e) { e.stopPropagation(); openFeederMenu(); });
+    v.appendChild(fd);
+  }
   state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
   state.pondFish.forEach((data) => ffSpawnFish(data, 5 + Math.random() * 90, 28 + Math.random() * 66));
   ffLast = 0; ffRAF = requestAnimationFrame(ffStep);
@@ -1591,6 +1596,7 @@ if (window.addEventListener) window.addEventListener("resize", function(){ fitTo
 window.setInterval(tick, 1000);
 window.setInterval(wanderRanchAnimals, 500);
 window.setInterval(idleCheck, 5000);
+  window.setInterval(feederTick, 5000);
 }
 
 function createDefaultState() {
@@ -1646,6 +1652,7 @@ function createDefaultState() {
     customAvatars: [],
     ranchAnimals: [],
     ranchProducts: {},
+    fishFeeder: { owned: false, pellets: 0, lastFeedAt: 0 },
     dishBag: {},
     knownRecipes: [],
     weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0 },
@@ -4379,6 +4386,87 @@ function quickGo() {
   m.remove();
   toast("⚡ 一次做好 " + cnt + " 份料理！");
 }
+/* ===== 自動餵食器(魚) ===== */
+const FEEDER_COST = 30000, FEEDER_INTERVAL = 180000, FEEDER_PER = 100, FEEDER_MAX = 8000, FEEDER_DROP_MS = 700;
+function buyFeeder() {
+  state.fishFeeder = state.fishFeeder || { owned: false, pellets: 0, lastFeedAt: 0 };
+  if (state.fishFeeder.owned) { toast("已經有自動餵食器了。"); return; }
+  if (state.coins < FEEDER_COST) { toast("金幣不夠，自動餵食器需要 " + FEEDER_COST.toLocaleString() + " 金幣。"); return; }
+  state.coins -= FEEDER_COST;
+  state.fishFeeder.owned = true; state.fishFeeder.lastFeedAt = Date.now();
+  saveState(); render();
+  toast("買了自動餵食器！養魚池岸邊會出現飼料機，記得買飼料。");
+}
+function feederTick() {
+  const f = state.fishFeeder; if (!f || !f.owned) return;
+  const now = Date.now();
+  if (!f.lastFeedAt) { f.lastFeedAt = now; return; }
+  if (now - f.lastFeedAt < FEEDER_INTERVAL) return;
+  const amount = Math.min(FEEDER_PER, f.pellets || 0);
+  if (amount <= 0) return;   // 沒飼料就不餵、也不重置計時，補料後會盡快補餵
+  f.lastFeedAt = now; f.pellets -= amount;
+  saveState();
+  if (document.querySelector("#fishFarmView")) autoFeedShow(amount); else autoFeedApply(amount);
+  if (document.querySelector("#feederMenu")) renderFeederMenu();
+}
+function autoFeedApply(pellets) {
+  const now = Date.now();
+  state.pondFish = (state.pondFish || []).map(function (e) { return (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e; });
+  let rem = pellets, guard = pellets + 30;
+  while (rem > 0 && guard-- > 0) {
+    const hungry = state.pondFish.filter(function (f) { return ffCurSat(f, now) < 100; });
+    if (!hungry.length) break;
+    const f = hungry[Math.floor(Math.random() * hungry.length)];
+    f.sat = Math.min(100, ffCurSat(f, now) + FF_SAT_PER); f.satAt = now;
+    const stage = f.stage || 0;
+    if (stage < 2) { f.eaten = (f.eaten || 0) + 1; if (f.eaten >= (stage + 1) * FF_GROW_PELLETS) { f.stage = stage + 1; if (f.stage >= 2) f.sat = 100; } }
+    rem--;
+  }
+  saveState();
+}
+function autoFeedShow(amount) {
+  let dropped = 0;
+  function doDrop() {
+    if (!document.querySelector("#fishFarmView")) return;   // 離開就停
+    const n = 3 + Math.floor(Math.random() * 2);            // 每次3-4顆
+    for (let i = 0; i < n && dropped < amount; i++) { ffAddFeed(24 + Math.random() * 40, 26 + Math.random() * 4); dropped++; }
+    if (dropped < amount) setTimeout(doDrop, FEEDER_DROP_MS);
+  }
+  doDrop();
+}
+function openFeederMenu() {
+  const old = document.querySelector("#feederMenu"); if (old) old.remove();
+  const m = document.createElement("div"); m.id = "feederMenu"; m.className = "cook-modal"; m.style.zIndex = "96";
+  m.innerHTML = '<div class="cook-card"><h3>🐟 自動餵食器</h3>' +
+    '<div class="feeder-info" id="feederInfo"></div>' +
+    '<div class="cook-hint">每 3 分鐘自動餵 100 顆（1 金幣/顆，上限 ' + FEEDER_MAX.toLocaleString() + '）。</div>' +
+    '<div class="cook-actions"><button type="button" class="kit-primary" data-buyp="1">買 1</button>' +
+    '<button type="button" class="kit-primary" data-buyp="10">買 10</button>' +
+    '<button type="button" class="kit-primary" data-buyp="100">買 100</button></div>' +
+    '<button type="button" class="kit-sub" id="feederClose">關閉</button></div>';
+  document.body.appendChild(m);
+  m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
+  m.querySelector("#feederClose").addEventListener("click", function () { m.remove(); });
+  m.querySelectorAll("[data-buyp]").forEach(function (b) { b.addEventListener("click", function () { buyPellets(Number(b.dataset.buyp)); }); });
+  renderFeederMenu();
+}
+function renderFeederMenu() {
+  const el = document.querySelector("#feederInfo"); if (!el) return;
+  const f = state.fishFeeder || { pellets: 0 };
+  const p = f.pellets || 0;
+  el.innerHTML = '剩餘飼料 <b>' + p.toLocaleString() + '</b> / ' + FEEDER_MAX.toLocaleString() + ' 顆　·　約可自動餵 <b>' + Math.floor(p / FEEDER_PER) + '</b> 次';
+}
+function buyPellets(n) {
+  const f = state.fishFeeder; if (!f || !f.owned) return;
+  const space = FEEDER_MAX - (f.pellets || 0);
+  if (space <= 0) { toast("飼料槽已滿（" + FEEDER_MAX.toLocaleString() + " 顆）。"); return; }
+  const buy = Math.min(n, space);
+  if ((state.coins || 0) < buy) { toast("金幣不夠，買 " + buy + " 顆需要 $" + buy + "。"); return; }
+  state.coins -= buy;   // 每顆 1 金幣
+  f.pellets = (f.pellets || 0) + buy;
+  saveState(); renderHeader(); renderFeederMenu();
+  toast("買了 " + buy + " 顆飼料（$" + buy + "）。");
+}
 function bindBgm() {
   const btn = document.querySelector("#bgmToggle");
   if (!btn) return;
@@ -6735,25 +6823,63 @@ function buySeed(id) {
   render();
 }
 
+let mktQty = {};
+const MKT = {
+  fertilizer: { name: "肥料", cost: FERTILIZER_COST, sell: Math.round(FERTILIZER_COST * 0.7) },
+  thawCard: { name: "解凍卡", cost: THAW_CARD_COST, sell: Math.round(THAW_CARD_COST * 0.7) },
+  expandCard: { name: "牧場擴建卡", cost: 20000, sell: 14000 },
+  dogStick: { name: "逗狗棒", cost: 300, sell: 210 },
+};
+function setMktQty(key, v, writeInput) {
+  mktQty[key] = Math.max(0, Math.floor(v) || 0);
+  if (writeInput) { const inp = elements.tabContent.querySelector('[data-mqty="' + key + '"]'); if (inp) inp.value = mktQty[key]; }
+}
+function buyMktItem(key) {
+  const meta = MKT[key]; if (!meta) return;
+  const q = Math.max(0, Math.floor(mktQty[key] || 0));
+  if (q <= 0) { toast("先設定數量。"); return; }
+  if (key === "expandCard" && (state.animalsSoldForCard || 0) < 10) { toast("要累計售出 10 隻動物才能購買擴建卡。"); return; }
+  const cost = meta.cost * q;
+  if ((state.coins || 0) < cost) { toast("金幣不夠，購買 " + q + " 個要 " + cost.toLocaleString() + " 金幣。"); return; }
+  state.coins -= cost; state.items = state.items || {}; state.items[key] = (state.items[key] || 0) + q;
+  mktQty[key] = 0; saveState(); render();
+  toast("購買 " + meta.name + " ×" + q + "（$" + cost.toLocaleString() + "）。");
+}
+function sellMktItem(key) {
+  const meta = MKT[key]; if (!meta) return;
+  const q = Math.max(0, Math.floor(mktQty[key] || 0));
+  if (q <= 0) { toast("先設定數量。"); return; }
+  const have = (state.items && state.items[key]) || 0;
+  if (have < q) { toast("持有不足，目前 " + have + " 個。"); return; }
+  const gain = (meta.sell != null ? meta.sell : meta.cost) * q;
+  state.items[key] = have - q; state.coins = (state.coins || 0) + gain;
+  mktQty[key] = 0; saveState(); render();
+  toast("賣出 " + meta.name + " ×" + q + "（+$" + gain.toLocaleString() + "）。");
+}
 function marketRow(key, name, cost, desc, opts) {
   opts = opts || {};
   const have = (state.items && state.items[key]) || 0;
   const locked = !!opts.locked;
+  const sell = (MKT[key] && MKT[key].sell != null) ? MKT[key].sell : cost;
+  const q = mktQty[key] || 0;
   return `
     <article class="seed-card ${locked ? "is-locked" : ""}">
       <span class="mini-crop market-icon" aria-hidden="true">${name.split(" ")[0]}</span>
       <span class="seed-details">
         <span class="seed-title">
           <span class="seed-name-wrap"><strong>${name}</strong></span>
-          <span class="seed-price">${cost} 金幣</span>
+          <span class="seed-price">買 ${cost.toLocaleString()} / 賣 ${sell.toLocaleString()}</span>
         </span>
         <span class="seed-meta">${desc}</span>
         <span class="seed-actions">
           <span class="seed-meta">持有 ${have}</span>
-          <button class="seed-button" type="button" data-buy="${key}" ${locked ? "disabled" : ""}>
-            <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
-            ${locked ? (opts.lockText || "未解鎖") : "購買"}
-          </button>
+          <span class="sell-stepper">
+            <button class="qty-btn" type="button" data-mdec="${key}">−</button>
+            <input class="qty-num" type="number" inputmode="numeric" min="0" data-mqty="${key}" value="${q}" />
+            <button class="qty-btn" type="button" data-minc="${key}">＋</button>
+          </span>
+          <button class="seed-button mkt-buy" type="button" data-mbuy="${key}" ${locked ? "disabled" : ""}>${locked ? (opts.lockText || "未解鎖") : "購買"}</button>
+          <button class="seed-button mkt-sell" type="button" data-msell="${key}" ${have > 0 ? "" : "disabled"}>賣出</button>
         </span>
       </span>
     </article>`;
@@ -6769,14 +6895,12 @@ function renderMarket() {
       "小牧場升級大牧場時消耗。<br>解鎖：售出動物 " + sold + "/10",
       { locked: expLocked, lockText: "售出動物 " + sold + "/10" }) +
     marketRow("dogStick", "🦴 逗狗棒", 300, "參觀好友時逗牠家的狗，每次好感度 +5%（好感越高越不會被趕）");
-  elements.tabContent.querySelectorAll("[data-buy]").forEach((b) => {
-    b.addEventListener("click", () => {
-      if (b.dataset.buy === "fertilizer") buyFertilizer();
-      if (b.dataset.buy === "thawCard") buyThawCard();
-      if (b.dataset.buy === "expandCard") buyExpandCard();
-      if (b.dataset.buy === "dogStick") buyDogStick();
-    });
-  });
+  const tc = elements.tabContent;
+  tc.querySelectorAll("[data-mbuy]").forEach((b) => b.addEventListener("click", () => buyMktItem(b.dataset.mbuy)));
+  tc.querySelectorAll("[data-msell]").forEach((b) => b.addEventListener("click", () => sellMktItem(b.dataset.msell)));
+  tc.querySelectorAll("[data-minc]").forEach((b) => b.addEventListener("click", () => setMktQty(b.dataset.minc, (mktQty[b.dataset.minc] || 0) + 1, true)));
+  tc.querySelectorAll("[data-mdec]").forEach((b) => b.addEventListener("click", () => setMktQty(b.dataset.mdec, (mktQty[b.dataset.mdec] || 0) - 1, true)));
+  tc.querySelectorAll("[data-mqty]").forEach((inp) => inp.addEventListener("input", () => setMktQty(inp.dataset.mqty, Number(inp.value), false)));
 }
 
 function buyDogStick() {
@@ -6943,7 +7067,27 @@ function renderUpgrades() {
           </button>
         </article>
       `;
-  const facilityHtml = upgradeRows + doghouseBuyRow;
+  const fd0 = state.fishFeeder || {};
+  const feederCost = 30000;
+  const canBuyFeeder = !fd0.owned && state.coins >= feederCost;
+  const feederBuyRow = fd0.owned
+    ? `
+        <article class="upgrade-row">
+          <span class="upgrade-title"><strong>自動餵食器(魚)</strong><span>已購買</span></span>
+          <span class="upgrade-meta">養魚池岸邊的飼料機，每3分鐘自動餵100顆；點它補飼料。</span>
+        </article>
+      `
+    : `
+        <article class="upgrade-row">
+          <span class="upgrade-title"><strong>自動餵食器(魚)</strong><span>${feederCost} 金幣</span></span>
+          <span class="upgrade-meta">每3分鐘自動餵魚100顆飼料(飼料需自購)。買後養魚池會出現飼料機。</span>
+          <button class="action-button" type="button" data-buy-feeder ${canBuyFeeder ? "" : "disabled"}>
+            <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
+            購買
+          </button>
+        </article>
+      `;
+  const facilityHtml = upgradeRows + doghouseBuyRow + feederBuyRow;
   const farmHtml = plotRow + repairRow;
   const ranchHtml = ranchBuildRows();
   elements.tabContent.innerHTML = `
@@ -6972,6 +7116,8 @@ function renderUpgrades() {
   if (repairBtn) repairBtn.addEventListener("click", repairPlot);
   const dogBuyBtn = elements.tabContent.querySelector("[data-buy-doghouse]");
   if (dogBuyBtn) dogBuyBtn.addEventListener("click", buyDoghouse);
+  const feederBuyBtn = elements.tabContent.querySelector("[data-buy-feeder]");
+  if (feederBuyBtn) feederBuyBtn.addEventListener("click", buyFeeder);
 
   elements.tabContent.querySelectorAll("[data-buy-upgrade]").forEach((button) => {
     button.addEventListener("click", () => buyUpgrade(button.dataset.buyUpgrade));

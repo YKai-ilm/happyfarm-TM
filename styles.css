@@ -4120,3 +4120,20 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .cook-fixed .cook-head { flex: none; margin: 0 0 10px; }
 .cook-fixed .cook-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .cook-fixed .cook-foot { flex: none; margin-top: 10px; }
+
+/* 自動餵食器(魚) */
+.ff-feeder { position: absolute; top: 4%; left: 19%; width: 50px; height: 54px; z-index: 40; cursor: pointer; border: none; padding: 0;
+  background: linear-gradient(#c98b52, #9c6b3c); border-radius: 8px 8px 4px 4px;
+  box-shadow: 0 3px 7px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.25);
+  display: flex; align-items: flex-start; justify-content: center; font-size: 1.4rem; padding-top: 4px; }
+.ff-feeder::after { content: ""; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+  border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 9px solid #7d5330; }
+.ff-feeder:active { transform: scale(0.95); }
+.feeder-info { text-align: center; font-size: 0.95rem; color: #3a3222; margin-bottom: 6px; }
+.feeder-info b { color: #d0392f; }
+
+/* 農民市集：買/賣按鈕 */
+.seed-actions .sell-stepper { margin: 0 4px; }
+.seed-button.mkt-buy { background: #e3b53f; }
+.seed-button.mkt-sell { background: #cf6a3f; color: #fff; }
+.seed-button.mkt-sell:disabled { opacity: 0.45; cursor: default; }
