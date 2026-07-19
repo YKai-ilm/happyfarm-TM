@@ -4062,11 +4062,16 @@ const KIT_BINS = [
 const KIT_POT = { left: 41.0, top: 24.0, w: 21.0, h: 28.0 };
 const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛" };
 function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
+function kFoodFile(key) { return key.indexOf("fish:") === 0 ? ("fish_" + key.slice(5)) : key; }
+function kHasImg(key) { return key !== "milk"; }
+function kWholeHtml(key) {
+  if (kHasImg(key)) return '<img class="kit-food-img" src="./assets/food/' + kFoodFile(key) + '.png" alt="" />';
+  return '<span>' + kIngEmoji(key) + '</span>';
+}
 function kCutHtml(key) {
-  const e = kIngEmoji(key);
-  if (key === "milk") return '<span>' + e + '</span>';   // 牛奶不切
-  if (key === "egg") return '<span class="kit-cut half"><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span></span>';   // 切對半
-  return '<span class="kit-cut"><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span></span>';
+  if (key === "milk") return '<span>' + kIngEmoji(key) + '</span>';   // 牛奶不切
+  if (kHasImg(key)) return '<img class="kit-food-img cut" src="./assets/food/' + kFoodFile(key) + '_cut.png" alt="" />';
+  return '<span>' + kIngEmoji(key) + '</span>';
 }
 function tokName(t) {
   if (t === "cat:veg") return "任一蔬菜"; if (t === "cat:fruit") return "任一水果"; if (t === "cat:fish") return "任一魚";
@@ -4221,7 +4226,7 @@ function renderKitStage() {
     if (!it) { el.innerHTML = ""; return; }
     const e = kIngEmoji(it.key);
     el.innerHTML = '<div class="kit-item' + (it.cut ? " is-cut" : "") + '" data-item="' + i + '" title="' + ((KITCHEN_ING_MAP[it.key] || {}).name || "") + '">' +
-      (it.cut ? kCutHtml(it.key) : '<span>' + e + '</span>') + '</div>';
+      (it.cut ? kCutHtml(it.key) : kWholeHtml(it.key)) + '</div>';
   });
   const pz = v.querySelector("#kitPotZone");
   if (pz) {
