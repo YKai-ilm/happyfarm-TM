@@ -586,7 +586,7 @@ function openFishFarm() {
   v.querySelectorAll(".ff-ctrl").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); ffCtrlClick(b.dataset.ff); }));
   v.addEventListener("click", ffWaterClick);
   if (state.fishFeeder && state.fishFeeder.owned) {
-    const fd = document.createElement("button"); fd.id = "ffFeeder"; fd.type = "button"; fd.className = "ff-feeder"; fd.textContent = "🍚";
+    const fd = document.createElement("button"); fd.id = "ffFeeder"; fd.type = "button"; fd.className = "ff-feeder"; fd.textContent = "";
     let fp = { left: 32, top: 4 };
     try { const _fp = JSON.parse(localStorage.getItem("ff-feeder-pos") || "null"); if (_fp && isFinite(_fp.left)) fp = _fp; } catch (_) {}
     fd.style.left = fp.left + "%"; fd.style.top = fp.top + "%";

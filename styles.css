@@ -4123,12 +4123,7 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .cook-fixed .cook-foot { flex: none; margin-top: 10px; }
 
 /* 自動餵食器(魚) */
-.ff-feeder { position: absolute; width: 50px; height: 54px; touch-action: none; z-index: 40; cursor: pointer; border: none; padding: 0;
-  background: linear-gradient(#c98b52, #9c6b3c); border-radius: 8px 8px 4px 4px;
-  box-shadow: 0 3px 7px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.25);
-  display: flex; align-items: flex-start; justify-content: center; font-size: 1.4rem; padding-top: 4px; }
-.ff-feeder::after { content: ""; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-  border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 9px solid #7d5330; }
+.ff-feeder { position: absolute; width: 44px; height: 82px; touch-action: none; z-index: 40; cursor: pointer; border: none; padding: 0; background: url("./assets/decor/feeder.png") center center / contain no-repeat; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4)); }
 .ff-feeder:active { transform: scale(0.95); }
 .feeder-info { text-align: center; font-size: 0.95rem; color: #3a3222; margin-bottom: 6px; }
 .feeder-info b { color: #d0392f; }
