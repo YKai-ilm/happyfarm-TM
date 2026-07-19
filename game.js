@@ -3968,7 +3968,8 @@ const KITCHEN_ING = [].concat(
   Object.keys(CROPS).map((id) => ({ key: id, name: CROPS[id].name, cat: (KFRUITS.has(id) ? "fruit" : "veg"), src: "crop" })),
   [{ key: "egg", name: "蛋", cat: "egg", src: "ranch", rk: "chicken" },
    { key: "pork", name: "豬肉", cat: "pork", src: "ranch", rk: "pig" },
-   { key: "milk", name: "牛奶", cat: "milk", src: "ranch", rk: "cow" }],
+   { key: "milk", name: "牛奶", cat: "milk", src: "ranch", rk: "cow" },
+   { key: "water", name: "水", cat: "water", src: "free" }],
   FISH_MARKET.map((f) => ({ key: "fish:" + f.k, name: f.k, cat: "fish", src: "fish", fk: f.k }))
 );
 const KITCHEN_ING_MAP = {}; KITCHEN_ING.forEach((i) => { KITCHEN_ING_MAP[i.key] = i; });
@@ -3978,17 +3979,16 @@ const RECIPES = [
   { id: "boiledegg", name: "水煮蛋", ing: ["egg"], sell: 45 },
   { id: "sausage", name: "炭烤香腸", ing: ["pork"], sell: 230 },
   { id: "eggplantgrill", name: "炭烤茄子", ing: ["eggplant"], sell: 60 },
-  { id: "pomjuice", name: "石榴汁", ing: ["pomegranate"], sell: 110 },
   { id: "tomategg", name: "番茄炒蛋", ing: ["tomato", "egg"], sell: 130 },
   { id: "cornsoup", name: "玉米濃湯", ing: ["corn", "milk"], sell: 230 },
   { id: "mash", name: "奶香薯泥", ing: ["potato", "milk"], sell: 200 },
   { id: "pumpkinsoup", name: "南瓜濃湯", ing: ["pumpkin", "milk"], sell: 250 },
-  { id: "strawshake", name: "草莓奶昔", ing: ["strawberry", "milk"], sell: 230 },
   { id: "spicypork", name: "辣炒豬肉", ing: ["pork", "pepper"], sell: 270 },
   { id: "juice2", name: "綜合果汁", ing: ["cat:fruit", "cat:fruit"], sell: 150 },
   { id: "stirveg", name: "什錦炒蔬", ing: ["cat:veg", "cat:veg"], sell: 140 },
   { id: "grillfish", name: "鹽烤鮮魚", ing: ["cat:fish"], sell: 220 },
   { id: "fishsoup", name: "味噌魚湯", ing: ["cat:fish", "milk"], sell: 300 },
+  { id: "fishwatersoup", name: "鮮魚湯", ing: ["cat:fish", "water"], sell: 230 },
   { id: "salad", name: "田園沙拉", ing: ["tomato", "carrot", "pepper"], sell: 180 },
   { id: "kebab", name: "炭烤肉串", ing: ["pork", "pepper", "eggplant"], sell: 330 },
   { id: "sweetfish", name: "糖醋魚", ing: ["cat:fish", "tomato", "pepper"], sell: 390 },
@@ -3998,15 +3998,23 @@ const RECIPES = [
   { id: "stew", name: "農夫燉菜", ing: ["potato", "carrot", "tomato"], sell: 200 },
   { id: "fishburger", name: "鮮魚堡", ing: ["cat:fish", "egg", "tomato"], sell: 350 },
 ];
+(function () {
+  var MILKF = ["apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"];
+  var JUICEF = MILKF.concat(["tomato"]);   // 果汁另含番茄
+  MILKF.forEach(function (f) { var s = (CROPS[f] && CROPS[f].sell) || 30, nm = (CROPS[f] && CROPS[f].name) || f; RECIPES.push({ id: "milk_" + f, name: nm + "牛奶", ing: [f, "milk"], sell: 180 + s * 2 }); });
+  JUICEF.forEach(function (f) { var s = (CROPS[f] && CROPS[f].sell) || 30, nm = (CROPS[f] && CROPS[f].name) || f; RECIPES.push({ id: "juice_" + f, name: nm + "汁", ing: [f, "water"], sell: 80 + s * 2 }); });
+})();
 const RECIPE_MAP = {}; RECIPES.forEach((r) => { RECIPE_MAP[r.id] = r; });
 function kIngCount(ing) {
   if (!ing) return 0;
+  if (ing.src === "free") return 999;
   if (ing.src === "crop") return (state.inventory && state.inventory[ing.key]) || 0;
   if (ing.src === "ranch") return (state.ranchProducts && state.ranchProducts[ing.rk]) || 0;
   if (ing.src === "fish") return (state.fishBag && state.fishBag[ing.fk]) || 0;
   return 0;
 }
 function kIngConsume(ing, n) {
+  if (ing.src === "free") return;
   if (ing.src === "crop") { state.inventory = state.inventory || {}; state.inventory[ing.key] = Math.max(0, (state.inventory[ing.key] || 0) - n); }
   else if (ing.src === "ranch") { state.ranchProducts = state.ranchProducts || {}; state.ranchProducts[ing.rk] = Math.max(0, (state.ranchProducts[ing.rk] || 0) - n); }
   else if (ing.src === "fish") { state.fishBag = state.fishBag || {}; state.fishBag[ing.fk] = Math.max(0, (state.fishBag[ing.fk] || 0) - n); }
@@ -4054,16 +4062,16 @@ const KIT_BIN_NAMES = ["蔬菜類", "穀物根莖類", "蛋奶類", "果實類",
 const KIT_BINS = [
   ["turnip", "carrot", "eggplant", "pepper"],
   ["corn", "pea", "potato", "pumpkin"],
-  ["egg", "milk"],
+  ["egg", "milk", "water"],
   ["tomato", "apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"],
   ["pork"],
   FISH_MARKET.map(function (f) { return "fish:" + f.k; }),
 ];
 const KIT_POT = { left: 41.0, top: 24.0, w: 21.0, h: 28.0 };
-const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛" };
+const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛", water: "💧" };
 function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
 function kFoodFile(key) { return key.indexOf("fish:") === 0 ? ("fish_" + key.slice(5)) : key; }
-function kHasImg(key) { return key !== "milk"; }
+function kHasImg(key) { return key !== "milk" && key !== "water"; }
 function kWholeHtml(key) {
   if (kHasImg(key)) return '<img class="kit-food-img" src="./assets/food/' + kFoodFile(key) + '.png" alt="" />';
   return '<span>' + kIngEmoji(key) + '</span>';
@@ -4209,7 +4217,7 @@ function sellDish(id, n) {
 }
 function doCut(i) {
   const it = leafItems[i]; if (!it || it.cut) return;
-  if (it.key === "milk") { toast("牛奶不用切，可直接拖下鍋。"); return; }
+  if (it.key === "milk" || it.key === "water") { toast("這個不用切，可直接拖下鍋。"); return; }
   const ing = KITCHEN_ING_MAP[it.key];
   if (!ing || kIngCount(ing) < 1) { toast("庫存不足，無法切這個食材。"); leafItems[i] = null; renderKitStage(); return; }
   kIngConsume(ing, 1);
@@ -4248,7 +4256,7 @@ function bindKitItems(v) {
     const it = leafItems[i];
     if (!it) return;
     if (!it.cut) {
-      el.onclick = function () { if (it.key === "milk") { it.cut = true; renderKitStage(); return; } if (knifeMode) doCut(i); else toast("要先按「切菜」把它切好，才能下鍋。"); };
+      el.onclick = function () { if (it.key === "milk" || it.key === "water") { it.cut = true; renderKitStage(); return; } if (knifeMode) doCut(i); else toast("要先按「切菜」把它切好，才能下鍋。"); };
       return;
     }
     let dragging = false, ghost = null;
@@ -4277,7 +4285,7 @@ function openIngredientPicker(zoneIdx, binIdx) {
   const bin = (binIdx != null && KIT_BINS[binIdx]) ? KIT_BINS[binIdx] : null;
   const title = (binIdx != null && kitSpots[binIdx]) ? (kitSpots[binIdx].name + "　" + (KIT_BIN_NAMES[binIdx] || "")) : "選一種食材";
   const avail = KITCHEN_ING.filter(function (ing) { return kIngCount(ing) > 0 && (!bin || bin.indexOf(ing.key) >= 0); });
-  let rows = avail.map(function (ing) { return '<button type="button" class="cook-pick" data-pick="' + ing.key + '">' + ing.name + ' <small>×' + kIngCount(ing) + '</small></button>'; }).join("");
+  let rows = avail.map(function (ing) { return '<button type="button" class="cook-pick" data-pick="' + ing.key + '">' + ing.name + ' <small>' + (ing.src === "free" ? "（免費）" : ("×" + kIngCount(ing))) + '</small></button>'; }).join("");
   if (!rows) rows = '<p class="item-empty">這一籃目前沒有庫存，先去收成／撈魚吧。</p>';
   ov.innerHTML = '<div class="cook-card"><h3>' + title + '</h3><div class="cook-picklist">' + rows + '</div><button type="button" class="kit-sub" id="pickClose">關閉</button></div>';
   document.body.appendChild(ov);
@@ -4286,10 +4294,10 @@ function openIngredientPicker(zoneIdx, binIdx) {
   ov.querySelectorAll("[data-pick]").forEach(function (b) {
     b.addEventListener("click", function () {
       const pk = b.dataset.pick;
-      leafItems[zoneIdx] = { key: pk, cut: (pk === "milk") };
+      leafItems[zoneIdx] = { key: pk, cut: (pk === "milk" || pk === "water") };
       ov.remove(); renderKitStage();
       const ing = KITCHEN_ING_MAP[pk];
-      toast(pk === "milk" ? "已放上「牛奶」，免切、可直接下鍋。" : "已放上「" + (ing ? ing.name : "") + "」，記得按「切菜」切好。");
+      toast((pk === "milk" || pk === "water") ? "已放上「" + (ing ? ing.name : "") + "」，免切、可直接下鍋。" : "已放上「" + (ing ? ing.name : "") + "」，記得按「切菜」切好。");
     });
   });
 }
