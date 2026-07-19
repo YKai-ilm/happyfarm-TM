@@ -587,8 +587,19 @@ function openFishFarm() {
   v.addEventListener("click", ffWaterClick);
   if (state.fishFeeder && state.fishFeeder.owned) {
     const fd = document.createElement("button"); fd.id = "ffFeeder"; fd.type = "button"; fd.className = "ff-feeder"; fd.textContent = "🍚";
-    fd.addEventListener("click", function (e) { e.stopPropagation(); openFeederMenu(); });
+    let fp = { left: 32, top: 4 };
+    try { const _fp = JSON.parse(localStorage.getItem("ff-feeder-pos") || "null"); if (_fp && isFinite(_fp.left)) fp = _fp; } catch (_) {}
+    fd.style.left = fp.left + "%"; fd.style.top = fp.top + "%";
     v.appendChild(fd);
+    if (state.gm) {
+      let drag = false, moved = false, sx = 0, sy = 0, ol = 0, ot = 0;
+      fd.onpointerdown = function (e) { drag = true; moved = false; sx = e.clientX; sy = e.clientY; ol = fp.left; ot = fp.top; try { fd.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); e.stopPropagation(); };
+      fd.onpointermove = function (e) { if (!drag) return; const r = v.getBoundingClientRect(); if (!r.width) return; if (Math.abs(e.clientX - sx) > 3 || Math.abs(e.clientY - sy) > 3) moved = true; fp.left = Math.max(0, Math.min(96, ol + (e.clientX - sx) / r.width * 100)); fp.top = Math.max(0, Math.min(92, ot + (e.clientY - sy) / r.height * 100)); fd.style.left = fp.left + "%"; fd.style.top = fp.top + "%"; };
+      const end = function () { if (!drag) return; drag = false; try { localStorage.setItem("ff-feeder-pos", JSON.stringify(fp)); } catch (_) {} if (moved) toast("餵食機位置 left " + fp.left.toFixed(1) + "% / top " + fp.top.toFixed(1) + "%"); else openFeederMenu(); };
+      fd.onpointerup = end; fd.onpointercancel = end;
+    } else {
+      fd.addEventListener("click", function (e) { e.stopPropagation(); openFeederMenu(); });
+    }
   }
   state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
   state.pondFish.forEach((data) => ffSpawnFish(data, 5 + Math.random() * 90, 28 + Math.random() * 66));
