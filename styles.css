@@ -3943,11 +3943,11 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .fm-sell { background: #8fbf6f; color: #23330f; }
 
 /* 好友兩欄 */
-.friends-card { max-width: 760px; width: 96%; max-height: 94vh; overflow: hidden; }
-.friends-split { display: flex; gap: 10px; align-items: stretch; margin-top: 4px; }
+.friends-card { max-width: 760px; width: 96%; max-height: 94vh; overflow: hidden; display: flex; flex-direction: column; }
+.friends-split { display: flex; gap: 10px; align-items: stretch; margin-top: 4px; flex: 1 1 auto; min-height: 0; }
 .friends-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.04); }
 .friends-col .fishmkt-head { flex: 0 0 auto; }
-.friends-col .friends-list { flex: 1 1 auto; max-height: 60vh; overflow-y: auto; padding: 6px; margin: 0; }
+.friends-col .friends-list { flex: 1 1 auto; max-height: none; min-height: 0; overflow-y: auto; padding: 6px; margin: 0; }
 
 /* 寶箱開箱 */
 .chest-card { max-width: 560px; width: 94%; text-align: center; }
@@ -4137,3 +4137,14 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .seed-button.mkt-buy { background: #e3b53f; }
 .seed-button.mkt-sell { background: #cf6a3f; color: #fff; }
 .seed-button.mkt-sell:disabled { opacity: 0.45; cursor: default; }
+
+/* 好友卡：關閉鈕固定不被切 */
+.friends-card > h2, .friends-card > p { flex: 0 0 auto; }
+.friends-card #friendsClose { flex: 0 0 auto; margin-top: 8px; }
+
+/* 每週排行獎牌(金/銀/銅外框字) */
+.medals { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle; }
+.medal { font-size: 0.64rem; font-weight: 900; padding: 1px 5px; border-radius: 6px; line-height: 1.5; }
+.medal.gold { color: #6a4e00; background: linear-gradient(#ffe888, #f4b81c); border: 1.5px solid #b8860b; text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
+.medal.silver { color: #3f4650; background: linear-gradient(#f6f8fa, #c6ccd3); border: 1.5px solid #9aa2ab; text-shadow: 0 1px 0 rgba(255,255,255,0.7); }
+.medal.bronze { color: #4d2a10; background: linear-gradient(#e8ab6d, #bd7638); border: 1.5px solid #8a4f22; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }

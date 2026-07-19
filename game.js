@@ -1608,6 +1608,7 @@ window.setInterval(tick, 1000);
 window.setInterval(wanderRanchAnimals, 500);
 window.setInterval(idleCheck, 5000);
   window.setInterval(feederTick, 5000);
+  window.setInterval(function () { if (fbUser) maybeSettleWeekly(); }, 8000);
 }
 
 function createDefaultState() {
@@ -1667,6 +1668,7 @@ function createDefaultState() {
     dishBag: {},
     knownRecipes: [],
     weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0 },
+    weeklyPrev: null, lastSettledWeek: 0, friendMedals: null, weeklyMedals: null,
     ranchTool: "",
     ranchLevel: 1,
     farmName: "",
@@ -2208,6 +2210,7 @@ async function publishProfile(force) {
       wOrders: (state.weekly && state.weekly.orders) || 0,
       wSabotage: (state.weekly && state.weekly.sabotage) || 0,
       wHelp: (state.weekly && state.weekly.help) || 0,
+      prevWeek: state.weeklyPrev || null,
       dogGuard: dogWorking(),
       dogState: dogStateForProfile(),
       windmill: (state.upgrades && state.upgrades.windmill) || 0,
@@ -2334,7 +2337,7 @@ function renderCloudFriends() {
       ? fr.map((f) => `
         <div class="friend-row">
           <span class="friend-ava" aria-hidden="true">☁️</span>
-          <span class="friend-name">${f.name}</span>
+          <span class="friend-name">${f.name}${friendMedalHtml(f.uid)}</span>
           <button class="friend-visit" type="button" data-cf-visit="${f.uid}">拜訪</button>
           <button class="friend-visit cancel" type="button" data-cf-remove="${f.uid}">移除</button>
         </div>`).join("")
@@ -5689,10 +5692,104 @@ function currentWeekStart() {
 }
 function ensureWeek() {
   const ws = currentWeekStart();
-  if (!state.weekly || state.weekly.weekStart !== ws) state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0 };
+  if (!state.weekly) { state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0 }; return state.weekly; }
+  if (state.weekly.weekStart !== ws) {
+    state.weeklyPrev = { weekStart: state.weekly.weekStart, orders: state.weekly.orders || 0, sabotage: state.weekly.sabotage || 0, help: state.weekly.help || 0 };
+    state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0 };
+  }
   return state.weekly;
 }
 function bumpWeekly(field) { const w = ensureWeek(); w[field] = (w[field] || 0) + 1; }
+/* ===== 每週排行結算（活動信發獎＋獎牌） ===== */
+const WEEKLY_REWARDS = {
+  orders: {
+    1: { items: { weatherCard: 5, thawCard: 3, fertilizer: 10, treasureChest: 10 } },
+    2: { items: { weatherCard: 3, thawCard: 2, fertilizer: 6, treasureChest: 6 } },
+    3: { items: { weatherCard: 1, thawCard: 1, fertilizer: 2, treasureChest: 2 } },
+  },
+  sabotage: {
+    1: { coins: 8000, dishes: { sausage: 10 }, items: { dogStick: 5 } },
+    2: { coins: 5000, dishes: { sausage: 6 }, items: { dogStick: 3 } },
+    3: { coins: 3000, dishes: { sausage: 2 }, items: { dogStick: 1 } },
+  },
+  help: {
+    1: { items: { treasureChest: 10 }, seedsAll: 10, fryAll: 10 },
+    2: { items: { treasureChest: 6 }, seedsAll: 6, fryAll: 6 },
+    3: { items: { treasureChest: 2 }, seedsAll: 2, fryAll: 2 },
+  },
+};
+function mergeReward(dst, src) {
+  if (src.coins) dst.coins += src.coins;
+  if (src.seedsAll) dst.seedsAll += src.seedsAll;
+  if (src.fryAll) dst.fryAll += src.fryAll;
+  if (src.items) for (const k in src.items) dst.items[k] = (dst.items[k] || 0) + src.items[k];
+  if (src.dishes) for (const k in src.dishes) dst.dishes[k] = (dst.dishes[k] || 0) + src.dishes[k];
+}
+function buildWeeklyReward(ranks) {
+  const rew = { coins: 0, items: {}, dishes: {}, seedsAll: 0, fryAll: 0 };
+  ["orders", "sabotage", "help"].forEach(function (cat) {
+    const r = ranks[cat];
+    const tier = (r >= 1 && r <= 3) ? WEEKLY_REWARDS[cat][r] : null;
+    if (tier) mergeReward(rew, tier); else rew.coins += 500;   // 4名以後：金幣500
+  });
+  return rew;
+}
+let _weeklySettling = false;
+function maybeSettleWeekly() {
+  if (_weeklySettling) return;
+  ensureWeek();
+  const prev = state.weeklyPrev;
+  if (!prev || !prev.weekStart || state.lastSettledWeek === prev.weekStart) return;
+  _weeklySettling = true;
+  checkWeeklySettle().catch(function (e) { console.warn("週結算失敗", e); }).then(function () { _weeklySettling = false; });
+}
+async function checkWeeklySettle() {
+  if (!fbUser || !fbDb) return;
+  const prev = state.weeklyPrev;
+  if (!prev || !prev.weekStart || state.lastSettledWeek === prev.weekStart) return;
+  const ended = prev.weekStart;
+  const entries = [{ uid: fbUser.uid, orders: prev.orders || 0, sabotage: prev.sabotage || 0, help: prev.help || 0 }];
+  for (const f of (state.cloudFriends || [])) {
+    try {
+      const s = await fbDb.collection("profiles").doc(f.uid).get();
+      if (!s.exists) continue; const d = s.data();
+      let o = 0, sa = 0, h = 0;
+      if (d.prevWeek && d.prevWeek.weekStart === ended) { o = d.prevWeek.orders || 0; sa = d.prevWeek.sabotage || 0; h = d.prevWeek.help || 0; }
+      else if (d.weekStart === ended) { o = d.wOrders || 0; sa = d.wSabotage || 0; h = d.wHelp || 0; }
+      entries.push({ uid: f.uid, orders: o, sabotage: sa, help: h });
+    } catch (_) {}
+  }
+  const rankOf = function (cat, val) { let gtr = 0; entries.forEach(function (e) { if (e[cat] > val) gtr++; }); return gtr + 1; };
+  const ranks = {}; ["orders", "sabotage", "help"].forEach(function (cat) { const v = prev[cat] || 0; ranks[cat] = v > 0 ? rankOf(cat, v) : 99; });
+  const byUid = {};
+  entries.forEach(function (e) {
+    if (e.uid === fbUser.uid) return;
+    const m = {}; ["orders", "sabotage", "help"].forEach(function (cat) { const v = e[cat] || 0; const r = v > 0 ? rankOf(cat, v) : 99; m[cat] = (r <= 3) ? r : 0; });
+    byUid[e.uid] = m;
+  });
+  state.friendMedals = { week: ended, byUid: byUid };
+  state.weeklyMedals = { week: ended, orders: (ranks.orders <= 3 ? ranks.orders : 0), sabotage: (ranks.sabotage <= 3 ? ranks.sabotage : 0), help: (ranks.help <= 3 ? ranks.help : 0) };
+  const reward = buildWeeklyReward(ranks);
+  await sendEventMail(ranks, reward);
+  state.lastSettledWeek = ended;
+  saveState();
+  if (typeof renderCloudFriends === "function") renderCloudFriends();
+}
+async function sendEventMail(ranks, reward) {
+  if (!fbDb || !fbUser) return;
+  const rk = function (r) { return (r >= 1 && r <= 3) ? ("第 " + r + " 名") : "未上榜"; };
+  const body = "🎊 上週排行結算出爐！\n\n訂單：" + rk(ranks.orders) + "\n陷害：" + rk(ranks.sabotage) + "\n幫忙：" + rk(ranks.help) + "\n\n獎勵已附在這封信，開信自動領取。";
+  const payload = { from: null, fromName: "🎊 每週活動", subject: "每週排行結算獎勵", body: body, at: firebase.firestore.FieldValue.serverTimestamp(), read: false, kind: "event", reward: reward };
+  try { await fbDb.collection("mail").doc(fbUser.uid).collection("items").add(payload); } catch (e) { console.warn("活動信寄送失敗", e); }
+}
+function friendMedalHtml(uid) {
+  const fm = state.friendMedals; if (!fm || !fm.byUid || !fm.byUid[uid]) return "";
+  const med = fm.byUid[uid];
+  const cls = { 1: "gold", 2: "silver", 3: "bronze" }, label = { orders: "訂單", sabotage: "陷害", help: "幫忙" };
+  let out = "";
+  ["orders", "sabotage", "help"].forEach(function (cat) { const r = med[cat]; if (r >= 1 && r <= 3) out += '<span class="medal ' + cls[r] + '">' + label[cat] + '</span>'; });
+  return out ? ' <span class="medals">' + out + '</span>' : "";
+}
 const LB_TABS = [
   { k: "level", label: "等級", fmt: (r) => "Lv." + r.level + " · 🪙" + r.coins.toLocaleString(), cmp: (a, b) => (b.level - a.level) || (b.coins - a.coins) },
   { k: "stock", label: "股市", fmt: null, cmp: null },
@@ -8886,6 +8983,17 @@ async function sendReply(m) {
   catch (e) { console.warn(e); toast("回信失敗（網路或權限）。"); }
 }
 
+function rewardText(reward) {
+  const parts = [];
+  const IN = { weatherCard: "天氣兌換卡", thawCard: "解凍卡", fertilizer: "肥料", treasureChest: "寶箱", dogStick: "逗狗棒", coinCard500: "金幣500卡", expandCard: "牧場擴建卡" };
+  if (reward.coins) parts.push("金幣 " + reward.coins.toLocaleString());
+  if (reward.items) for (const k in reward.items) parts.push((IN[k] || k) + " ×" + reward.items[k]);
+  if (reward.dishes) for (const k in reward.dishes) parts.push(((RECIPE_MAP[k] && RECIPE_MAP[k].name) || k) + " ×" + reward.dishes[k]);
+  if (reward.seedsAll) parts.push("所有種子各 ×" + reward.seedsAll);
+  if (reward.fryAll) parts.push("各種魚苗各 ×" + reward.fryAll);
+  if (reward.code) parts.push("兌換碼：" + reward.code);
+  return parts.join("、");
+}
 function openMailItem(m, backKey) {
   if (!m) return;
   // 標記已讀 + 領獎(一次)
@@ -8906,12 +9014,7 @@ function openMailItem(m, backKey) {
   updateMailBadge();
   const box = document.querySelector("#mailBox"); if (!box) return;
   let rewardHtml = "";
-  if (m.reward) {
-    const parts = [];
-    if (m.reward.coins) parts.push("金幣 " + m.reward.coins);
-    if (m.reward.code) parts.push("兌換碼：" + m.reward.code);
-    rewardHtml = '<div class="mail-reward-note">🎁 附帶獎勵：' + parts.join("、") + "（已自動領取）</div>";
-  }
+  if (m.reward) rewardHtml = '<div class="mail-reward-note">🎁 附帶獎勵：' + rewardText(m.reward) + "（已自動領取）</div>";
   box.innerHTML = '<div class="mail-card"><h2>' + (m.subject || "(無主旨)") + '</h2>' +
     '<div class="mail-read-meta">寄件人：' + m.fromName + '　·　' + fmtMailTime(m.at) + '</div>' +
     '<div class="mail-read-body">' + String(m.body || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>") + '</div>' +
@@ -8933,6 +9036,10 @@ function claimMailReward(reward, id, isBroadcast) {
   claimed.push(key);
   const parts = [];
   if (reward.coins) { state.coins = (state.coins || 0) + reward.coins; parts.push(reward.coins + " 金幣"); }
+  if (reward.items) { state.items = state.items || {}; for (const k in reward.items) state.items[k] = (state.items[k] || 0) + reward.items[k]; parts.push("道具"); }
+  if (reward.dishes) { state.dishBag = state.dishBag || {}; for (const k in reward.dishes) state.dishBag[k] = (state.dishBag[k] || 0) + reward.dishes[k]; parts.push("料理"); }
+  if (reward.seedsAll) { state.seeds = state.seeds || {}; Object.keys(CROPS).forEach(function (id) { state.seeds[id] = (state.seeds[id] || 0) + reward.seedsAll; }); parts.push("種子"); }
+  if (reward.fryAll) { state.fryBag = state.fryBag || {}; FISH_NAMES.forEach(function (n) { state.fryBag[n] = (state.fryBag[n] || 0) + reward.fryAll; }); parts.push("魚苗"); }
   saveState(); render();
   if (reward.code) { redeemCode(reward.code); }      // 兌換碼用既有邏輯(含有效性/只能用一次)
   if (parts.length) toast("領取獎勵：" + parts.join("、"));
