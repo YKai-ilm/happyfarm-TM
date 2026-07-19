@@ -1568,7 +1568,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "621025441541",
   appId: "1:621025441541:web:dddba740aeb8a1dd59696c",
 };
-let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0; let mailTimer = null;
+let fbAuth = null, fbDb = null, fbUser = null, cloudReady = false, cloudSaveTimer = null, lastProfileAt = 0; let reconcileTimer = null; let saveListener = null; let lastSelfSavedAt = 0; let pendingLocalSave = false; let lastCloudRev = 0; let mailTimer = null; let mailUnsub = null; let bcastUnsub = null; let eventsUnsub = null; let _reconLock = false;
 const SLOT_KEY = "happy-farm-active-slot";
 let activeSlot = ""; let accountData = null; let idleTimer = null; let lastActivity = Date.now(); let slotReady = false; const IDLE_MS = 30000; let idlePaused = false;
 let visiting = null; let visitRefreshTimer = null; let visitPendingBug = {}; let visitPendingSpray = {};
@@ -1605,6 +1605,7 @@ if (!window.__SIM_HOST__) {
 ].forEach(([nm, fn]) => { try { fn(); } catch (e) { console.error("初始化失敗:", nm, e); } });
 if (window.addEventListener) window.addEventListener("resize", function(){ fitToolbar(); fitField(); });
 window.setInterval(tick, 1000);
+document.addEventListener("visibilitychange", function () { if (!fbUser) return; if (document.hidden) stopCloudListeners(); else startCloudListeners(); });
 window.setInterval(wanderRanchAnimals, 500);
 window.setInterval(idleCheck, 5000);
   window.setInterval(feederTick, 5000);
@@ -1785,6 +1786,7 @@ function stopCloudTimers() {
   if (saveListener) { saveListener(); saveListener = null; }
   if (idleTimer) { clearInterval(idleTimer); idleTimer = null; }
   if (mailTimer) { clearInterval(mailTimer); mailTimer = null; }
+  stopCloudListeners();
 }
 
 async function startSlotFlow() {
@@ -2076,10 +2078,22 @@ async function deleteSlot(slotId) {
   }, "確認刪除", "放棄");
 }
 
+function startCloudListeners() {
+  if (!fbDb || !fbUser || document.hidden) return;
+  if (!eventsUnsub) eventsUnsub = fbDb.collection("events").doc(fbUser.uid).collection("items").limit(200)
+    .onSnapshot(function (s) { if (!s.metadata.hasPendingWrites && !s.empty) reconcileFriendEvents(s); }, function () {});
+  if (!mailUnsub) mailUnsub = fbDb.collection("mail").doc(fbUser.uid).collection("items").limit(100)
+    .onSnapshot(function (ms) { const del = state.mailDeleted || []; mailInbox = ms.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return tsMillis(b.at) - tsMillis(a.at); }); if (del.length) mailInbox = mailInbox.filter(function (m) { return !del.includes(m.id); }); updateMailBadge(); }, function () {});
+  if (!bcastUnsub) bcastUnsub = fbDb.collection("broadcast").limit(50)
+    .onSnapshot(function (bs) { const del = state.mailDeleted || []; mailBroadcast = bs.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return tsMillis(b.at) - tsMillis(a.at); }); if (del.length) mailBroadcast = mailBroadcast.filter(function (b) { return !del.includes(b.id); }); updateMailBadge(); }, function () {});
+}
+function stopCloudListeners() {
+  if (eventsUnsub) { eventsUnsub(); eventsUnsub = null; }
+  if (mailUnsub) { mailUnsub(); mailUnsub = null; }
+  if (bcastUnsub) { bcastUnsub(); bcastUnsub = null; }
+}
 function startCloudTimers() {
-  if (!reconcileTimer) reconcileTimer = setInterval(() => { if (fbUser) reconcileFriendEvents(); }, 5000);
-  if (!mailTimer) mailTimer = setInterval(() => { if (fbUser) loadMail(); }, 25000);
-  loadMail();
+  startCloudListeners();
   attachSaveListener();
 }
 
@@ -2904,11 +2918,12 @@ function writeFriendEvent(ownerUid, data) {
   } catch (e) { console.warn("寫好友事件失敗", e); }
 }
 
-async function reconcileFriendEvents() {
-  if (!fbDb || !fbUser) return;
+async function reconcileFriendEvents(snap) {
+  if (!fbDb || !fbUser || _reconLock) return;
+  _reconLock = true;
   try {
-    const snap = await fbDb.collection("events").doc(fbUser.uid).collection("items").limit(200).get();
-    if (snap.empty) return;
+    if (!snap) snap = await fbDb.collection("events").doc(fbUser.uid).collection("items").limit(200).get();
+    if (snap.empty) { _reconLock = false; return; }
     let stolen = 0, bugged = 0, helped = 0, sprayed = 0, rstolen = 0, added = 0;
     const batchDeletes = [];
     snap.forEach((doc) => {
@@ -2935,6 +2950,7 @@ async function reconcileFriendEvents() {
     if (helped) parts.push("好友幫忙×" + helped);
     if (parts.length) toast("好友動態：" + parts.join("、"));
   } catch (e) { console.warn("結算好友事件失敗", e); }
+  _reconLock = false;
 }
 
 function applyFriendEvent(d) {
