@@ -4178,7 +4178,7 @@ function kitNav(k) {
 function openDishStock() {
   const old = document.querySelector("#dishStockModal"); if (old) old.remove();
   const m = document.createElement("div"); m.id = "dishStockModal"; m.className = "cook-modal";
-  m.innerHTML = '<div class="cook-card"><h3>🍱 成品存貨（點「賣」換金幣）</h3><div id="dishStockList" class="kit-dishes"></div><button type="button" class="kit-sub" id="dsClose">關閉</button></div>';
+  m.innerHTML = '<div class="cook-card cook-fixed"><h3 class="cook-head">🍱 成品存貨（點「賣」換金幣）</h3><div id="dishStockList" class="kit-dishes cook-body"></div><button type="button" class="kit-sub cook-foot" id="dsClose">關閉</button></div>';
   document.body.appendChild(m);
   m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
   m.querySelector("#dsClose").addEventListener("click", () => m.remove());
@@ -4230,7 +4230,8 @@ function renderKitStage() {
   });
   const pz = v.querySelector("#kitPotZone");
   if (pz) {
-    pz.innerHTML = potItems.map(function (k) { return '<span class="kit-pot-item">' + kCutHtml(k) + '</span>'; }).join("");
+    const POTP = [[42, 40, -7], [60, 52, 8], [45, 62, 3]];
+    pz.innerHTML = potItems.map(function (k, i) { const P = POTP[i] || [50, 50, 0]; return '<span class="kit-pot-item" style="left:' + P[0] + '%;top:' + P[1] + '%;transform:translate(-50%,-50%) rotate(' + P[2] + 'deg)">' + kCutHtml(k) + '</span>'; }).join("");
     pz.onclick = function () {
       if (!potItems.length) { toast("鍋子是空的。"); return; }
       const n = potItems.length; potItems = []; renderKitStage();
