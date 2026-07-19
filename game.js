@@ -1665,6 +1665,7 @@ function createDefaultState() {
     ranchAnimals: [],
     ranchProducts: {},
     fishFeeder: { owned: false, pellets: 0, lastFeedAt: 0 },
+    sausageSteals: 0,
     dishBag: {},
     knownRecipes: [],
     weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0 },
@@ -2712,6 +2713,28 @@ function confirmRiskySteal(onOk) {
   ov.querySelector("#rsNo").addEventListener("click", close);
   ov.querySelector("#rsOk").addEventListener("click", () => { close(); onOk(); });
 }
+function promptDogGuard(onProceed) {
+  const have = (state.dishBag && state.dishBag.sausage) || 0;
+  if (have <= 0) { confirmRiskySteal(onProceed); return; }
+  const ov = document.createElement("div"); ov.className = "gift-box"; ov.style.zIndex = "95";
+  ov.innerHTML = '<div class="gift-card pond-confirm"><p>🐕 狗盯上你了！用一根<b>炭烤香腸</b>安撫嗎？<br>接下來 <b>2 次</b>偷竊不會被趕、且 100% 成功（仍受 10 分鐘上限）。<br><small>目前香腸 ' + have + ' 根</small></p><div class="pond-confirm-btns">' +
+    '<button type="button" class="pond-btn" id="dgSausage">用香腸</button>' +
+    '<button type="button" class="pond-btn" id="dgRisk">硬偷</button>' +
+    '<button type="button" class="pond-btn pond-close-btn" id="dgNo">放棄</button></div></div>';
+  document.body.appendChild(ov);
+  const close = function () { ov.remove(); };
+  ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
+  ov.querySelector("#dgNo").addEventListener("click", close);
+  ov.querySelector("#dgRisk").addEventListener("click", function () { close(); onProceed(); });
+  ov.querySelector("#dgSausage").addEventListener("click", function () {
+    close();
+    state.dishBag = state.dishBag || {};
+    if ((state.dishBag.sausage || 0) <= 0) { toast("沒有炭烤香腸了。"); return; }
+    state.dishBag.sausage -= 1; state.sausageSteals = 2; saveState();
+    toast("🌭 吃了炭烤香腸！接下來 2 次偷竊安全又必中。");
+    onProceed();
+  });
+}
 function showLossDialog(loss, name) {
   const old = document.querySelector("#lossDialog"); if (old) old.remove();
   const d = document.createElement("div");
@@ -2726,20 +2749,22 @@ function cloudStealProduct(i) {
   const a = (rs.animals || [])[i];
   if (!a) return;
   if (a.status !== "ready") { toast("這隻還沒有可收的產物。"); return; }
-  if (visiting.dogGuard && (state.dogChasedCount || 0) >= 5) { confirmRiskySteal(() => cloudStealProductExec(i)); return; }
+  if (visiting.dogGuard && (state.dogChasedCount || 0) >= 5 && !((state.sausageSteals || 0) > 0)) { promptDogGuard(() => cloudStealProductExec(i)); return; }
   cloudStealProductExec(i);
 }
 function cloudStealProductExec(i) {
   const rs = visiting.ranchSnapshot || {};
   const a = (rs.animals || [])[i];
   if (!a) return;
-  if (visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
+  const protectedSteal = (state.sausageSteals || 0) > 0;
+  if (!protectedSteal && visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
   const cfg = RANCH_ANIMALS[a.type];
   const uid = (visiting.uid || "?") + ":r";
   const now = Date.now();
   state.cloudStealLog = state.cloudStealLog || {};
   let log = (state.cloudStealLog[uid] || []).filter((t) => now - t < FRIEND_STEAL_WINDOW);
   if (log.length >= FRIEND_STEAL_MAX) { toast("這位好友 10 分鐘內只能偷 " + FRIEND_STEAL_MAX + " 次。"); return; }
+  if (protectedSteal) state.sausageSteals = Math.max(0, (state.sausageSteals || 0) - 1);
   state.ranchProducts = state.ranchProducts || {};
   state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + 1;
   log.push(now);
@@ -2936,19 +2961,21 @@ function cloudSteal(index) {
   if (!pl || !pl.crop) { toast("這格沒有作物。"); return; }
   const ready = pl.readyAt ? Date.now() >= pl.readyAt : false;
   if (!ready) { toast("還沒成熟，不能偷。"); return; }
-  if (visiting.dogGuard && (state.dogChasedCount || 0) >= 5) { confirmRiskySteal(() => cloudStealExec(index)); return; }
+  if (visiting.dogGuard && (state.dogChasedCount || 0) >= 5 && !((state.sausageSteals || 0) > 0)) { promptDogGuard(() => cloudStealExec(index)); return; }
   cloudStealExec(index);
 }
 function cloudStealExec(index) {
   const plots = Array.isArray(visiting.farmSnapshot) ? visiting.farmSnapshot : [];
   const pl = plots[index];
   if (!pl || !pl.crop) return;
-  if (visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
+  const protectedSteal = (state.sausageSteals || 0) > 0;
+  if (!protectedSteal && visiting.dogGuard && Math.random() < dogCatchChance(visiting.uid)) { onDogChased(visiting.farmName); return; }
   const uid = visiting.uid || "?";
   const now = Date.now();
   state.cloudStealLog = state.cloudStealLog || {};
   let log = (state.cloudStealLog[uid] || []).filter((t) => now - t < FRIEND_STEAL_WINDOW);
   if (log.length >= FRIEND_STEAL_MAX) { toast("這位好友 10 分鐘內只能偷 " + FRIEND_STEAL_MAX + " 次。"); return; }
+  if (protectedSteal) state.sausageSteals = Math.max(0, (state.sausageSteals || 0) - 1);
   const crop = CROPS[pl.crop];
   const amt = 1 + Math.floor(Math.random() * 3);
   state.inventory[pl.crop] = (state.inventory[pl.crop] || 0) + amt;
@@ -3998,7 +4025,7 @@ const RECIPES = [
   { id: "fries", name: "黃金薯條", ing: ["potato"], sell: 60 },
   { id: "cornroast", name: "烤玉米", ing: ["corn"], sell: 55 },
   { id: "boiledegg", name: "水煮蛋", ing: ["egg"], sell: 45 },
-  { id: "sausage", name: "炭烤香腸", ing: ["pork"], sell: 230 },
+  { id: "sausage", name: "炭烤香腸", ing: ["pork"], sell: 230, desc: "🐕 在真實好友家偷竊被狗盯上(第6次起)時可用，接下來2次不被趕且必中" },
   { id: "eggplantgrill", name: "炭烤茄子", ing: ["eggplant"], sell: 60 },
   { id: "tomategg", name: "番茄炒蛋", ing: ["tomato", "egg"], sell: 130 },
   { id: "cornsoup", name: "玉米濃湯", ing: ["corn", "milk"], sell: 230 },
@@ -4220,7 +4247,7 @@ function renderKitchenDishes() {
   if (!ids.length) { box.innerHTML = '<p class="item-empty">還沒有料理，點鍋子做一道吧。</p>'; return; }
   box.innerHTML = ids.map((id) => {
     const r = RECIPE_MAP[id], n = state.dishBag[id];
-    return '<div class="kit-dish"><span class="kit-dish-name">' + r.name + ' ×' + n + '</span><span class="kit-dish-sell">$' + r.sell + '/份</span>' +
+    return '<div class="kit-dish"><span class="kit-dish-name">' + r.name + ' ×' + n + (r.desc ? '<small class="kit-dish-desc">' + r.desc + '</small>' : '') + '</span><span class="kit-dish-sell">$' + r.sell + '/份</span>' +
       '<button type="button" class="kit-sell" data-sell="' + id + '">賣1</button>' +
       '<button type="button" class="kit-sell all" data-sellall="' + id + '">全賣</button></div>';
   }).join("");
