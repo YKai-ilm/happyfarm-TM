@@ -4099,6 +4099,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .kit-cut-pc:nth-child(1) { clip-path: inset(0 67% 0 0); transform: translate(-5px, -2px) rotate(-9deg); }
 .kit-cut-pc:nth-child(2) { clip-path: inset(0 34% 0 33%); }
 .kit-cut-pc:nth-child(3) { clip-path: inset(0 0 0 67%); transform: translate(5px, 2px) rotate(9deg); }
+.kit-cut.half .kit-cut-pc:nth-child(1) { clip-path: inset(0 50% 0 0); transform: translate(-4px, 0) rotate(-8deg); }
+.kit-cut.half .kit-cut-pc:nth-child(2) { clip-path: inset(0 0 0 50%); transform: translate(4px, 0) rotate(8deg); }
 .kit-ghost { position: fixed; transform: translate(-50%, -50%) perspective(420px) rotateX(16deg) scale(1.1); pointer-events: none; z-index: 99; opacity: 0.95; filter: drop-shadow(0 8px 6px rgba(0,0,0,0.45)); }
 .kit-potzone { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 4px; }
 .kit-pot-item { font-size: 1.6rem; display: inline-block; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.42)); transform: perspective(300px) rotateX(14deg); }

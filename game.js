@@ -4064,6 +4064,8 @@ const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔"
 function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
 function kCutHtml(key) {
   const e = kIngEmoji(key);
+  if (key === "milk") return '<span>' + e + '</span>';   // 牛奶不切
+  if (key === "egg") return '<span class="kit-cut half"><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span></span>';   // 切對半
   return '<span class="kit-cut"><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span><span class="kit-cut-pc">' + e + '</span></span>';
 }
 function tokName(t) {
@@ -4156,7 +4158,6 @@ function setupKitSpots(v) {
   });
 }
 function kitSpotClick(i) {
-  if (knifeMode) { toast("料理刀模式中，先按一次「切菜」收刀。"); return; }
   let zone = -1;
   for (let n = 0; n < KIT_FILL_ORDER.length; n++) { const z = KIT_FILL_ORDER[n]; if (!leafItems[z]) { zone = z; break; } }
   if (zone < 0) { toast("葉子三區都放滿了，先切好拖進鍋子。"); return; }
@@ -4201,6 +4202,17 @@ function sellDish(id, n) {
   saveState(); renderHeader(); renderKitchenDishes();
   toast("賣出 " + r.name + " ×" + n + "，得 $" + gain.toLocaleString() + "。");
 }
+function doCut(i) {
+  const it = leafItems[i]; if (!it || it.cut) return;
+  if (it.key === "milk") { toast("牛奶不用切，可直接拖下鍋。"); return; }
+  const ing = KITCHEN_ING_MAP[it.key];
+  if (!ing || kIngCount(ing) < 1) { toast("庫存不足，無法切這個食材。"); leafItems[i] = null; renderKitStage(); return; }
+  kIngConsume(ing, 1);
+  it.cut = true;
+  saveState(); renderKitStage();
+  if (typeof renderInventory === "function") renderInventory();
+  toast("🔪 切好了！已從庫存扣除 1 個「" + ing.name + "」");
+}
 function renderKitStage() {
   const v = document.querySelector("#kitchenView"); if (!v) return;
   KIT_ZONES.forEach(function (z, i) {
@@ -4212,7 +4224,14 @@ function renderKitStage() {
       (it.cut ? kCutHtml(it.key) : '<span>' + e + '</span>') + '</div>';
   });
   const pz = v.querySelector("#kitPotZone");
-  if (pz) pz.innerHTML = potItems.map(function (k) { return '<span class="kit-pot-item">' + kCutHtml(k) + '</span>'; }).join("");
+  if (pz) {
+    pz.innerHTML = potItems.map(function (k) { return '<span class="kit-pot-item">' + kCutHtml(k) + '</span>'; }).join("");
+    pz.onclick = function () {
+      if (!potItems.length) { toast("鍋子是空的。"); return; }
+      const n = potItems.length; potItems = []; renderKitStage();
+      toast("🗑️ 已清空鍋子，裡面的 " + n + " 樣食材報銷了。");
+    };
+  }
   v.classList.toggle("knife", knifeMode);
   bindKitItems(v);
 }
@@ -4220,12 +4239,12 @@ function bindKitItems(v) {
   v.querySelectorAll(".kit-item").forEach(function (el) {
     const i = Number(el.dataset.item);
     el.onpointerdown = null; el.onpointermove = null; el.onpointerup = null; el.onclick = null;
-    if (knifeMode) {
-      el.onclick = function () { const it = leafItems[i]; if (it && !it.cut) { it.cut = true; renderKitStage(); toast("切好了！"); } };
+    const it = leafItems[i];
+    if (!it) return;
+    if (!it.cut) {
+      el.onclick = function () { if (it.key === "milk") { it.cut = true; renderKitStage(); return; } if (knifeMode) doCut(i); else toast("要先按「切菜」把它切好，才能下鍋。"); };
       return;
     }
-    const it = leafItems[i];
-    if (!it || !it.cut) { el.onclick = function () { toast("要先按「切菜」把它切好，才能下鍋。"); }; return; }
     let dragging = false, ghost = null;
     const moveGhost = function (e) { if (ghost) { ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; } };
     el.onpointerdown = function (e) {
@@ -4260,21 +4279,18 @@ function openIngredientPicker(zoneIdx, binIdx) {
   ov.querySelector("#pickClose").addEventListener("click", function () { ov.remove(); });
   ov.querySelectorAll("[data-pick]").forEach(function (b) {
     b.addEventListener("click", function () {
-      leafItems[zoneIdx] = { key: b.dataset.pick, cut: false };
+      const pk = b.dataset.pick;
+      leafItems[zoneIdx] = { key: pk, cut: (pk === "milk") };
       ov.remove(); renderKitStage();
-      const ing = KITCHEN_ING_MAP[b.dataset.pick];
-      toast("已放上「" + (ing ? ing.name : "") + "」，記得按「切菜」切好。");
+      const ing = KITCHEN_ING_MAP[pk];
+      toast(pk === "milk" ? "已放上「牛奶」，免切、可直接下鍋。" : "已放上「" + (ing ? ing.name : "") + "」，記得按「切菜」切好。");
     });
   });
 }
 function kitCook() {
-  if (knifeMode) { toast("先按一次「切菜」收刀再煮。"); return; }
   if (!potItems.length) { toast("鍋子裡沒有食材，先切好再拖進鍋子。"); return; }
   const recipe = matchRecipe(potItems.slice());
   if (!recipe) { toast("這些食材組不出料理，換換看 😅"); return; }
-  const need = {}; potItems.forEach(function (k) { need[k] = (need[k] || 0) + 1; });
-  for (const k in need) { if (kIngCount(KITCHEN_ING_MAP[k]) < need[k]) { toast("食材數量不夠。"); return; } }
-  for (const k in need) kIngConsume(KITCHEN_ING_MAP[k], need[k]);
   state.dishBag = state.dishBag || {}; state.dishBag[recipe.id] = (state.dishBag[recipe.id] || 0) + 1;
   state.knownRecipes = state.knownRecipes || [];
   const isNew = state.knownRecipes.indexOf(recipe.id) < 0;
