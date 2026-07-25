@@ -5084,6 +5084,7 @@ function bindStaticEvents() {
     saveState(); render(); toast("訂單已全部刷新。");
   });
   document.querySelector("#gmThief")?.addEventListener("click", gmSpawnThief);
+  document.querySelector("#gmLearnRecipes")?.addEventListener("click", gmLearnAllRecipes);
   makeGmBadgeDraggable();
 
   document.querySelectorAll("[data-panel-target]").forEach((button) => {
@@ -6664,6 +6665,11 @@ function maybeSpawnHazards(now) {
   toast(p.weed ? "🌿 有一塊田長雜草了，生長暫停！用「除蟲/拔草」清除。" : "🐛 有一塊田鬧蟲害了，生長暫停！用「除蟲/拔草」清除。");
 }
 
+function gmLearnAllRecipes() {
+  state.knownRecipes = RECIPES.map(function (r) { return r.id; });
+  saveState();
+  toast("已學會全部 " + RECIPES.length + " 道食譜，快煮可直接做。");
+}
 function gmSpawnThief() {
   if (isGuarded()) { toast("🛡️ 防盜卡生效中，目前不會被偷菜。"); return; }
   const cand = state.plots
@@ -6807,7 +6813,7 @@ function updateFarmTimers() {
       const suffix = `${plot.crop}-${stage}.png`;
       const cur = img.getAttribute("src") || "";
       if (!cur.endsWith(suffix)) {
-        img.setAttribute("src", `./assets/crops/field/${suffix}?v=20260615-claude-016`);
+        img.setAttribute("src", `./assets/crops/field/${suffix}?v=20260726-claude-388`);
         img.className = `crop-stage-image crop-${plot.crop} crop-stage-${stage}`;
       }
     }
@@ -8235,7 +8241,7 @@ function cropVisual(id, stage) {
 
   // 所有作物都已有田間 PNG（含 GPT 補的 12 種），一律用圖片
   const validStage = stage === "leaf" || stage === "ripe" ? stage : "sprout";
-  return `<img class="crop-stage-image crop-${id} crop-stage-${validStage}" src="./assets/crops/field/${id}-${validStage}.png?v=20260615-claude-016" alt="" />`;
+  return `<img class="crop-stage-image crop-${id} crop-stage-${validStage}" src="./assets/crops/field/${id}-${validStage}.png?v=20260726-claude-388" alt="" />`;
 }
 
 function sproutCropSvg(leaf) {
