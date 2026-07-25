@@ -649,6 +649,10 @@ function ffDarken(hex, amt) {
 }
 function ffMakeFishEl(type) {
   const el = document.createElement("div"); el.className = "ff-fish";
+  if (FISH_NAMES.indexOf(type) >= 0) {
+    el.innerHTML = '<img class="ff-fish-img" src="./assets/pondfish/' + type + '.png" alt="" draggable="false" />';
+    return el;
+  }
   const col = FRY_COLORS[type] || "#7fb0d0", dk = ffDarken(col, 0.3);
   el.innerHTML = '<svg viewBox="0 0 48 30">' +
     '<path d="M34,15 C39,12 44,9 47,7 C45,11 45,19 47,23 C44,21 39,18 34,15 Z" fill="' + dk + '"/>' +
