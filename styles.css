@@ -4157,8 +4157,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .feeder-buyrow { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 8px; flex-wrap: wrap; }
 
 /* 農民市集：避免列過寬需左右捲動 */
-.seed-actions .seed-button { flex: 1 1 60px; }
-.seed-button.mkt-buy, .seed-button.mkt-sell { min-width: 60px; padding-left: 8px; padding-right: 8px; }
+.seed-card.mkt-card .seed-actions .seed-button { flex: 0 0 96px; min-width: 96px; padding: 8px 6px; }
+.seed-button.mkt-buy, .seed-button.mkt-sell { min-width: 72px; }
 .seed-actions .sell-stepper { margin: 0; }
 .seed-actions .qty-num { width: 40px; }
 .seed-actions .seed-meta { flex: 0 0 auto; }
@@ -4179,3 +4179,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 
 /* 農民市集：移除左側大圖(名稱旁已有小徽章) */
 .seed-card.mkt-card { grid-template-columns: 1fr; }
+
+/* 農民市集：跨列對齊(持有數字3位固定寬、按鈕固定同寬) */
+.seed-card.mkt-card .seed-actions .fm-have-meta { flex: 0 0 auto; }
+.mkt-have-num { display: inline-block; min-width: 3ch; text-align: right; }
+.seed-card.mkt-card .seed-actions .qty-num { width: 44px; }

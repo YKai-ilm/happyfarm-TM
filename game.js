@@ -7291,7 +7291,7 @@ function marketRow(key, name, cost, desc, opts) {
         </span>
         <span class="seed-meta">${desc}</span>
         <span class="seed-actions">
-          <span class="seed-meta">持有 ${have}</span>
+          <span class="seed-meta fm-have-meta">持有 <span class="mkt-have-num">${have}</span></span>
           <span class="sell-stepper">
             <button class="qty-btn" type="button" data-mdec="${key}">−</button>
             <input class="qty-num" type="number" inputmode="numeric" min="0" data-mqty="${key}" value="${q}" />
