@@ -1367,6 +1367,16 @@ const CROPS = {
   orange:      { name: "橙子",   cost: 1587,  sell: 41, yieldCount: 26, grow: 9.25, regrow: 4,    seasons: 3, xp: 25, unlock: 14, colors: ["#f0922e", "#c4671e", "#5aa14c"] },
   grape:       { name: "葡萄",   cost: 1978,  sell: 47, yieldCount: 29, grow: 11.5, regrow: 5,    seasons: 3, xp: 30, unlock: 15, colors: ["#7b4ea3", "#4f2f70", "#5aa14c"] },
   pomegranate: { name: "石榴",   cost: 2425,  sell: 54, yieldCount: 30, grow: 13,   regrow: 5.5,  seasons: 3, xp: 34, unlock: 16, colors: ["#cf3a4a", "#8f2330", "#5aa14c"] },
+  rice:           { name: "水稻",   cost: 2600, sell: 56, yieldCount: 31, grow: 13.5, regrow: 0, seasons: 1, xp: 35, unlock: 17, img: true, colors: ["#e8dca0", "#c9b86a", "#6a9a4c"] },
+  barley:         { name: "大麥",   cost: 2800, sell: 58, yieldCount: 32, grow: 14,   regrow: 0, seasons: 1, xp: 36, unlock: 18, img: true, colors: ["#e0cf88", "#bfa85a", "#6a9a4c"] },
+  wheat:          { name: "小麥",   cost: 3000, sell: 60, yieldCount: 33, grow: 14.5, regrow: 0, seasons: 1, xp: 38, unlock: 19, img: true, colors: ["#e7d17a", "#c9a94e", "#6a9a4c"] },
+  soybean:        { name: "黃豆",   cost: 3300, sell: 63, yieldCount: 34, grow: 15,   regrow: 0, seasons: 1, xp: 40, unlock: 20, img: true, colors: ["#d8cf7a", "#a89a4a", "#5a9a4c"] },
+  cucumber:       { name: "小黃瓜", cost: 3600, sell: 66, yieldCount: 35, grow: 15.5, regrow: 0, seasons: 1, xp: 42, unlock: 21, img: true, colors: ["#5aa84c", "#3e7d43", "#4d8a43"] },
+  "sweet-potato": { name: "地瓜",   cost: 3900, sell: 69, yieldCount: 36, grow: 16,   regrow: 0, seasons: 1, xp: 44, unlock: 22, img: true, colors: ["#c66a3a", "#9a4f28", "#5a9a4c"] },
+  onion:          { name: "洋蔥",   cost: 4200, sell: 72, yieldCount: 37, grow: 16.5, regrow: 0, seasons: 1, xp: 46, unlock: 23, img: true, colors: ["#e0c8a0", "#b89060", "#5a9a4c"] },
+  cabbage:        { name: "高麗菜", cost: 4600, sell: 76, yieldCount: 38, grow: 17,   regrow: 0, seasons: 1, xp: 48, unlock: 24, img: true, colors: ["#8ec26a", "#5d9a42", "#4d8a43"] },
+  peanut:         { name: "花生",   cost: 5000, sell: 80, yieldCount: 39, grow: 17.5, regrow: 0, seasons: 1, xp: 50, unlock: 25, img: true, colors: ["#d9b87a", "#a9834a", "#5a9a4c"] },
+  chestnut:       { name: "栗子",   cost: 5500, sell: 85, yieldCount: 40, grow: 18.5, regrow: 0, seasons: 1, xp: 53, unlock: 26, img: true, colors: ["#8a5a2a", "#5a3a18", "#5a9a4c"] },
 };
 
 const WEATHERS = {
@@ -1460,6 +1470,17 @@ const GIFTS = [
   { level: 3, coins: 1200, seeds: { corn: 5, carrot: 3 } },
   { level: 4, coins: 2000, seeds: { potato: 6, corn: 3 } },
   { level: 5, coins: 3000, seeds: { eggplant: 6, potato: 3 } },
+];
+const FRIEND_GIFTS = [
+  { n: 1,  coins: 1500,  fertilizer: 1,  dogStick: 0,  fry: 0 },
+  { n: 3,  coins: 3500,  fertilizer: 3,  dogStick: 1,  fry: 0 },
+  { n: 5,  coins: 6000,  fertilizer: 6,  dogStick: 3,  fry: 20 },
+  { n: 8,  coins: 10000, fertilizer: 10, dogStick: 6,  fry: 50 },
+  { n: 12, coins: 15000, fertilizer: 15, dogStick: 10, fry: 80 },
+];
+const NPC_FRIEND_GIFTS = [
+  { n: 4, seedKinds: 3, seedEach: 20 },
+  { n: 8, seedKinds: 5, seedEach: 30 },
 ];
 
 const FERTILIZER_COST = 300;
@@ -1661,6 +1682,8 @@ function createDefaultState() {
     inventory: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
     seeds: Object.fromEntries(Object.keys(CROPS).map((id) => [id, 0])),
     giftsClaimed: [],
+    friendGiftsClaimed: [],
+    npcGiftsClaimed: [],
     openingSpinDone: false,
     items: { weatherCard: 0, fertilizer: 0, thawCard: 0, guardCard: 0, coinCard500: 0, expSpinPack: 0, expandCard: 0, expandCardPro: 0 },
     guardUntil: 0,
@@ -4087,7 +4110,10 @@ const KFRUITS = new Set(["apple","strawberry","watermelon","banana","peach","ora
 const KITCHEN_ING = [].concat(
   Object.keys(CROPS).map((id) => ({ key: id, name: CROPS[id].name, cat: (KFRUITS.has(id) ? "fruit" : "veg"), src: "crop" })),
   [{ key: "egg", name: "蛋", cat: "egg", src: "ranch", rk: "chicken" },
-   { key: "pork", name: "豬肉", cat: "pork", src: "ranch", rk: "pig" },
+   { key: "pork", name: "豬肉", cat: "meat", src: "ranch", rk: "pig" },
+   { key: "beef", name: "牛肉", cat: "meat", src: "ranch", rk: "beef" },
+   { key: "mutton", name: "羊肉", cat: "meat", src: "ranch", rk: "mutton" },
+   { key: "chickenMeat", name: "雞肉", cat: "meat", src: "ranch", rk: "chickenMeat" },
    { key: "milk", name: "牛奶", cat: "milk", src: "ranch", rk: "cow" },
    { key: "water", name: "水", cat: "water", src: "free" }],
   FISH_MARKET.map((f) => ({ key: "fish:" + f.k, name: f.k, cat: "fish", src: "fish", fk: f.k }))
@@ -4119,6 +4145,21 @@ const RECIPES = [
   { id: "porkbowl", name: "豬肉蓋飯", ing: ["pork", "egg", "corn"], sell: 350 },
   { id: "stew", name: "農夫燉菜", ing: ["potato", "carrot", "tomato"], sell: 200 },
   { id: "fishburger", name: "鮮魚堡", ing: ["cat:fish", "egg", "tomato"], sell: 350 },
+  { id: "plainrice", name: "白飯", ing: ["rice", "water"], sell: 75 },
+  { id: "soymilk", name: "豆漿", ing: ["soybean", "water"], sell: 95 },
+  { id: "barleytea", name: "大麥茶", ing: ["barley", "water"], sell: 85 },
+  { id: "peanutsoup", name: "花生湯", ing: ["peanut", "milk"], sell: 210 },
+  { id: "roastchestnut", name: "糖炒栗子", ing: ["chestnut"], sell: 140 },
+  { id: "sweetpotatoball", name: "地瓜球", ing: ["sweet-potato"], sell: 95 },
+  { id: "cucumbersalad", name: "涼拌小黃瓜", ing: ["cucumber", "pepper"], sell: 140 },
+  { id: "onionring", name: "洋蔥圈", ing: ["onion", "wheat"], sell: 160 },
+  { id: "bread", name: "手工麵包", ing: ["wheat", "egg", "milk"], sell: 320 },
+  { id: "beefbowl", name: "牛肉蓋飯", ing: ["beef", "rice", "onion"], sell: 460 },
+  { id: "muttonpot", name: "羊肉爐", ing: ["mutton", "cabbage", "water"], sell: 400 },
+  { id: "chickenrice", name: "雞肉飯", ing: ["chickenMeat", "rice"], sell: 330 },
+  { id: "meatcabbage", name: "高麗菜炒肉", ing: ["cabbage", "cat:meat"], sell: 280 },
+  { id: "friednoodle", name: "什錦炒麵", ing: ["wheat", "cabbage", "pork"], sell: 350 },
+  { id: "veghotpot", name: "什錦火鍋", ing: ["cat:meat", "cabbage", "cat:fish"], sell: 480 },
 ];
 (function () {
   var MILKF = ["apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"];
@@ -4183,18 +4224,19 @@ const KIT_ZONES = [
 const KIT_FILL_ORDER = [1, 0, 2];   // 放置順序：中 → 左 → 右
 const KIT_BIN_NAMES = ["蔬菜類", "穀物根莖類", "蛋奶類", "果實類", "肉類", "魚類"];
 const KIT_BINS = [
-  ["turnip", "carrot", "eggplant", "pepper"],
-  ["corn", "pea", "potato", "pumpkin"],
+  ["turnip", "carrot", "eggplant", "pepper", "cucumber", "cabbage", "onion"],
+  ["corn", "pea", "potato", "pumpkin", "rice", "barley", "wheat", "soybean", "sweet-potato", "peanut", "chestnut"],
   ["egg", "milk", "water"],
   ["tomato", "apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"],
-  ["pork"],
+  ["pork", "beef", "mutton", "chickenMeat"],
   FISH_MARKET.map(function (f) { return "fish:" + f.k; }),
 ];
 const KIT_POT = { left: 41.0, top: 24.0, w: 21.0, h: 28.0 };
-const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛", water: "💧" };
+const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛", water: "💧", rice: "🍚", barley: "🌾", wheat: "🌾", soybean: "🫘", cucumber: "🥒", "sweet-potato": "🍠", onion: "🧅", cabbage: "🥬", peanut: "🥜", chestnut: "🌰", beef: "🥩", mutton: "🍖", chickenMeat: "🍗" };
 function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
 function kFoodFile(key) { return key.indexOf("fish:") === 0 ? ("fish_" + key.slice(5)) : key; }
-function kHasImg(key) { return key !== "milk" && key !== "water"; }
+const KFOOD_IMG = new Set(["turnip","carrot","corn","potato","eggplant","tomato","pea","pepper","pumpkin","apple","strawberry","watermelon","banana","peach","orange","grape","pomegranate","egg","pork"]);
+function kHasImg(key) { if (key && key.indexOf("fish:") === 0) return true; return KFOOD_IMG.has(key); }
 function kWholeHtml(key) {
   if (kHasImg(key)) return '<img class="kit-food-img" src="./assets/food/' + kFoodFile(key) + '.png" alt="" />';
   return '<span>' + kIngEmoji(key) + '</span>';
@@ -4205,7 +4247,7 @@ function kCutHtml(key) {
   return '<span>' + kIngEmoji(key) + '</span>';
 }
 function tokName(t) {
-  if (t === "cat:veg") return "任一蔬菜"; if (t === "cat:fruit") return "任一水果"; if (t === "cat:fish") return "任一魚";
+  if (t === "cat:veg") return "任一蔬菜"; if (t === "cat:fruit") return "任一水果"; if (t === "cat:fish") return "任一魚"; if (t === "cat:meat") return "任一肉";
   if (t.indexOf("any:") === 0) return t.slice(4).split(",").map(function (k) { return (KITCHEN_ING_MAP[k] && KITCHEN_ING_MAP[k].name) || k; }).join("/");
   const ing = KITCHEN_ING_MAP[t]; return ing ? ing.name : t;
 }
@@ -4443,7 +4485,7 @@ function kIngPrice(ing) {
   if (ing.src === "free") return 0;
   if (ing.src === "crop") return (CROPS[ing.key] && CROPS[ing.key].sell) || 9999;
   if (ing.src === "fish") { const f = FISH_MARKET.find(function (x) { return x.k === ing.fk; }); return f ? fishSellPrice(f.fish) : 9999; }
-  if (ing.key === "egg") return 20; if (ing.key === "pork") return 100; if (ing.key === "milk") return 167;
+  if (ing.src === "ranch") { if (RANCH_ANIMALS[ing.rk]) return RANCH_ANIMALS[ing.rk].value; if (typeof RANCH_BYPRODUCTS !== "undefined" && RANCH_BYPRODUCTS[ing.rk]) return RANCH_BYPRODUCTS[ing.rk].value; }
   return 9999;
 }
 function resolveQuick(recipe, qty, tally) {
@@ -5213,7 +5255,79 @@ function positionPanel(panel, anchor) {
 
 function hasClaimableGift() {
   if (!state.openingSpinDone) return true;
-  return GIFTS.some((g) => state.level >= g.level && !(state.giftsClaimed || []).includes(g.level));
+  if (GIFTS.some((g) => state.level >= g.level && !(state.giftsClaimed || []).includes(g.level))) return true;
+  const fn = (state.cloudFriends || []).length;
+  if (FRIEND_GIFTS.some((g) => fn >= g.n && !(state.friendGiftsClaimed || []).includes(g.n))) return true;
+  const vn = (state.friends || []).length;
+  if (NPC_FRIEND_GIFTS.some((g) => vn >= g.n && !(state.npcGiftsClaimed || []).includes(g.n))) return true;
+  return false;
+}
+function friendGiftContents(g) {
+  const parts = ["🪙 " + g.coins.toLocaleString()];
+  if (g.fertilizer) parts.push("肥料×" + g.fertilizer);
+  if (g.dogStick) parts.push("逗狗棒×" + g.dogStick);
+  if (g.fry) parts.push("隨機魚苗×" + g.fry);
+  return parts.join("　");
+}
+function friendGiftBodyHtml() {
+  const rHave = (state.cloudFriends || []).length, rClaimed = state.friendGiftsClaimed || [];
+  let realRows = "";
+  FRIEND_GIFTS.forEach((g) => {
+    if (rClaimed.includes(g.n)) return;
+    const reached = rHave >= g.n;
+    realRows += `
+      <div class="gift-row ${reached ? "is-claimable" : ""}">
+        <div class="gift-row-main"><strong>☁️ 真實好友 ${g.n} 人</strong><span class="gift-contents">${friendGiftContents(g)}</span></div>
+        <button class="gift-claim" type="button" data-friend-gift="${g.n}" ${reached ? "" : "disabled"}>${reached ? "領取" : g.n + " 人解鎖"}</button>
+      </div>`;
+  });
+  const vHave = (state.friends || []).length, vClaimed = state.npcGiftsClaimed || [];
+  let npcRows = "";
+  NPC_FRIEND_GIFTS.forEach((g) => {
+    if (vClaimed.includes(g.n)) return;
+    const reached = vHave >= g.n;
+    npcRows += `
+      <div class="gift-row ${reached ? "is-claimable" : ""}">
+        <div class="gift-row-main"><strong>🧑‍🌾 虛擬好友 ${g.n} 位</strong><span class="gift-contents">🌱 隨機作物 ${g.seedKinds} 種 × 各 ${g.seedEach} 種子</span></div>
+        <button class="gift-claim" type="button" data-npc-gift="${g.n}" ${reached ? "" : "disabled"}>${reached ? "領取" : g.n + " 位解鎖"}</button>
+      </div>`;
+  });
+  let rows = "";
+  if (realRows) rows += '<div class="gift-subhead">☁️ 真實好友</div>' + realRows;
+  if (npcRows) rows += '<div class="gift-subhead">🧑‍🌾 虛擬好友</div>' + npcRows;
+  return rows;
+}
+function claimNpcFriendGift(n) {
+  const g = NPC_FRIEND_GIFTS.find((x) => x.n === n);
+  if (!g) return;
+  const have = (state.friends || []).length;
+  if (have < n) { toast("虛擬好友要達 " + n + " 位才能領。"); return; }
+  state.npcGiftsClaimed = state.npcGiftsClaimed || [];
+  if (state.npcGiftsClaimed.includes(n)) { toast("這份禮包已領過了。"); return; }
+  const ids = Object.keys(CROPS).slice();
+  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = ids[i]; ids[i] = ids[j]; ids[j] = t; }
+  const chosen = ids.slice(0, g.seedKinds);
+  state.seeds = state.seeds || {};
+  chosen.forEach((id) => { state.seeds[id] = (state.seeds[id] || 0) + g.seedEach; });
+  state.npcGiftsClaimed.push(n);
+  saveState(); renderGiftList(); render();
+  toast("領取虛擬好友 " + n + " 位禮包：" + chosen.map((id) => ((CROPS[id] && CROPS[id].name) || id) + "種子×" + g.seedEach).join("、"));
+}
+function claimFriendGift(n) {
+  const g = FRIEND_GIFTS.find((x) => x.n === n);
+  if (!g) return;
+  const have = (state.cloudFriends || []).length;
+  if (have < n) { toast("真實好友要達 " + n + " 人才能領。"); return; }
+  state.friendGiftsClaimed = state.friendGiftsClaimed || [];
+  if (state.friendGiftsClaimed.includes(n)) { toast("這份友情禮包已領過了。"); return; }
+  state.coins = (state.coins || 0) + g.coins;
+  state.items = state.items || {};
+  if (g.fertilizer) state.items.fertilizer = (state.items.fertilizer || 0) + g.fertilizer;
+  if (g.dogStick) state.items.dogStick = (state.items.dogStick || 0) + g.dogStick;
+  if (g.fry) { state.fryBag = state.fryBag || {}; for (let i = 0; i < g.fry; i++) { const t = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]; state.fryBag[t] = (state.fryBag[t] || 0) + 1; } }
+  state.friendGiftsClaimed.push(n);
+  saveState(); renderGiftList(); render();
+  toast("領取 " + n + " 人友情禮包：" + friendGiftContents(g));
 }
 
 function updateGiftBadge() {
@@ -5268,7 +5382,7 @@ function renderGiftList() {
   const sections = [
     { id: "newbie", title: "🌱 新手禮包", body: newbieBodyHtml(), note: newbieDone ? "本區禮包已全數領完" : "", empty: "🎉 感謝領取！" },
     { id: "event", title: "🎉 活動禮包", body: "", note: "", empty: "敬請期待，活動開跑後開放。" },
-    { id: "friend", title: "🤝 友情禮包", body: "", note: "", empty: "敬請期待，邀請好友後開放。" },
+    { id: "friend", title: "🤝 友情禮包", body: friendGiftBodyHtml(), note: "真實 " + (state.cloudFriends || []).length + " · 虛擬 " + (state.friends || []).length, empty: "🎉 友情禮包已全數領取！" },
   ];
   list.innerHTML = sections.map((sec) => {
     const open = !!giftSectionOpen[sec.id];
@@ -5293,6 +5407,12 @@ function renderGiftList() {
   });
   list.querySelectorAll("[data-gift-claim]").forEach((b) => {
     b.addEventListener("click", () => claimGift(Number(b.dataset.giftClaim)));
+  });
+  list.querySelectorAll("[data-friend-gift]").forEach((b) => {
+    b.addEventListener("click", () => claimFriendGift(Number(b.dataset.friendGift)));
+  });
+  list.querySelectorAll("[data-npc-gift]").forEach((b) => {
+    b.addEventListener("click", () => claimNpcFriendGift(Number(b.dataset.npcGift)));
   });
   const spinOpenBtn = document.querySelector("#spinOpen");
   if (spinOpenBtn) spinOpenBtn.addEventListener("click", openSpin);

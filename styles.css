@@ -4161,3 +4161,7 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .seed-actions .sell-stepper { margin: 0; }
 .seed-actions .qty-num { width: 40px; }
 .seed-actions .seed-meta { flex: 0 0 auto; }
+
+/* 禮包分組小標(真實/虛擬好友) */
+.gift-subhead { font-weight: 800; font-size: 0.82rem; color: #6a5a3a; margin: 6px 2px 2px; padding-top: 4px; border-top: 1px dashed var(--line); }
+.gift-subhead:first-child { border-top: none; padding-top: 0; }
