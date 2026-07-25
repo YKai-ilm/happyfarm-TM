@@ -1601,8 +1601,9 @@ const RANCH_BYPRODUCTS = {
   pigSkin: { name: "豬皮", emoji: "🥯", value: 70,  img: "./assets/food/pigSkin.png" },
 };
 const RANCH_BYPRODUCT_OF = { chicken: "chickenMeat", cow: "beef", sheep: "mutton", pig: "pigSkin" };
+const RANCH_PROD_IMG = { pig: "./assets/food/pork.png" };   // 主產物有食材圖的(僅豬肉)；蛋/羊毛/牛奶用 emoji
 function ranchProdInfo(key) {
-  if (RANCH_ANIMALS[key]) return RANCH_ANIMALS[key];
+  if (RANCH_ANIMALS[key]) { const a = RANCH_ANIMALS[key]; return { product: a.product, productEmoji: a.productEmoji, value: a.value, img: RANCH_PROD_IMG[key] || null }; }
   const b = RANCH_BYPRODUCTS[key];
   return b ? { product: b.name, productEmoji: b.emoji, value: b.value, img: b.img } : null;
 }
