@@ -7298,7 +7298,7 @@ function marketRow(key, name, cost, desc, opts) {
             <input class="qty-num" type="number" inputmode="numeric" min="0" data-mqty="${key}" value="${q}" />
             <button class="qty-btn" type="button" data-minc="${key}">＋</button>
           </span>
-          <button class="seed-button mkt-buy" type="button" data-mbuy="${key}" ${locked ? "disabled" : ""}>${locked ? (opts.lockText || "未解鎖") : "購買"}</button>
+          <button class="seed-button mkt-buy" type="button" data-mbuy="${key}" ${locked ? "disabled" : ""}>${locked ? "🔒 未解鎖" : "購買"}</button>
           <button class="seed-button mkt-sell" type="button" data-msell="${key}" ${have > 0 ? "" : "disabled"}>賣出</button>
         </span>
       </span>
