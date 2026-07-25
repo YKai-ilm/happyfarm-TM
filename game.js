@@ -1367,16 +1367,16 @@ const CROPS = {
   orange:      { name: "橙子",   cost: 1587,  sell: 41, yieldCount: 26, grow: 9.25, regrow: 4,    seasons: 3, xp: 25, unlock: 14, colors: ["#f0922e", "#c4671e", "#5aa14c"] },
   grape:       { name: "葡萄",   cost: 1978,  sell: 47, yieldCount: 29, grow: 11.5, regrow: 5,    seasons: 3, xp: 30, unlock: 15, colors: ["#7b4ea3", "#4f2f70", "#5aa14c"] },
   pomegranate: { name: "石榴",   cost: 2425,  sell: 54, yieldCount: 30, grow: 13,   regrow: 5.5,  seasons: 3, xp: 34, unlock: 16, colors: ["#cf3a4a", "#8f2330", "#5aa14c"] },
-  rice:           { name: "水稻",   cost: 2600, sell: 56, yieldCount: 31, grow: 13.5, regrow: 0, seasons: 1, xp: 35, unlock: 17, img: true, colors: ["#e8dca0", "#c9b86a", "#6a9a4c"] },
-  barley:         { name: "大麥",   cost: 2800, sell: 58, yieldCount: 32, grow: 14,   regrow: 0, seasons: 1, xp: 36, unlock: 18, img: true, colors: ["#e0cf88", "#bfa85a", "#6a9a4c"] },
-  wheat:          { name: "小麥",   cost: 3000, sell: 60, yieldCount: 33, grow: 14.5, regrow: 0, seasons: 1, xp: 38, unlock: 19, img: true, colors: ["#e7d17a", "#c9a94e", "#6a9a4c"] },
-  soybean:        { name: "黃豆",   cost: 3300, sell: 63, yieldCount: 34, grow: 15,   regrow: 0, seasons: 1, xp: 40, unlock: 20, img: true, colors: ["#d8cf7a", "#a89a4a", "#5a9a4c"] },
-  cucumber:       { name: "小黃瓜", cost: 3600, sell: 66, yieldCount: 35, grow: 15.5, regrow: 0, seasons: 1, xp: 42, unlock: 21, img: true, colors: ["#5aa84c", "#3e7d43", "#4d8a43"] },
-  "sweet-potato": { name: "地瓜",   cost: 3900, sell: 69, yieldCount: 36, grow: 16,   regrow: 0, seasons: 1, xp: 44, unlock: 22, img: true, colors: ["#c66a3a", "#9a4f28", "#5a9a4c"] },
-  onion:          { name: "洋蔥",   cost: 4200, sell: 72, yieldCount: 37, grow: 16.5, regrow: 0, seasons: 1, xp: 46, unlock: 23, img: true, colors: ["#e0c8a0", "#b89060", "#5a9a4c"] },
-  cabbage:        { name: "高麗菜", cost: 4600, sell: 76, yieldCount: 38, grow: 17,   regrow: 0, seasons: 1, xp: 48, unlock: 24, img: true, colors: ["#8ec26a", "#5d9a42", "#4d8a43"] },
-  peanut:         { name: "花生",   cost: 5000, sell: 80, yieldCount: 39, grow: 17.5, regrow: 0, seasons: 1, xp: 50, unlock: 25, img: true, colors: ["#d9b87a", "#a9834a", "#5a9a4c"] },
-  chestnut:       { name: "栗子",   cost: 5500, sell: 85, yieldCount: 40, grow: 18.5, regrow: 0, seasons: 1, xp: 53, unlock: 26, img: true, colors: ["#8a5a2a", "#5a3a18", "#5a9a4c"] },
+  rice:           { name: "水稻",   cost: 780,  sell: 56, yieldCount: 31, grow: 13.5, regrow: 0, seasons: 1, xp: 35, unlock: 17, img: true, colors: ["#e8dca0", "#c9b86a", "#6a9a4c"] },
+  wheat:          { name: "小麥",   cost: 840,  sell: 58, yieldCount: 32, grow: 14,   regrow: 0, seasons: 1, xp: 36, unlock: 18, img: true, colors: ["#e7d17a", "#c9a94e", "#6a9a4c"] },
+  barley:         { name: "大麥",   cost: 900,  sell: 60, yieldCount: 33, grow: 14.5, regrow: 0, seasons: 1, xp: 38, unlock: 19, img: true, colors: ["#e0cf88", "#bfa85a", "#6a9a4c"] },
+  soybean:        { name: "黃豆",   cost: 970,  sell: 63, yieldCount: 34, grow: 15,   regrow: 0, seasons: 1, xp: 40, unlock: 20, img: true, colors: ["#d8cf7a", "#a89a4a", "#5a9a4c"] },
+  cucumber:       { name: "小黃瓜", cost: 1050, sell: 66, yieldCount: 35, grow: 15.5, regrow: 0, seasons: 1, xp: 42, unlock: 21, img: true, colors: ["#5aa84c", "#3e7d43", "#4d8a43"] },
+  onion:          { name: "洋蔥",   cost: 1130, sell: 69, yieldCount: 36, grow: 16,   regrow: 0, seasons: 1, xp: 44, unlock: 22, img: true, colors: ["#e0c8a0", "#b89060", "#5a9a4c"] },
+  "sweet-potato": { name: "地瓜",   cost: 1210, sell: 72, yieldCount: 37, grow: 16.5, regrow: 0, seasons: 1, xp: 46, unlock: 23, img: true, colors: ["#c66a3a", "#9a4f28", "#5a9a4c"] },
+  cabbage:        { name: "高麗菜", cost: 1310, sell: 76, yieldCount: 38, grow: 17,   regrow: 0, seasons: 1, xp: 48, unlock: 24, img: true, colors: ["#8ec26a", "#5d9a42", "#4d8a43"] },
+  peanut:         { name: "花生",   cost: 1420, sell: 80, yieldCount: 39, grow: 17.5, regrow: 0, seasons: 1, xp: 50, unlock: 25, img: true, colors: ["#d9b87a", "#a9834a", "#5a9a4c"] },
+  chestnut:       { name: "栗子",   cost: 1550, sell: 85, yieldCount: 40, grow: 18.5, regrow: 0, seasons: 1, xp: 53, unlock: 26, img: true, colors: ["#8a5a2a", "#5a3a18", "#5a9a4c"] },
 };
 
 const WEATHERS = {
@@ -3473,7 +3473,12 @@ function gmInvMax() {
   Object.keys(CROPS).forEach((id) => { state.inventory[id] = 999; });
   state.ranchProducts = state.ranchProducts || {};
   Object.keys(RANCH_ANIMALS).forEach((t) => { state.ranchProducts[t] = 999; });
-  saveState(); render(); buildGmInvList(); toast("庫存全部調到最大。");
+  Object.keys(RANCH_BYPRODUCTS).forEach((k) => { state.ranchProducts[k] = 999; });
+  state.dishBag = state.dishBag || {}; RECIPES.forEach((r) => { state.dishBag[r.id] = 99; });
+  state.fishFeeder = state.fishFeeder || { owned: false, pellets: 0, lastFeedAt: 0 };
+  state.fishFeeder.owned = true; state.fishFeeder.pellets = FEEDER_MAX; if (!state.fishFeeder.lastFeedAt) state.fishFeeder.lastFeedAt = Date.now();
+  state.clawLevel = 3;
+  saveState(); render(); buildGmInvList(); toast("庫存全滿（含肉、料理、餵食器＋飼料、魚爪Lv3）。");
 }
 function gmSeedMax() {
   state.seeds = state.seeds || {};
@@ -3537,6 +3542,15 @@ function gmSetFish(name, v) {
   if (rng) rng.value = v;
   saveState();
 }
+function gmSetDish(id, v) {
+  v = Math.max(0, Math.min(999, Math.round(v) || 0));
+  state.dishBag = state.dishBag || {}; state.dishBag[id] = v;
+  const num = document.querySelector('[data-gm-dish-num="' + id + '"]');
+  const rng = document.querySelector('[data-gm-dish-range="' + id + '"]');
+  if (num && document.activeElement !== num) num.value = v;
+  if (rng) rng.value = v;
+  saveState();
+}
 function gmFishRow(name, label, kind, v) {
   return '<div class="gm-inv-row"><span class="gm-inv-name">' + label + '</span>' +
     '<div class="gm-ctrl"><button class="gm-step" data-gm-' + kind + '-dec="' + name + '" type="button">−</button>' +
@@ -3584,11 +3598,13 @@ function buildGmInvList() {
       <input class="gm-slider" data-gm-inv-range="${id}" type="range" min="0" max="999" step="1" value="${state.inventory[id] || 0}" />
     </div>
   `).join("");
-  const prodRows = Object.entries(RANCH_ANIMALS).map(([type, a]) => {
-    const v = (state.ranchProducts && state.ranchProducts[type]) || 0;
+  const prodEntries = Object.keys(RANCH_ANIMALS).map((t) => ({ k: t, label: RANCH_ANIMALS[t].productEmoji + " " + RANCH_ANIMALS[t].product }))
+    .concat(Object.keys(RANCH_BYPRODUCTS).map((k) => ({ k: k, label: RANCH_BYPRODUCTS[k].emoji + " " + RANCH_BYPRODUCTS[k].name })));
+  const prodRows = prodEntries.map((e) => {
+    const type = e.k, v = (state.ranchProducts && state.ranchProducts[type]) || 0;
     return `
     <div class="gm-inv-row">
-      <span class="gm-inv-name">${a.productEmoji} ${a.product}</span>
+      <span class="gm-inv-name">${e.label}</span>
       <div class="gm-ctrl">
         <button class="gm-step" data-gm-prod-dec="${type}" type="button">−</button>
         <input class="gm-num" data-gm-prod-num="${type}" type="number" min="0" max="999" value="${v}" />
@@ -3597,7 +3613,20 @@ function buildGmInvList() {
       <input class="gm-slider" data-gm-prod-range="${type}" type="range" min="0" max="999" step="1" value="${v}" />
     </div>`;
   }).join("");
-  list.innerHTML = cropRows + '<div class="gm-inv-divider">牧場產物</div>' + prodRows;
+  const dishRows = RECIPES.map((r) => {
+    const v = (state.dishBag && state.dishBag[r.id]) || 0;
+    return `
+    <div class="gm-inv-row">
+      <span class="gm-inv-name">${r.name}</span>
+      <div class="gm-ctrl">
+        <button class="gm-step" data-gm-dish-dec="${r.id}" type="button">−</button>
+        <input class="gm-num" data-gm-dish-num="${r.id}" type="number" min="0" max="999" value="${v}" />
+        <button class="gm-step" data-gm-dish-inc="${r.id}" type="button">＋</button>
+      </div>
+      <input class="gm-slider" data-gm-dish-range="${r.id}" type="range" min="0" max="999" step="1" value="${v}" />
+    </div>`;
+  }).join("");
+  list.innerHTML = cropRows + '<div class="gm-inv-divider">牧場產物</div>' + prodRows + '<div class="gm-inv-divider">料理</div>' + dishRows;
   list.querySelectorAll("[data-gm-inv-dec]").forEach((b) => b.addEventListener("click", () => gmSetInv(b.dataset.gmInvDec, (state.inventory[b.dataset.gmInvDec] || 0) - 1)));
   list.querySelectorAll("[data-gm-inv-inc]").forEach((b) => b.addEventListener("click", () => gmSetInv(b.dataset.gmInvInc, (state.inventory[b.dataset.gmInvInc] || 0) + 1)));
   list.querySelectorAll("[data-gm-inv-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetInv(n.dataset.gmInvNum, parseInt(n.value, 10)); }));
@@ -3606,6 +3635,10 @@ function buildGmInvList() {
   list.querySelectorAll("[data-gm-prod-inc]").forEach((b) => b.addEventListener("click", () => gmSetProd(b.dataset.gmProdInc, ((state.ranchProducts && state.ranchProducts[b.dataset.gmProdInc]) || 0) + 1)));
   list.querySelectorAll("[data-gm-prod-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetProd(n.dataset.gmProdNum, parseInt(n.value, 10)); }));
   list.querySelectorAll("[data-gm-prod-range]").forEach((r) => r.addEventListener("input", () => gmSetProd(r.dataset.gmProdRange, parseInt(r.value, 10))));
+  list.querySelectorAll("[data-gm-dish-dec]").forEach((b) => b.addEventListener("click", () => gmSetDish(b.dataset.gmDishDec, ((state.dishBag && state.dishBag[b.dataset.gmDishDec]) || 0) - 1)));
+  list.querySelectorAll("[data-gm-dish-inc]").forEach((b) => b.addEventListener("click", () => gmSetDish(b.dataset.gmDishInc, ((state.dishBag && state.dishBag[b.dataset.gmDishInc]) || 0) + 1)));
+  list.querySelectorAll("[data-gm-dish-num]").forEach((n) => n.addEventListener("input", () => { if (n.value !== "") gmSetDish(n.dataset.gmDishNum, parseInt(n.value, 10)); }));
+  list.querySelectorAll("[data-gm-dish-range]").forEach((r) => r.addEventListener("input", () => gmSetDish(r.dataset.gmDishRange, parseInt(r.value, 10))));
 }
 
 function gmSetProd(type, v) {
