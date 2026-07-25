@@ -8548,8 +8548,13 @@ function wanderRanchAnimals() {
   const _dw = document.querySelector("#dogWalker");
   if (_dw && Date.now() > Number(_dw.dataset.arriveBy || 0) + 1200) stepDogWalker();
   const poly = rangePoly(rangeName);
+  const _frame = document.querySelector(".field-frame");
+  const _fr = _frame ? _frame.getBoundingClientRect() : null;
   box.querySelectorAll(".ranch-animal").forEach((el) => {
-    setAnimalZ(el, parseFloat(el.style.top) || 50);   // 每次重算前後層級(含未移動者)
+    // 用「實際渲染的腳底(下緣)Y」決定前後層級——滑行途中也即時更新，避免前後錯置
+    let _zy = parseFloat(el.style.top) || 50;
+    if (_fr && _fr.height) { const _r = el.getBoundingClientRect(); if (_r.height > 2) _zy = (_r.bottom - _fr.top) / _fr.height * 100; }
+    setAnimalZ(el, _zy);
     // 即時自我修正：腳底若已不在(內縮)範圍內，立刻無滑行拉回範圍內
     if (poly) {
       const cx = parseFloat(el.style.left) || 50, cy = parseFloat(el.style.top) || 50;

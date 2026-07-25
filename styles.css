@@ -778,6 +778,7 @@ button:disabled {
 .seed-details {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .seed-title,
@@ -802,8 +803,9 @@ button:disabled {
 
 .seed-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
   align-items: center;
 }
 .seed-actions .seed-button { flex: 1; }
@@ -4152,3 +4154,10 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .feeder-toggle.on { background: #4caf50; }
 .feeder-toggle.off { background: #bbb; }
 .feeder-buyrow { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 8px; flex-wrap: wrap; }
+
+/* 農民市集：避免列過寬需左右捲動 */
+.seed-actions .seed-button { flex: 1 1 60px; }
+.seed-button.mkt-buy, .seed-button.mkt-sell { min-width: 60px; padding-left: 8px; padding-right: 8px; }
+.seed-actions .sell-stepper { margin: 0; }
+.seed-actions .qty-num { width: 40px; }
+.seed-actions .seed-meta { flex: 0 0 auto; }
