@@ -801,14 +801,26 @@ function ffClawFinish() {
   const c = ffClaw; if (!c) return;
   const btn = document.querySelector("#ffClawBtn");
   if (c.caught) {
-    const f = c.caught;
-    const di = state.pondFish.indexOf(f.data); if (di >= 0) state.pondFish.splice(di, 1);
-    const tp = f.data.type; state.fishBag = state.fishBag || {}; state.fishBag[tp] = (state.fishBag[tp] || 0) + 1;
-    const fi = ffFish.indexOf(f); if (fi >= 0) ffFish.splice(fi, 1);
-    if (f.el && f.el.parentNode) f.el.remove(); if (f.bar && f.bar.parentNode) f.bar.remove();
+    const got = {};
+    const takeAdult = function (f) {
+      const di = state.pondFish.indexOf(f.data); if (di >= 0) state.pondFish.splice(di, 1);
+      const tp = f.data.type; got[tp] = (got[tp] || 0) + 1;
+      state.fishBag = state.fishBag || {}; state.fishBag[tp] = (state.fishBag[tp] || 0) + 1;
+      const fi = ffFish.indexOf(f); if (fi >= 0) ffFish.splice(fi, 1);
+      if (f.el && f.el.parentNode) f.el.remove(); if (f.bar && f.bar.parentNode) f.bar.remove();
+    };
+    takeAdult(c.caught);
+    let extra = clawMult() - 1;
+    if (extra > 0) {
+      const adults = ffFish.filter(function (x) { return (x.data.stage || 0) >= 2 && x !== c.caught; });
+      for (let i = adults.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = adults[i]; adults[i] = adults[j]; adults[j] = t; }
+      for (let k = 0; k < adults.length && extra > 0; k++) { takeAdult(adults[k]); extra--; }
+    }
     saveState();
     if (document.querySelector("#fmStock")) renderFishMarket();
-    toast("撈起一隻成魚「" + tp + "」，已放進漁市場成魚庫存！");
+    const total = Object.keys(got).reduce(function (s, t) { return s + got[t]; }, 0);
+    const parts = Object.keys(got).map(function (t) { return t + "×" + got[t]; });
+    toast("撈起成魚 " + parts.join("、") + "（共 " + total + " 隻）進漁市場成魚庫存！");
   } else {
     toast("這一爪沒撈到成魚，再試一次吧。");
   }
@@ -1553,6 +1565,23 @@ const RANCH_UPGRADES = [
   { from: 1, to: 2, name: "大牧場",   coins: 50000,  card: "expandCard",    cardName: "牧場擴建卡" },
   { from: 2, to: 3, name: "超大牧場", coins: 150000, card: "expandCardPro", cardName: "牧場擴建卡（特）" },
 ];
+const RANCH_BYPRODUCTS = {
+  chickenMeat: { name: "雞肉", emoji: "🍗", value: 80 },
+  beef: { name: "牛肉", emoji: "🥩", value: 300 },
+  mutton: { name: "羊肉", emoji: "🍖", value: 180 },
+  pigSkin: { name: "豬皮", emoji: "🥯", value: 70 },
+};
+const RANCH_BYPRODUCT_OF = { chicken: "chickenMeat", cow: "beef", sheep: "mutton", pig: "pigSkin" };
+function ranchProdInfo(key) {
+  if (RANCH_ANIMALS[key]) return RANCH_ANIMALS[key];
+  const b = RANCH_BYPRODUCTS[key];
+  return b ? { product: b.name, productEmoji: b.emoji, value: b.value } : null;
+}
+function rollRanchByproduct(type) {
+  const bp = RANCH_BYPRODUCT_OF[type];
+  if (bp && Math.random() < 0.30) { state.ranchProducts = state.ranchProducts || {}; state.ranchProducts[bp] = (state.ranchProducts[bp] || 0) + 1; return bp; }
+  return null;
+}
 const RANCH_BG = {
   1: { sun: "./assets/ranch/ranch-s-feed-grass.jpg", bad: "./assets/ranch/ranch-s-bad.jpg" },
   2: { sun: "./assets/ranch/ranch-m-feed-grass.jpg", bad: "./assets/ranch/ranch-m-bad.jpg" },
@@ -1666,6 +1695,7 @@ function createDefaultState() {
     ranchAnimals: [],
     ranchProducts: {},
     fishFeeder: { owned: false, pellets: 0, lastFeedAt: 0 },
+    clawLevel: 1,
     sausageSteals: 0,
     cloudHelpFlags: {},
     dishBag: {},
@@ -4062,7 +4092,9 @@ const KITCHEN_ING_MAP = {}; KITCHEN_ING.forEach((i) => { KITCHEN_ING_MAP[i.key] 
 const RECIPES = [
   { id: "fries", name: "黃金薯條", ing: ["potato"], sell: 60 },
   { id: "cornroast", name: "烤玉米", ing: ["corn"], sell: 55 },
-  { id: "boiledegg", name: "水煮蛋", ing: ["egg"], sell: 45 },
+  { id: "boiledegg", name: "水煮蛋", ing: ["egg", "water"], sell: 45 },
+  { id: "scrambledegg", name: "炒蛋", ing: ["egg"], sell: 50 },
+  { id: "radishsoup", name: "蘿蔔湯", ing: ["any:turnip,carrot", "water"], sell: 60 },
   { id: "sausage", name: "炭烤香腸", ing: ["pork"], sell: 230, desc: "🐕 在真實好友家偷竊被狗盯上(第6次起)時可用，接下來2次不被趕且必中" },
   { id: "eggplantgrill", name: "炭烤茄子", ing: ["eggplant"], sell: 60 },
   { id: "tomategg", name: "番茄炒蛋", ing: ["tomato", "egg"], sell: 130 },
@@ -4107,6 +4139,7 @@ function kIngConsume(ing, n) {
 }
 function ingMatchesToken(ingKey, token) {
   if (token.indexOf("cat:") === 0) { const ing = KITCHEN_ING_MAP[ingKey]; return !!ing && ing.cat === token.slice(4); }
+  if (token.indexOf("any:") === 0) { return token.slice(4).split(",").indexOf(ingKey) >= 0; }
   return ingKey === token;
 }
 function kCanAssign(keys, tokens) {
@@ -4169,6 +4202,7 @@ function kCutHtml(key) {
 }
 function tokName(t) {
   if (t === "cat:veg") return "任一蔬菜"; if (t === "cat:fruit") return "任一水果"; if (t === "cat:fish") return "任一魚";
+  if (t.indexOf("any:") === 0) return t.slice(4).split(",").map(function (k) { return (KITCHEN_ING_MAP[k] && KITCHEN_ING_MAP[k].name) || k; }).join("/");
   const ing = KITCHEN_ING_MAP[t]; return ing ? ing.name : t;
 }
 let leafItems = [null, null, null];   // 實體區索引 0=左 1=中 2=右
@@ -4418,6 +4452,10 @@ function resolveQuick(recipe, qty, tally) {
         const cat = token.slice(4); let best = null, bestP = Infinity;
         KITCHEN_ING.forEach(function (ing) { if (ing.cat === cat && (tally[ing.key] || 0) > 0) { const pr = kIngPrice(ing); if (pr < bestP) { bestP = pr; best = ing.key; } } });
         key = best;
+      } else if (token.indexOf("any:") === 0) {
+        let best = null, bestP = Infinity;
+        token.slice(4).split(",").forEach(function (k) { if ((tally[k] || 0) > 0) { const pr = kIngPrice(KITCHEN_ING_MAP[k]); if (pr < bestP) { bestP = pr; best = k; } } });
+        key = best;
       } else key = token;
       if (!key || (tally[key] || 0) <= 0) return null;
       tally[key] -= 1; need[key] = (need[key] || 0) + 1;
@@ -4475,6 +4513,9 @@ function quickGo() {
 }
 /* ===== 自動餵食器(魚) ===== */
 const FEEDER_COST = 30000, FEEDER_INTERVAL = 180000, FEEDER_PER = 100, FEEDER_MAX = 8000, FEEDER_DROP_MS = 700;
+const CLAW_COSTS = { 2: 25000, 3: 60000 };
+const CLAW_MULT = { 1: 1, 2: 3, 3: 5 };
+function clawMult() { return CLAW_MULT[state.clawLevel || 1] || 1; }
 function buyFeeder() {
   state.fishFeeder = state.fishFeeder || { owned: false, pellets: 0, lastFeedAt: 0 };
   if (state.fishFeeder.owned) { toast("已經有自動餵食器了。"); return; }
@@ -4484,11 +4525,23 @@ function buyFeeder() {
   saveState(); render();
   toast("買了自動餵食器！養魚池岸邊會出現飼料機，記得買飼料。");
 }
+function buyClaw() {
+  const lvl = state.clawLevel || 1;
+  if (lvl >= 3) { toast("魚爪已滿級。"); return; }
+  const next = lvl + 1, cost = CLAW_COSTS[next];
+  if ((state.coins || 0) < cost) { toast("金幣不夠，升級需要 " + cost.toLocaleString() + " 金幣。"); return; }
+  state.coins -= cost; state.clawLevel = next;
+  saveState(); render();
+  toast("🦾 魚爪升級到 Lv." + next + "！撈魚一次可撈 " + CLAW_MULT[next] + " 隻成魚。");
+}
 function feederTick() {
   const f = state.fishFeeder; if (!f || !f.owned) return;
+  if (f.enabled === false) return;   // 手動關閉自動餵食
   const now = Date.now();
   if (!f.lastFeedAt) { f.lastFeedAt = now; return; }
   if (now - f.lastFeedAt < FEEDER_INTERVAL) return;
+  const anyHungry = (state.pondFish || []).some(function (e) { return ffCurSat((typeof e === "object" && e) ? e : {}, now) < 100; });
+  if (!anyHungry) { f.lastFeedAt = now; return; }   // 全部魚都飽(或沒魚)→這次略過、不耗飼料，下次再判斷
   const amount = Math.min(FEEDER_PER, f.pellets || 0);
   if (amount <= 0) return;   // 沒飼料就不餵、也不重置計時，補料後會盡快補餵
   f.lastFeedAt = now; f.pellets -= amount;
@@ -4525,16 +4578,29 @@ function openFeederMenu() {
   const old = document.querySelector("#feederMenu"); if (old) old.remove();
   const m = document.createElement("div"); m.id = "feederMenu"; m.className = "cook-modal"; m.style.zIndex = "96";
   m.innerHTML = '<div class="cook-card"><h3>🐟 自動餵食器</h3>' +
+    '<div class="feeder-toggle-row"><span>自動餵食</span><button type="button" id="feederToggle" class="feeder-toggle"></button></div>' +
     '<div class="feeder-info" id="feederInfo"></div>' +
-    '<div class="cook-hint">每 3 分鐘自動餵 100 顆（1 金幣/顆，上限 ' + FEEDER_MAX.toLocaleString() + '）。</div>' +
+    '<div class="feeder-buyrow"><span class="sell-stepper"><button type="button" class="qty-btn" id="fpDec">−</button>' +
+    '<input class="qty-num" type="number" inputmode="numeric" min="0" id="feederQty" value="0" />' +
+    '<button type="button" class="qty-btn" id="fpInc">＋</button></span>' +
+    '<button type="button" class="kit-primary" id="feederBuyQty">購買</button>' +
+    '<button type="button" class="kit-sub" id="feederClearQty">清空</button></div>' +
     '<div class="cook-actions"><button type="button" class="kit-primary" data-buyp="1">買 1</button>' +
     '<button type="button" class="kit-primary" data-buyp="10">買 10</button>' +
     '<button type="button" class="kit-primary" data-buyp="100">買 100</button></div>' +
+    '<div class="cook-hint">每 3 分鐘自動餵 100 顆（1 金幣/顆，上限 ' + FEEDER_MAX.toLocaleString() + '）。魚全飽時自動略過、不耗飼料。</div>' +
     '<button type="button" class="kit-sub" id="feederClose">關閉</button></div>';
   document.body.appendChild(m);
   m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
   m.querySelector("#feederClose").addEventListener("click", function () { m.remove(); });
   m.querySelectorAll("[data-buyp]").forEach(function (b) { b.addEventListener("click", function () { buyPellets(Number(b.dataset.buyp)); }); });
+  const qEl = function () { return m.querySelector("#feederQty"); };
+  const stepQ = function (d) { const e = qEl(); if (e) e.value = Math.max(0, (Math.floor(Number(e.value) || 0)) + d); };
+  m.querySelector("#fpDec").addEventListener("click", function () { stepQ(-1); });
+  m.querySelector("#fpInc").addEventListener("click", function () { stepQ(1); });
+  m.querySelector("#feederClearQty").addEventListener("click", function () { const e = qEl(); if (e) e.value = 0; });
+  m.querySelector("#feederBuyQty").addEventListener("click", function () { const e = qEl(); const n = Math.max(0, Math.floor(Number(e && e.value) || 0)); if (n <= 0) { toast("先設定要買的飼料數量。"); return; } buyPellets(n); if (e) e.value = 0; });
+  m.querySelector("#feederToggle").addEventListener("click", function () { state.fishFeeder = state.fishFeeder || {}; const on = state.fishFeeder.enabled !== false; state.fishFeeder.enabled = !on; saveState(); renderFeederMenu(); toast(on ? "已關閉自動餵食。" : "已開啟自動餵食。"); });
   renderFeederMenu();
 }
 function renderFeederMenu() {
@@ -4542,6 +4608,8 @@ function renderFeederMenu() {
   const f = state.fishFeeder || { pellets: 0 };
   const p = f.pellets || 0;
   el.innerHTML = '剩餘飼料 <b>' + p.toLocaleString() + '</b> / ' + FEEDER_MAX.toLocaleString() + ' 顆　·　約可自動餵 <b>' + Math.floor(p / FEEDER_PER) + '</b> 次';
+  const tg = document.querySelector("#feederToggle");
+  if (tg) { const on = f.enabled !== false; tg.textContent = on ? "開" : "關"; tg.classList.toggle("on", on); tg.classList.toggle("off", !on); }
 }
 function buyPellets(n) {
   const f = state.fishFeeder; if (!f || !f.owned) return;
@@ -7009,6 +7077,7 @@ const MKT = {
   fertilizer: { name: "肥料", cost: FERTILIZER_COST, sell: Math.round(FERTILIZER_COST * 0.7) },
   thawCard: { name: "解凍卡", cost: THAW_CARD_COST, sell: Math.round(THAW_CARD_COST * 0.7) },
   expandCard: { name: "牧場擴建卡", cost: 20000, sell: 14000 },
+  expandCardPro: { name: "牧場擴建卡（特）", cost: 60000, sell: 42000 },
   dogStick: { name: "逗狗棒", cost: 300, sell: 210 },
 };
 function setMktQty(key, v, writeInput) {
@@ -7020,6 +7089,7 @@ function buyMktItem(key) {
   const q = Math.max(0, Math.floor(mktQty[key] || 0));
   if (q <= 0) { toast("先設定數量。"); return; }
   if (key === "expandCard" && (state.animalsSoldForCard || 0) < 10) { toast("要累計售出 10 隻動物才能購買擴建卡。"); return; }
+  if (key === "expandCardPro" && (state.animalsSoldForCard || 0) < 25) { toast("要累計售出 25 隻動物才能購買擴建卡（特）。"); return; }
   const cost = meta.cost * q;
   if ((state.coins || 0) < cost) { toast("金幣不夠，購買 " + q + " 個要 " + cost.toLocaleString() + " 金幣。"); return; }
   state.coins -= cost; state.items = state.items || {}; state.items[key] = (state.items[key] || 0) + q;
@@ -7069,12 +7139,17 @@ function marketRow(key, name, cost, desc, opts) {
 function renderMarket() {
   const sold = Math.min(10, state.animalsSoldForCard || 0);
   const expLocked = (state.animalsSoldForCard || 0) < 10;
+  const soldPro = Math.min(25, state.animalsSoldForCard || 0);
+  const expProLocked = (state.animalsSoldForCard || 0) < 25;
   elements.tabContent.innerHTML =
     marketRow("fertilizer", "🌱 肥料", FERTILIZER_COST, "對一塊田施肥，剩餘成長時間減半（一作物限一次）") +
     marketRow("thawCard", "🃏 解凍卡", THAW_CARD_COST, "對凍傷作物完全返還最多 50 個（在災損清單使用）") +
     marketRow("expandCard", "🏗️ 牧場擴建卡", 20000,
       "小牧場升級大牧場時消耗。<br>解鎖：售出動物 " + sold + "/10",
       { locked: expLocked, lockText: "售出動物 " + sold + "/10" }) +
+    marketRow("expandCardPro", "🏗️ 牧場擴建卡（特）", 60000,
+      "大牧場升級超大牧場時消耗。<br>解鎖：售出動物 " + soldPro + "/25",
+      { locked: expProLocked, lockText: "售出動物 " + soldPro + "/25" }) +
     marketRow("dogStick", "🦴 逗狗棒", 300, "參觀好友時逗牠家的狗，每次好感度 +5%（好感越高越不會被趕）");
   const tc = elements.tabContent;
   tc.querySelectorAll("[data-mbuy]").forEach((b) => b.addEventListener("click", () => buyMktItem(b.dataset.mbuy)));
@@ -7268,7 +7343,27 @@ function renderUpgrades() {
           </button>
         </article>
       `;
-  const facilityHtml = upgradeRows + doghouseBuyRow + feederBuyRow;
+  const clawLvl = state.clawLevel || 1;
+  const clawNext = clawLvl < 3 ? clawLvl + 1 : null;
+  const clawCost = clawNext ? CLAW_COSTS[clawNext] : 0;
+  const clawUpgradeRow = clawLvl >= 3
+    ? `
+        <article class="upgrade-row">
+          <span class="upgrade-title"><strong>魚爪升級</strong><span>已滿級 Lv.3</span></span>
+          <span class="upgrade-meta">撈魚一次可撈 5 隻成魚（已達最高）。</span>
+        </article>
+      `
+    : `
+        <article class="upgrade-row">
+          <span class="upgrade-title"><strong>魚爪升級 Lv.${clawLvl}→${clawNext}</strong><span>${clawCost.toLocaleString()} 金幣</span></span>
+          <span class="upgrade-meta">升到 Lv.${clawNext}：撈魚一次撈 ${CLAW_MULT[clawNext]} 隻成魚（捉到 1 隻自動扣成 ${CLAW_MULT[clawNext]} 隻，含捉到那隻）。</span>
+          <button class="action-button" type="button" data-buy-claw ${state.coins >= clawCost ? "" : "disabled"}>
+            <span class="button-icon" aria-hidden="true" data-icon="hammer"></span>
+            升級
+          </button>
+        </article>
+      `;
+  const facilityHtml = upgradeRows + doghouseBuyRow + feederBuyRow + clawUpgradeRow;
   const farmHtml = plotRow + repairRow;
   const ranchHtml = ranchBuildRows();
   elements.tabContent.innerHTML = `
@@ -7299,6 +7394,8 @@ function renderUpgrades() {
   if (dogBuyBtn) dogBuyBtn.addEventListener("click", buyDoghouse);
   const feederBuyBtn = elements.tabContent.querySelector("[data-buy-feeder]");
   if (feederBuyBtn) feederBuyBtn.addEventListener("click", buyFeeder);
+  const clawBuyBtn = elements.tabContent.querySelector("[data-buy-claw]");
+  if (clawBuyBtn) clawBuyBtn.addEventListener("click", buyClaw);
 
   elements.tabContent.querySelectorAll("[data-buy-upgrade]").forEach((button) => {
     button.addEventListener("click", () => buyUpgrade(button.dataset.buyUpgrade));
@@ -7603,6 +7700,7 @@ function oneClickRanch() {
         const y = 3 + Math.floor(Math.random() * 3);
         state.ranchProducts = state.ranchProducts || {};
         state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + y;
+        rollRanchByproduct(a.type);
         a.produced = (a.produced || 0) + 1; a.fedAt = 0; a.dirty = true; a.dirtyBy = "system";
       }
       if (a.dirty) { a.dirty = false; a.dirtyBy = null; }                        // 3.收成後再洗澡
@@ -8525,6 +8623,7 @@ function harvestRanchAnimals() {
     if (a.fedAt && now - a.fedAt >= cfg.growMs) {
       state.ranchProducts = state.ranchProducts || {};
       state.ranchProducts[a.type] = (state.ranchProducts[a.type] || 0) + 1;
+      rollRanchByproduct(a.type);
       a.produced = (a.produced || 0) + 1;
       n++;
       a.fedAt = 0; a.dirty = true; a.dirtyBy = "system";
@@ -8576,7 +8675,7 @@ function renderRanchProducts() {
   if (sellAllBtn) sellAllBtn.disabled = !entries.length;
   if (!entries.length) { list.innerHTML = '<p class="item-empty">目前沒有牧場產物。</p>'; return; }
   list.innerHTML = entries.map(([type, n]) => {
-    const cfg = RANCH_ANIMALS[type];
+    const cfg = ranchProdInfo(type);
     if (!cfg) return "";
     return `
       <div class="inventory-row">
@@ -8622,7 +8721,7 @@ function renderRanchProducts() {
 }
 
 function sellRanchProduct(type, qty) {
-  const cfg = RANCH_ANIMALS[type];
+  const cfg = ranchProdInfo(type);
   if (!cfg) return;
   const have = (state.ranchProducts && state.ranchProducts[type]) || 0;
   if (have <= 0) return;
@@ -9058,7 +9157,7 @@ async function sendReply(m) {
 
 function rewardText(reward) {
   const parts = [];
-  const IN = { weatherCard: "天氣兌換卡", thawCard: "解凍卡", fertilizer: "肥料", treasureChest: "寶箱", dogStick: "逗狗棒", coinCard500: "金幣500卡", expandCard: "牧場擴建卡" };
+  const IN = { weatherCard: "天氣兌換卡", thawCard: "解凍卡", fertilizer: "肥料", treasureChest: "寶箱", dogStick: "逗狗棒", coinCard500: "金幣500卡", expandCard: "牧場擴建卡", expandCardPro: "牧場擴建卡（特）" };
   if (reward.coins) parts.push("金幣 " + reward.coins.toLocaleString());
   if (reward.items) for (const k in reward.items) parts.push((IN[k] || k) + " ×" + reward.items[k]);
   if (reward.dishes) for (const k in reward.dishes) parts.push(((RECIPE_MAP[k] && RECIPE_MAP[k].name) || k) + " ×" + reward.dishes[k]);
