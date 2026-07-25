@@ -4400,6 +4400,14 @@ function kitCook() {
   if (typeof renderInventory === "function") renderInventory();
   toast((isNew ? "🎉 學會新料理「" : "🍽️ 做出「") + recipe.name + "」！可賣 $" + recipe.sell);
 }
+function kIngPrice(ing) {
+  if (!ing) return 9999;
+  if (ing.src === "free") return 0;
+  if (ing.src === "crop") return (CROPS[ing.key] && CROPS[ing.key].sell) || 9999;
+  if (ing.src === "fish") { const f = FISH_MARKET.find(function (x) { return x.k === ing.fk; }); return f ? fishSellPrice(f.fish) : 9999; }
+  if (ing.key === "egg") return 20; if (ing.key === "pork") return 100; if (ing.key === "milk") return 167;
+  return 9999;
+}
 function resolveQuick(recipe, qty, tally) {
   const need = {};
   for (let u = 0; u < qty; u++) {
@@ -4407,8 +4415,8 @@ function resolveQuick(recipe, qty, tally) {
       const token = recipe.ing[t];
       let key = null;
       if (token.indexOf("cat:") === 0) {
-        const cat = token.slice(4); let best = null, bestN = 0;
-        KITCHEN_ING.forEach(function (ing) { if (ing.cat === cat) { const n = tally[ing.key] || 0; if (n > bestN) { bestN = n; best = ing.key; } } });
+        const cat = token.slice(4); let best = null, bestP = Infinity;
+        KITCHEN_ING.forEach(function (ing) { if (ing.cat === cat && (tally[ing.key] || 0) > 0) { const pr = kIngPrice(ing); if (pr < bestP) { bestP = pr; best = ing.key; } } });
         key = best;
       } else key = token;
       if (!key || (tally[key] || 0) <= 0) return null;
