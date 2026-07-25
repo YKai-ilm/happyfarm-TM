@@ -940,6 +940,10 @@ function openFishMarket() {
   renderFishMarket();
 }
 
+function fmBadge(key, type) {
+  if (type === "fry") return '<span class="fm-badge fm-badge-fry">🐟</span>';
+  return '<img class="fm-badge" src="./assets/pondfish/' + key + '.png" alt="" draggable="false" />';
+}
 function fmStepperHtml(have) {
   return '<span class="fm-stepper">' +
     '<button type="button" class="fm-step" data-fm-step="-1">−</button>' +
@@ -953,7 +957,7 @@ function fmRow(name, buyP, sellP, have, type, key) {
     '<div class="fm-line1"><strong class="fm-name">' + name + '</strong>' +
       '<span class="fm-right"><span class="fm-price">買 <span class="fm-num">' + buyP + '</span> ／ 賣 <span class="fm-num">' + sellP + '</span></span>' +
       '<span class="fm-have">持有 <b>' + have + '</b></span></span></div>' +
-    '<div class="fm-ctrl-line">' + fmStepperHtml(have) +
+    '<div class="fm-ctrl-line">' + fmBadge(key, type) + fmStepperHtml(have) +
       '<button type="button" class="fm-buy" data-fm-buy data-fm-type="' + type + '" data-fm-key="' + key + '">買</button>' +
       '<button type="button" class="fm-sell" data-fm-sell data-fm-type="' + type + '" data-fm-key="' + key + '">賣</button>' +
     '</div></div>';
@@ -963,7 +967,7 @@ function fmStockRow(name, sellP, have, key) {
     '<div class="fm-line1"><strong class="fm-name">' + name + '</strong>' +
       '<span class="fm-right"><span class="fm-price">賣 <span class="fm-num">' + sellP + '</span></span>' +
       '<span class="fm-have">庫存 <b>' + have + '</b></span></span></div>' +
-    '<div class="fm-ctrl-line">' + fmStepperHtml(have) +
+    '<div class="fm-ctrl-line">' + fmBadge(key, "fish") + fmStepperHtml(have) +
       '<button type="button" class="fm-sell" data-fm-sell data-fm-type="fish" data-fm-key="' + key + '">賣</button>' +
     '</div></div>';
 }
@@ -1591,16 +1595,16 @@ const RANCH_UPGRADES = [
   { from: 2, to: 3, name: "超大牧場", coins: 150000, card: "expandCardPro", cardName: "牧場擴建卡（特）" },
 ];
 const RANCH_BYPRODUCTS = {
-  chickenMeat: { name: "雞肉", emoji: "🍗", value: 80 },
-  beef: { name: "牛肉", emoji: "🥩", value: 300 },
-  mutton: { name: "羊肉", emoji: "🍖", value: 180 },
-  pigSkin: { name: "豬皮", emoji: "🥯", value: 70 },
+  chickenMeat: { name: "雞肉", emoji: "🍗", value: 80,  img: "./assets/food/chickenMeat.png" },
+  beef: { name: "牛肉", emoji: "🥩", value: 300, img: "./assets/food/beef.png" },
+  mutton: { name: "羊肉", emoji: "🍖", value: 180, img: "./assets/food/mutton.png" },
+  pigSkin: { name: "豬皮", emoji: "🥯", value: 70,  img: "./assets/food/pigSkin.png" },
 };
 const RANCH_BYPRODUCT_OF = { chicken: "chickenMeat", cow: "beef", sheep: "mutton", pig: "pigSkin" };
 function ranchProdInfo(key) {
   if (RANCH_ANIMALS[key]) return RANCH_ANIMALS[key];
   const b = RANCH_BYPRODUCTS[key];
-  return b ? { product: b.name, productEmoji: b.emoji, value: b.value } : null;
+  return b ? { product: b.name, productEmoji: b.emoji, value: b.value, img: b.img } : null;
 }
 function rollRanchByproduct(type) {
   const bp = RANCH_BYPRODUCT_OF[type];
@@ -4147,6 +4151,7 @@ const KITCHEN_ING = [].concat(
    { key: "beef", name: "牛肉", cat: "meat", src: "ranch", rk: "beef" },
    { key: "mutton", name: "羊肉", cat: "meat", src: "ranch", rk: "mutton" },
    { key: "chickenMeat", name: "雞肉", cat: "meat", src: "ranch", rk: "chickenMeat" },
+   { key: "pigSkin", name: "豬皮", cat: "meat", src: "ranch", rk: "pigSkin" },
    { key: "milk", name: "牛奶", cat: "milk", src: "ranch", rk: "cow" },
    { key: "water", name: "水", cat: "water", src: "free" }],
   FISH_MARKET.map((f) => ({ key: "fish:" + f.k, name: f.k, cat: "fish", src: "fish", fk: f.k }))
@@ -4193,6 +4198,8 @@ const RECIPES = [
   { id: "meatcabbage", name: "高麗菜炒肉", ing: ["cabbage", "cat:meat"], sell: 280 },
   { id: "friednoodle", name: "什錦炒麵", ing: ["wheat", "cabbage", "pork"], sell: 350 },
   { id: "veghotpot", name: "什錦火鍋", ing: ["cat:meat", "cabbage", "cat:fish"], sell: 480 },
+  { id: "friedporkskin", name: "酥炸豬皮", ing: ["pigSkin"], sell: 130 },
+  { id: "porkskinjelly", name: "豬皮凍", ing: ["pigSkin", "water"], sell: 150 },
 ];
 (function () {
   var MILKF = ["apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"];
@@ -4261,14 +4268,14 @@ const KIT_BINS = [
   ["corn", "pea", "potato", "pumpkin", "rice", "barley", "wheat", "soybean", "sweet-potato", "peanut", "chestnut"],
   ["egg", "milk", "water"],
   ["tomato", "apple", "strawberry", "watermelon", "banana", "peach", "orange", "grape", "pomegranate"],
-  ["pork", "beef", "mutton", "chickenMeat"],
+  ["pork", "beef", "mutton", "chickenMeat", "pigSkin"],
   FISH_MARKET.map(function (f) { return "fish:" + f.k; }),
 ];
 const KIT_POT = { left: 41.0, top: 24.0, w: 21.0, h: 28.0 };
-const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛", water: "💧", rice: "🍚", barley: "🌾", wheat: "🌾", soybean: "🫘", cucumber: "🥒", "sweet-potato": "🍠", onion: "🧅", cabbage: "🥬", peanut: "🥜", chestnut: "🌰", beef: "🥩", mutton: "🍖", chickenMeat: "🍗" };
+const KIT_EMOJI = { turnip: "🥬", carrot: "🥕", corn: "🌽", potato: "🥔", eggplant: "🍆", tomato: "🍅", pea: "🫛", pepper: "🌶️", pumpkin: "🎃", apple: "🍎", strawberry: "🍓", watermelon: "🍉", banana: "🍌", peach: "🍑", orange: "🍊", grape: "🍇", pomegranate: "🍒", egg: "🥚", pork: "🥓", milk: "🥛", water: "💧", rice: "🍚", barley: "🌾", wheat: "🌾", soybean: "🫘", cucumber: "🥒", "sweet-potato": "🍠", onion: "🧅", cabbage: "🥬", peanut: "🥜", chestnut: "🌰", beef: "🥩", mutton: "🍖", chickenMeat: "🍗", pigSkin: "🥯" };
 function kIngEmoji(key) { if (key && key.indexOf("fish:") === 0) return "🐟"; return KIT_EMOJI[key] || "🍽️"; }
 function kFoodFile(key) { return key.indexOf("fish:") === 0 ? ("fish_" + key.slice(5)) : key; }
-const KFOOD_IMG = new Set(["turnip","carrot","corn","potato","eggplant","tomato","pea","pepper","pumpkin","apple","strawberry","watermelon","banana","peach","orange","grape","pomegranate","egg","pork"]);
+const KFOOD_IMG = new Set(["turnip","carrot","corn","potato","eggplant","tomato","pea","pepper","pumpkin","apple","strawberry","watermelon","banana","peach","orange","grape","pomegranate","egg","pork","beef","mutton","chickenMeat","pigSkin"]);
 function kHasImg(key) { if (key && key.indexOf("fish:") === 0) return true; return KFOOD_IMG.has(key); }
 function kWholeHtml(key) {
   if (kHasImg(key)) return '<img class="kit-food-img" src="./assets/food/' + kFoodFile(key) + '.png" alt="" />';
@@ -8839,7 +8846,7 @@ function renderRanchProducts() {
     if (!cfg) return "";
     return `
       <div class="inventory-row">
-        <span class="mini-crop ranch-prod-emoji" aria-hidden="true">${cfg.productEmoji}</span>
+        <span class="mini-crop ranch-prod-emoji" aria-hidden="true">${cfg.img ? '<img class="ranch-prod-img" src="' + cfg.img + '" alt="" />' : cfg.productEmoji}</span>
         <span>
           <span class="item-title">
             <strong>${cfg.product}</strong>

@@ -4165,3 +4165,8 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 /* 禮包分組小標(真實/虛擬好友) */
 .gift-subhead { font-weight: 800; font-size: 0.82rem; color: #6a5a3a; margin: 6px 2px 2px; padding-top: 4px; border-top: 1px dashed var(--line); }
 .gift-subhead:first-child { border-top: none; padding-top: 0; }
+
+/* 產物/漁市場徽章圖 */
+.ranch-prod-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.fm-badge { width: 36px; height: 26px; object-fit: contain; flex: 0 0 auto; margin-right: 3px; }
+.fm-badge-fry { width: 30px; text-align: center; font-size: 1.35rem; line-height: 1; flex: 0 0 auto; margin-right: 3px; }
