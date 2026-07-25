@@ -7283,8 +7283,7 @@ function marketRow(key, name, cost, desc, opts) {
   const sell = (MKT[key] && MKT[key].sell != null) ? MKT[key].sell : cost;
   const q = mktQty[key] || 0;
   return `
-    <article class="seed-card ${locked ? "is-locked" : ""}">
-      <span class="mini-crop market-icon" aria-hidden="true">${name.split(" ")[0]}</span>
+    <article class="seed-card mkt-card ${locked ? "is-locked" : ""}">
       <span class="seed-details">
         <span class="seed-title">
           <span class="seed-name-wrap"><strong>${name}</strong></span>

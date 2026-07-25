@@ -1428,6 +1428,7 @@ body {
 }
 .work-panel[data-tab="upgrades"] { width: min(805px, 94vw); right: clamp(82px, 8.5vw, 124px); }
 .work-panel[data-tab="shop"] { width: min(800px, 94vw); right: clamp(82px, 8.5vw, 124px); }
+.work-panel[data-tab="market"] { width: min(640px, 92vw); right: clamp(82px, 8.5vw, 124px); }
 
 .work-panel .tabs {
   display: none;
@@ -4175,3 +4176,6 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .seed-title { flex-wrap: wrap; row-gap: 2px; }
 .seed-price { white-space: nowrap; }
 .seed-name-wrap { min-width: 0; }
+
+/* 農民市集：移除左側大圖(名稱旁已有小徽章) */
+.seed-card.mkt-card { grid-template-columns: 1fr; }
