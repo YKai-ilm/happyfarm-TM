@@ -4587,23 +4587,21 @@ function openFeederMenu() {
     '<div class="feeder-buyrow"><span class="sell-stepper"><button type="button" class="qty-btn" id="fpDec">−</button>' +
     '<input class="qty-num" type="number" inputmode="numeric" min="0" id="feederQty" value="0" />' +
     '<button type="button" class="qty-btn" id="fpInc">＋</button></span>' +
-    '<button type="button" class="kit-primary" id="feederBuyQty">購買</button>' +
     '<button type="button" class="kit-sub" id="feederClearQty">清空</button></div>' +
     '<div class="cook-actions"><button type="button" class="kit-primary" data-buyp="1">買 1</button>' +
     '<button type="button" class="kit-primary" data-buyp="10">買 10</button>' +
     '<button type="button" class="kit-primary" data-buyp="100">買 100</button></div>' +
-    '<div class="cook-hint">每 3 分鐘自動餵 100 顆（1 金幣/顆，上限 ' + FEEDER_MAX.toLocaleString() + '）。魚全飽時自動略過、不耗飼料。</div>' +
+    '<div class="cook-hint">設數量後按「買1/買10/買100」＝數量×倍數（數量 0 時就是買 1/10/100）。每 3 分鐘自動餵 100 顆、1 金幣/顆，上限 ' + FEEDER_MAX.toLocaleString() + '；魚全飽會自動略過。</div>' +
     '<button type="button" class="kit-sub" id="feederClose">關閉</button></div>';
   document.body.appendChild(m);
   m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
   m.querySelector("#feederClose").addEventListener("click", function () { m.remove(); });
-  m.querySelectorAll("[data-buyp]").forEach(function (b) { b.addEventListener("click", function () { buyPellets(Number(b.dataset.buyp)); }); });
   const qEl = function () { return m.querySelector("#feederQty"); };
   const stepQ = function (d) { const e = qEl(); if (e) e.value = Math.max(0, (Math.floor(Number(e.value) || 0)) + d); };
+  m.querySelectorAll("[data-buyp]").forEach(function (b) { b.addEventListener("click", function () { const e = qEl(); const q = Math.max(0, Math.floor(Number(e && e.value) || 0)); const factor = q > 0 ? q : 1; buyPellets(factor * Number(b.dataset.buyp)); }); });
   m.querySelector("#fpDec").addEventListener("click", function () { stepQ(-1); });
   m.querySelector("#fpInc").addEventListener("click", function () { stepQ(1); });
   m.querySelector("#feederClearQty").addEventListener("click", function () { const e = qEl(); if (e) e.value = 0; });
-  m.querySelector("#feederBuyQty").addEventListener("click", function () { const e = qEl(); const n = Math.max(0, Math.floor(Number(e && e.value) || 0)); if (n <= 0) { toast("先設定要買的飼料數量。"); return; } buyPellets(n); if (e) e.value = 0; });
   m.querySelector("#feederToggle").addEventListener("click", function () { state.fishFeeder = state.fishFeeder || {}; const on = state.fishFeeder.enabled !== false; state.fishFeeder.enabled = !on; saveState(); renderFeederMenu(); toast(on ? "已關閉自動餵食。" : "已開啟自動餵食。"); });
   renderFeederMenu();
 }
