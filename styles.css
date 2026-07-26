@@ -4231,14 +4231,14 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .pnl-card span { font-size: .8rem; color: #7a6a4a; }
 .pnl-card strong { font-size: 1.02rem; }
 .pnl-card.grand { grid-column: 1 / -1; background: rgba(227, 181, 63, .22); }
-.pnl-card.up strong { color: #1a9a55; }
-.pnl-card.down strong { color: #d0393a; }
+.pnl-card.up strong { color: #e0352b; }
+.pnl-card.down strong { color: #1aa260; }
 .pnl-sub { font-size: .82rem; color: #7a6a4a; margin-bottom: 10px; text-align: center; }
 .pnl-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .pnl-table th, .pnl-table td { padding: 6px; text-align: right; border-bottom: 1px solid rgba(120, 100, 60, .16); }
 .pnl-table th:first-child, .pnl-table td:first-child { text-align: left; }
-.pnl-table td.up { color: #1a9a55; }
-.pnl-table td.down { color: #d0393a; }
+.pnl-table td.up { color: #e0352b; }
+.pnl-table td.down { color: #1aa260; }
 .pnl-empty { text-align: center; color: #7a6a4a; padding: 20px 0; }
 
 /* 好友：真實／虛擬 分頁切換 */
