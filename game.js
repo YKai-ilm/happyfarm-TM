@@ -1732,6 +1732,10 @@ function createDefaultState() {
     ordersRefreshAt: 0,
     ordersToday: 0,
     ordersDay: 0,
+    dinerOrders: [],
+    dinerToday: 0,
+    ordersTab: "farm",
+    buildTab: "fac",
     upgrades: {
       windmill: 0,
       stand: 0,
@@ -1786,6 +1790,7 @@ function loadState() {
         ...((raw.plots && raw.plots[index]) || {}),
       })),
       orders: Array.isArray(raw.orders) ? raw.orders : [],
+      dinerOrders: Array.isArray(raw.dinerOrders) ? raw.dinerOrders : [],
       ranchAnimals: Array.isArray(raw.ranchAnimals) ? raw.ranchAnimals : [],
       ranchProducts: (raw.ranchProducts && typeof raw.ranchProducts === "object") ? { ...raw.ranchProducts } : {},
       ranchLevel: typeof raw.ranchLevel === "number" ? raw.ranchLevel : 1,
@@ -5097,6 +5102,7 @@ function bindStaticEvents() {
   ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, resetIdle, { passive: true }));
   document.querySelector("#gmOrderRefresh")?.addEventListener("click", () => {
     state.orders = generateOrders();
+    state.dinerOrders = generateDinerOrders();
     state.ordersRefreshAt = Date.now() + ORDER_REFRESH_MS;
     if (gmEditSnap) gmEditSnap.orders = JSON.parse(JSON.stringify(state.orders));
     saveState(); render(); toast("訂單已全部刷新。");
@@ -7162,7 +7168,7 @@ function renderTabs() {
   if (wpEl) wpEl.setAttribute("data-tab", state.activeTab);
   if (elements.workPanelTitle) {
     const titles = { shop: "行囊", market: "農民市集", orders: "訂單", upgrades: "開發" };
-    if (state.activeTab === "upgrades" || state.activeTab === "shop") {
+    if (state.activeTab === "upgrades" || state.activeTab === "shop" || state.activeTab === "orders") {
       elements.workPanelTitle.style.display = "none";
     } else {
       elements.workPanelTitle.style.display = "";
@@ -7401,18 +7407,68 @@ function buyExpandCard() {
 
 function renderOrders() {
   maybeRefreshOrders();
+  const tab = state.ordersTab === "diner" ? "diner" : "farm";
   const now = Date.now();
   const remain = Math.max(0, (state.ordersRefreshAt || now) - now);
   const mm = Math.floor(remain / 60000);
   const ss = String(Math.floor(remain / 1000) % 60).padStart(2, "0");
-  const today = state.ordersToday || 0;
-  const capped = today >= ORDER_DAILY_CAP;
-  const head = `<div class="order-head">下次刷新 ${mm}:${ss}　·　今日 ${today}/${ORDER_DAILY_CAP}${capped ? "（已額滿）" : ""}</div>`;
-  elements.tabContent.innerHTML = head + state.orders
-    .map((order) => {
-      const canFill = canCompleteOrder(order);
-      const done = !!order.done;
-      return `
+
+  const tabsHtml = `
+    <div class="order-tabs">
+      <button type="button" class="order-tab ${tab === "farm" ? "is-active" : ""}" data-order-tab="farm">🌾 農產</button>
+      <button type="button" class="order-tab ${tab === "diner" ? "is-active" : ""}" data-order-tab="diner">🍽️ 餐廳</button>
+    </div>`;
+
+  let body;
+  if (tab === "diner") {
+    const today = state.dinerToday || 0;
+    const capped = today >= DINER_DAILY_CAP;
+    const head = `<div class="order-head">下次刷新 ${mm}:${ss}　·　今日 ${today}/${DINER_DAILY_CAP}${capped ? "（已額滿）" : ""}</div>`;
+    body = head + (state.dinerOrders || [])
+      .map((order) => {
+        const canFill = canCompleteDinerOrder(order);
+        const done = !!order.done;
+        return `
+        <article class="order-card ${done ? "is-done" : ""} ${order.big ? "is-big" : ""}">
+          ${order.big ? `<span class="order-big">⭐ 大單・報酬更高</span>` : ""}
+          <div class="order-row">
+            <div class="order-items">
+              ${order.items
+                .map((item) => {
+                  const rc = RECIPES.find((x) => x.id === item.dish);
+                  const have = (state.dishBag && state.dishBag[item.dish]) || 0;
+                  const ready = have >= item.count;
+                  return `
+                    <span class="order-item ${ready ? "is-ready" : "is-short"}">
+                      <span>${rc ? rc.name : item.dish}</span>
+                      <strong>${have}/${item.count}</strong>
+                    </span>
+                  `;
+                })
+                .join("")}
+            </div>
+            <div class="order-reward">
+              <span class="reward-pill reward-coin">${ICONS.coin}<strong>${order.reward}</strong></span>
+              <span class="reward-pill reward-xp">${ICONS.star}<strong>${order.xp}</strong> XP</span>
+            </div>
+          </div>
+          <button class="action-button" type="button" data-complete-diner="${order.id}" ${done || !canFill || capped ? "disabled" : ""}>
+            <span class="button-icon" aria-hidden="true" data-icon="check"></span>
+            ${done ? "已完成" : "完成訂單"}
+          </button>
+        </article>
+      `;
+      })
+      .join("");
+  } else {
+    const today = state.ordersToday || 0;
+    const capped = today >= ORDER_DAILY_CAP;
+    const head = `<div class="order-head">下次刷新 ${mm}:${ss}　·　今日 ${today}/${ORDER_DAILY_CAP}${capped ? "（已額滿）" : ""}</div>`;
+    body = head + state.orders
+      .map((order) => {
+        const canFill = canCompleteOrder(order);
+        const done = !!order.done;
+        return `
         <article class="order-card ${done ? "is-done" : ""} ${order.big ? "is-big" : ""}">
           ${order.big ? `<span class="order-big">⭐ 大單・量大報酬高・滿經驗</span>` : ""}
           <div class="order-row">
@@ -7441,11 +7497,20 @@ function renderOrders() {
           </button>
         </article>
       `;
-    })
-    .join("");
+      })
+      .join("");
+  }
 
+  elements.tabContent.innerHTML = tabsHtml + body;
+
+  elements.tabContent.querySelectorAll("[data-order-tab]").forEach((b) => {
+    b.addEventListener("click", (e) => { e.stopPropagation(); state.ordersTab = b.dataset.orderTab; renderOrders(); });
+  });
   elements.tabContent.querySelectorAll("[data-complete-order]").forEach((button) => {
     button.addEventListener("click", (e) => { e.stopPropagation(); completeOrder(button.dataset.completeOrder); });
+  });
+  elements.tabContent.querySelectorAll("[data-complete-diner]").forEach((button) => {
+    button.addEventListener("click", (e) => { e.stopPropagation(); completeDinerOrder(button.dataset.completeDiner); });
   });
 }
 
@@ -7585,22 +7650,19 @@ function renderUpgrades() {
   const facilityHtml = upgradeRows + doghouseBuyRow + feederBuyRow + clawUpgradeRow;
   const farmHtml = plotRow + repairRow;
   const ranchHtml = ranchBuildRows();
+  const buildTab = ["fac", "farm", "ranch"].includes(state.buildTab) ? state.buildTab : "fac";
+  const buildBodies = { fac: facilityHtml, farm: farmHtml, ranch: ranchHtml };
   elements.tabContent.innerHTML = `
-    <div class="inv-split build-split">
-      <div class="inv-col facbuild-col">
-        <div class="panel-head"><h2>設施建設</h2></div>
-        <div class="build-col-body">${facilityHtml}</div>
-      </div>
-      <div class="inv-col farmbuild-col">
-        <div class="panel-head"><h2>農地建設</h2></div>
-        <div class="build-col-body">${farmHtml}</div>
-      </div>
-      <div class="inv-col ranchbuild-col">
-        <div class="panel-head"><h2>牧場建設</h2></div>
-        <div class="build-col-body">${ranchHtml}</div>
-      </div>
+    <div class="build-tabs">
+      <button type="button" class="build-tab ${buildTab === "fac" ? "is-active" : ""}" data-build-tab="fac">設施建設</button>
+      <button type="button" class="build-tab ${buildTab === "farm" ? "is-active" : ""}" data-build-tab="farm">農地建設</button>
+      <button type="button" class="build-tab ${buildTab === "ranch" ? "is-active" : ""}" data-build-tab="ranch">牧場建設</button>
     </div>
+    <div class="build-tab-body">${buildBodies[buildTab]}</div>
   `;
+  elements.tabContent.querySelectorAll("[data-build-tab]").forEach((b) => {
+    b.addEventListener("click", (e) => { e.stopPropagation(); state.buildTab = b.dataset.buildTab; renderUpgrades(); });
+  });
 
   const plotButton = elements.tabContent.querySelector("[data-buy-plot]");
   if (plotButton) {
@@ -8279,16 +8341,61 @@ function generateOrders() {
   return orders;
 }
 
+/* ===== 餐廳訂單：用做好的料理交單，每日上限與農產分開 ===== */
+const DINER_DAILY_CAP = 20;
+function makeDinerOrder(big) {
+  const pool = RECIPES.slice();
+  const nDishes = Math.random() < 0.35 ? 2 : 1;
+  const items = []; const used = {};
+  for (let k = 0; k < nDishes && pool.length; k++) {
+    let rc, tries = 0;
+    do { rc = pool[Math.floor(Math.random() * pool.length)]; tries++; } while (used[rc.id] && tries < 12);
+    used[rc.id] = true;
+    const count = big ? (1 + Math.floor(Math.random() * 3)) : (1 + Math.floor(Math.random() * 2)); // 大單1-3 / 一般1-2
+    items.push({ dish: rc.id, count });
+  }
+  let base = 0, xp = 0;
+  items.forEach((it) => { const rc = RECIPES.find((x) => x.id === it.dish); base += (rc ? rc.sell : 100) * it.count; xp += 10 * it.count; });
+  const reward = Math.round(base * (big ? 2.0 : 1.5));
+  return { id: "dn" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), items, reward, xp: Math.round(xp * (big ? 1.6 : 1)), big: !!big, done: false };
+}
+function generateDinerOrders() {
+  const bigIndex = Math.random() < ORDER_BIG_CHANCE ? Math.floor(Math.random() * 5) : -1;
+  const arr = [];
+  for (let i = 0; i < 5; i++) arr.push(makeDinerOrder(i === bigIndex));
+  return arr;
+}
+function canCompleteDinerOrder(order) {
+  return order.items.every((it) => ((state.dishBag && state.dishBag[it.dish]) || 0) >= it.count);
+}
+function completeDinerOrder(orderId) {
+  const order = (state.dinerOrders || []).find((o) => o.id === orderId);
+  if (!order || order.done) return;
+  if ((state.dinerToday || 0) >= DINER_DAILY_CAP) { toast(`今天餐廳訂單已達上限（${DINER_DAILY_CAP} 張），明天再來。`); return; }
+  if (!canCompleteDinerOrder(order)) { toast("成品存貨還不夠。"); return; }
+  order.items.forEach((it) => { state.dishBag[it.dish] -= it.count; });
+  state.coins += order.reward;
+  addXp(order.xp);
+  state.ordersCompleted = (state.ordersCompleted || 0) + 1; bumpWeekly("orders");
+  state.dinerToday = (state.dinerToday || 0) + 1;
+  order.done = true;
+  toast(`餐廳訂單完成，收到 ${order.reward} 金幣。`);
+  saveState();
+  render();
+}
+
 function maybeRefreshOrders() {
   const now = Date.now();
   let changed = false;
   const dk = todayKey();
-  if (state.ordersDay !== dk) { state.ordersDay = dk; state.ordersToday = 0; changed = true; }
+  if (state.ordersDay !== dk) { state.ordersDay = dk; state.ordersToday = 0; state.dinerToday = 0; changed = true; }
   if (!state.ordersRefreshAt || now >= state.ordersRefreshAt || !Array.isArray(state.orders) || state.orders.length < 5) {
     state.orders = generateOrders();
+    state.dinerOrders = generateDinerOrders();
     state.ordersRefreshAt = now + ORDER_REFRESH_MS;
     changed = true;
   }
+  if (!Array.isArray(state.dinerOrders) || state.dinerOrders.length < 5) { state.dinerOrders = generateDinerOrders(); changed = true; }
   if (changed) saveState();
 }
 
