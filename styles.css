@@ -4240,3 +4240,10 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .pnl-table td.up { color: #1a9a55; }
 .pnl-table td.down { color: #d0393a; }
 .pnl-empty { text-align: center; color: #7a6a4a; padding: 20px 0; }
+
+/* 好友：真實／虛擬 分頁切換 */
+.friends-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+.friends-tab { flex: 1 1 0; padding: 9px 4px; border: none; border-radius: 12px; background: rgba(150, 130, 90, 0.16); color: #6a5a3a; font-size: 1.05rem; font-weight: 800; cursor: pointer; transition: background .15s, color .15s; }
+.friends-tab:hover { background: rgba(150, 130, 90, 0.26); }
+.friends-tab.is-active { background: #e3b53f; color: #4a3410; box-shadow: 0 2px 8px rgba(190, 150, 50, .35); }
+.friends-pane { width: 100%; }

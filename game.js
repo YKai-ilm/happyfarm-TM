@@ -5014,6 +5014,7 @@ function bindStaticEvents() {
   const friendsBox = document.querySelector("#friendsBox");
   const friendsClose = document.querySelector("#friendsClose");
   if (friendsClose) friendsClose.addEventListener("click", closeFriends);
+  document.querySelectorAll("[data-friends-tab]").forEach((b) => b.addEventListener("click", () => setFriendsTab(b.dataset.friendsTab)));
   document.querySelector("#leaderboardClose")?.addEventListener("click", () => { const b = document.querySelector("#leaderboardBox"); if (b) b.hidden = true; });
   document.querySelector('[data-action="stock-exit"]')?.addEventListener("click", exitStock);
   document.querySelectorAll("[data-stock-act]").forEach((b) => b.addEventListener("click", () => {
@@ -6052,9 +6053,16 @@ function refreshFriendFarm(friend) {
   });
 }
 
+let friendsTab = "real";
+function setFriendsTab(t) {
+  friendsTab = (t === "virtual") ? "virtual" : "real";
+  document.querySelectorAll("[data-friends-tab]").forEach((b) => b.classList.toggle("is-active", b.dataset.friendsTab === friendsTab));
+  document.querySelectorAll("[data-friends-pane]").forEach((p) => { p.hidden = p.dataset.friendsPane !== friendsTab; });
+}
 function openFriends() {
   renderFriendsList();
   renderCloudFriends();
+  setFriendsTab(friendsTab);
   const box = document.querySelector("#friendsBox");
   if (box) box.hidden = false;
 }
