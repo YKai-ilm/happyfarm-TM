@@ -1648,7 +1648,7 @@ let visitScene = "farm";
 let stockOpen = false;
 let stockSel = 0;
 let stockTimer = null;
-let stockRange = "all"; let stockReturnScene = ""; let stockQty = {}; let stockPanelMode = "buy";
+let stockRange = "all"; let stockReturnScene = ""; let stockQty = {}; let stockPanelMode = "buy"; let stockPnlView = false;
 let shopQty = {};
 let spinning = false;
 let pendingWeatherCard = false;
@@ -1752,7 +1752,9 @@ function createDefaultState() {
     cloudHelpFlags: {},
     dishBag: {},
     knownRecipes: [],
-    weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0 },
+    stocks: {},
+    stockStats: { realized: 0, bought: 0, sold: 0, wins: 0, losses: 0 },
+    weekly: { weekStart: 0, orders: 0, sabotage: 0, help: 0, stockPnl: 0 },
     weeklyPrev: null, lastSettledWeek: 0, friendMedals: null, weeklyMedals: null,
     ranchTool: "",
     ranchLevel: 1,
@@ -2309,6 +2311,7 @@ async function publishProfile(force) {
       wOrders: (state.weekly && state.weekly.orders) || 0,
       wSabotage: (state.weekly && state.weekly.sabotage) || 0,
       wHelp: (state.weekly && state.weekly.help) || 0,
+      wStockPnl: (state.weekly && state.weekly.stockPnl) || 0,
       prevWeek: state.weeklyPrev || null,
       dogGuard: dogWorking(),
       dogState: dogStateForProfile(),
@@ -3849,6 +3852,7 @@ function enterStock() {
   stockReturnScene = state.scene;          // 記住從農場/牧場進來
   if (state.scene === "ranch") { state.scene = ""; saveState(); }
   stockOpen = true;
+  stockPnlView = false;
   document.body.classList.add("is-stock");
   startLiveMarket();
   renderStock();
@@ -3872,6 +3876,10 @@ function stockHold(code) {
   state.stocks = state.stocks || {};
   if (!state.stocks[code]) state.stocks[code] = { sh: 0, cost: 0 };
   return state.stocks[code];
+}
+function ensureStockStats() {
+  if (!state.stockStats) state.stockStats = { realized: 0, bought: 0, sold: 0, wins: 0, losses: 0 };
+  return state.stockStats;
 }
 function stockQtyOf(code) { const n = Math.floor(stockQty[code] || 0); return n >= 0 ? n : 0; }
 function stockPnl(code, price) {
@@ -4023,6 +4031,7 @@ function buyStock(code, shares) {
   state.coins -= cost;
   const hold = stockHold(code);
   hold.sh += shares; hold.cost += cost;
+  ensureStockStats().bought += cost;
   submitStockOrder(code, "b", shares);
   saveState();
   renderHeader();
@@ -4044,6 +4053,9 @@ function sellStock(code, shares) {
   const gain = proceeds - costRemoved;
   state.coins += proceeds;
   hold.sh -= shares; hold.cost -= costRemoved;
+  hold.realized = (hold.realized || 0) + gain;
+  const ss = ensureStockStats(); ss.realized += gain; ss.sold += proceeds; if (gain >= 0) ss.wins += 1; else ss.losses += 1;
+  const wk = ensureWeek(); wk.stockPnl = (wk.stockPnl || 0) + gain;
   if (hold.sh <= 0) { hold.sh = 0; hold.cost = 0; }
   submitStockOrder(code, "s", shares);
   saveState();
@@ -4059,6 +4071,7 @@ function renderStock() {
   if (!frame) return;
   let view = frame.querySelector("#stockView");
   if (!view) { view = document.createElement("div"); view.id = "stockView"; frame.appendChild(view); }
+  if (stockPnlView) { renderStockPnl(view); return; }
   const stock = STOCKS[stockSel] || STOCKS[0];
   const info = stockInfo(stock);
   const up = info.chg >= 0;
@@ -4084,6 +4097,55 @@ function renderStock() {
   view.querySelectorAll("[data-stk]").forEach((b) => b.addEventListener("click", () => { stockSel = Number(b.dataset.stk); renderStock(); }));
   view.querySelectorAll("[data-stk-range]").forEach((b) => b.addEventListener("click", () => { stockRange = b.dataset.stkRange; renderStock(); }));
   drawStockChart(stock, info);
+}
+
+function renderStockPnl(view) {
+  const st = ensureStockStats();
+  let totalValue = 0, totalCost = 0;
+  const rows = STOCKS.map((s) => {
+    const h = stockHold(s.code);
+    const realized = Math.round(h.realized || 0);
+    if (h.sh <= 0 && realized === 0) return "";
+    const price = stockInfo(s).price || 0;
+    const value = price > 0 ? Math.round(price * h.sh) : Math.round(h.cost);
+    const cost = Math.round(h.cost);
+    const unreal = value - cost;
+    const upct = cost > 0 ? unreal / cost * 100 : 0;
+    totalValue += value; totalCost += cost;
+    const lots = Math.floor(h.sh / 1000), odd = h.sh % 1000;
+    const holdTxt = h.sh > 0 ? (lots + "張" + (odd ? odd + "股" : "")) : "—";
+    const unrealTxt = h.sh > 0 ? (unreal >= 0 ? "+" : "") + unreal.toLocaleString() + " (" + (upct >= 0 ? "+" : "") + upct.toFixed(1) + "%)" : "—";
+    const realTxt = realized !== 0 ? (realized >= 0 ? "+" : "") + realized.toLocaleString() : "—";
+    return "<tr><td class=\"pnl-nm\">" + s.name + "</td><td>" + holdTxt + "</td><td>$" + value.toLocaleString() +
+      "</td><td class=\"" + (unreal >= 0 ? "up" : "down") + "\">" + unrealTxt +
+      "</td><td class=\"" + (realized >= 0 ? "up" : "down") + "\">" + realTxt + "</td></tr>";
+  }).join("");
+  const totalUnreal = totalValue - totalCost;
+  const totalUnrealPct = totalCost > 0 ? totalUnreal / totalCost * 100 : 0;
+  const realizedTot = Math.round(st.realized || 0);
+  const weekPnl = (ensureWeek().stockPnl) || 0;
+  const grand = totalUnreal + realizedTot;
+  const trades = (st.wins || 0) + (st.losses || 0);
+  const winRate = trades > 0 ? (st.wins / trades * 100) : 0;
+  const money = (v) => (v >= 0 ? "+" : "") + Math.round(v).toLocaleString();
+  view.innerHTML =
+    '<div class="stk-pnl">' +
+      '<div class="pnl-head"><h2>💰 收益情形</h2><button type="button" class="pnl-back" id="pnlBack">← 返回圖表</button></div>' +
+      '<div class="pnl-cards">' +
+        '<div class="pnl-card"><span>總市值</span><strong>$' + totalValue.toLocaleString() + '</strong></div>' +
+        '<div class="pnl-card"><span>持股成本</span><strong>$' + totalCost.toLocaleString() + '</strong></div>' +
+        '<div class="pnl-card ' + (totalUnreal >= 0 ? "up" : "down") + '"><span>未實現損益</span><strong>' + money(totalUnreal) + ' (' + (totalUnrealPct >= 0 ? "+" : "") + totalUnrealPct.toFixed(1) + '%)</strong></div>' +
+        '<div class="pnl-card ' + (realizedTot >= 0 ? "up" : "down") + '"><span>已實現損益(累計)</span><strong>' + money(realizedTot) + '</strong></div>' +
+        '<div class="pnl-card ' + (weekPnl >= 0 ? "up" : "down") + '"><span>本週損益</span><strong>' + money(weekPnl) + '</strong></div>' +
+        '<div class="pnl-card grand ' + (grand >= 0 ? "up" : "down") + '"><span>總損益</span><strong>' + money(grand) + '</strong></div>' +
+      '</div>' +
+      '<div class="pnl-sub">累計買入 $' + Math.round(st.bought || 0).toLocaleString() + '　·　累計賣出 $' + Math.round(st.sold || 0).toLocaleString() + '　·　交易 ' + trades + ' 筆　·　勝率 ' + (trades > 0 ? winRate.toFixed(0) + "%" : "—") + '</div>' +
+      (rows
+        ? '<table class="pnl-table"><thead><tr><th>股票</th><th>持股</th><th>市值</th><th>未實現</th><th>已實現</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        : '<p class="pnl-empty">還沒有持股或交易紀錄，先去買幾張吧。</p>') +
+    '</div>';
+  const back = view.querySelector("#pnlBack");
+  if (back) back.addEventListener("click", () => { stockPnlView = false; renderStock(); });
 }
 
 function pointClock(i) {
@@ -4957,7 +5019,8 @@ function bindStaticEvents() {
   document.querySelectorAll("[data-stock-act]").forEach((b) => b.addEventListener("click", () => {
     if (b.dataset.stockAct === "buy") { toggleStockBuy("buy"); return; }
     if (b.dataset.stockAct === "sell") { toggleStockBuy("sell"); return; }
-    toast("定期定額／收益情形會在下一階段開放。");
+    if (b.dataset.stockAct === "pnl") { stockPnlView = !stockPnlView; closeStockBuy(); renderStock(); return; }
+    toast("定期定額會在下一階段開放。");
   }));
   document.querySelectorAll("[data-visit-tool]").forEach((b) => b.addEventListener("click", () => {
     visitTool = (visitTool === b.dataset.visitTool) ? "" : b.dataset.visitTool;
@@ -6045,10 +6108,10 @@ function currentWeekStart() {
 }
 function ensureWeek() {
   const ws = currentWeekStart();
-  if (!state.weekly) { state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0 }; return state.weekly; }
+  if (!state.weekly) { state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0, stockPnl: 0 }; return state.weekly; }
   if (state.weekly.weekStart !== ws) {
-    state.weeklyPrev = { weekStart: state.weekly.weekStart, orders: state.weekly.orders || 0, sabotage: state.weekly.sabotage || 0, help: state.weekly.help || 0 };
-    state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0 };
+    state.weeklyPrev = { weekStart: state.weekly.weekStart, orders: state.weekly.orders || 0, sabotage: state.weekly.sabotage || 0, help: state.weekly.help || 0, stockPnl: state.weekly.stockPnl || 0 };
+    state.weekly = { weekStart: ws, orders: 0, sabotage: 0, help: 0, stockPnl: 0 };
   }
   return state.weekly;
 }
@@ -6145,7 +6208,7 @@ function friendMedalHtml(uid) {
 }
 const LB_TABS = [
   { k: "level", label: "等級", fmt: (r) => "Lv." + r.level + " · 🪙" + r.coins.toLocaleString(), cmp: (a, b) => (b.level - a.level) || (b.coins - a.coins) },
-  { k: "stock", label: "股市", fmt: null, cmp: null },
+  { k: "stock", label: "股市", fmt: (r) => "本週損益 " + (r.stockPnl >= 0 ? "+" : "") + Math.round(r.stockPnl || 0).toLocaleString(), cmp: (a, b) => ((b.stockPnl || 0) - (a.stockPnl || 0)) || (b.level - a.level) },
   { k: "orders", label: "訂單", fmt: (r) => "本週訂單 " + r.orders.toLocaleString() + " 筆", cmp: (a, b) => (b.orders - a.orders) || (b.level - a.level) },
   { k: "sabotage", label: "陷害", fmt: (r) => "本週惡搞 " + r.sabotage.toLocaleString() + " 次", cmp: (a, b) => (b.sabotage - a.sabotage) || (b.level - a.level) },
   { k: "help", label: "幫忙", fmt: (r) => "本週幫忙 " + r.help.toLocaleString() + " 次", cmp: (a, b) => (b.help - a.help) || (b.level - a.level) },
@@ -6169,9 +6232,10 @@ function openLeaderboard() {
         if (s.exists) {
           const d = s.data();
           let ord, sab, hlp;
-          if (uid === fbUser.uid) { const w = ensureWeek(); ord = w.orders; sab = w.sabotage; hlp = w.help; }
-          else { const fresh = (d.weekStart === cw); ord = fresh ? (d.wOrders || 0) : 0; sab = fresh ? (d.wSabotage || 0) : 0; hlp = fresh ? (d.wHelp || 0) : 0; }
-          rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, orders: ord, sabotage: sab, help: hlp, me: uid === fbUser.uid });
+          let spnl;
+          if (uid === fbUser.uid) { const w = ensureWeek(); ord = w.orders; sab = w.sabotage; hlp = w.help; spnl = w.stockPnl || 0; }
+          else { const fresh = (d.weekStart === cw); ord = fresh ? (d.wOrders || 0) : 0; sab = fresh ? (d.wSabotage || 0) : 0; hlp = fresh ? (d.wHelp || 0) : 0; spnl = fresh ? (d.wStockPnl || 0) : 0; }
+          rows.push({ name: d.farmName || "農友", level: d.level || 1, coins: d.coins || 0, orders: ord, sabotage: sab, help: hlp, stockPnl: spnl, me: uid === fbUser.uid });
         }
       } catch (_) {}
     }
@@ -6187,10 +6251,9 @@ function renderLeaderboard() {
     tabsEl.innerHTML = LB_TABS.map((t) => '<button type="button" class="lb-tab' + (t.k === lbTab ? " is-active" : "") + '" data-lbtab="' + t.k + '">' + t.label + '</button>').join("");
     tabsEl.querySelectorAll("[data-lbtab]").forEach((b) => b.addEventListener("click", () => { lbTab = b.dataset.lbtab; renderLeaderboard(); }));
   }
-  if (lbTab === "stock") { list.innerHTML = '<p class="item-empty">📈 股市收益排行即將推出。<br>等操盤收益統計實裝後就會開放。</p>'; return; }
   if (!lbRows) { list.innerHTML = '<p class="item-empty">載入中…</p>'; return; }
   const tab = LB_TABS.find((t) => t.k === lbTab) || LB_TABS[0];
-  const weekly = (lbTab === "orders" || lbTab === "sabotage" || lbTab === "help");
+  const weekly = (lbTab === "orders" || lbTab === "sabotage" || lbTab === "help" || lbTab === "stock");
   const note = weekly ? '<p class="lb-week-note">🗓️ 本週統計，每週一 00:00 歸零重算</p>' : "";
   const sorted = lbRows.slice().sort(tab.cmp);
   list.innerHTML = note + (sorted.length ? sorted.map((r, i) =>

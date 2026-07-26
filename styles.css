@@ -4219,3 +4219,24 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .order-tab.is-active, .build-tab.is-active {
   background: #e3b53f; color: #4a3410; box-shadow: 0 2px 8px rgba(190, 150, 50, .35);
 }
+
+/* 股市：收益情形彙總 */
+.stk-pnl { padding: 10px 12px; color: #3a2f1a; overflow-y: auto; max-height: 100%; }
+.pnl-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pnl-head h2 { margin: 0; font-size: 1.15rem; }
+.pnl-back { border: none; background: rgba(150, 130, 90, .18); color: #6a5a3a; font-weight: 700; padding: 6px 12px; border-radius: 10px; cursor: pointer; }
+.pnl-back:hover { background: rgba(150, 130, 90, .3); }
+.pnl-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
+.pnl-card { background: rgba(255, 255, 255, .6); border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.pnl-card span { font-size: .8rem; color: #7a6a4a; }
+.pnl-card strong { font-size: 1.02rem; }
+.pnl-card.grand { grid-column: 1 / -1; background: rgba(227, 181, 63, .22); }
+.pnl-card.up strong { color: #1a9a55; }
+.pnl-card.down strong { color: #d0393a; }
+.pnl-sub { font-size: .82rem; color: #7a6a4a; margin-bottom: 10px; text-align: center; }
+.pnl-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.pnl-table th, .pnl-table td { padding: 6px; text-align: right; border-bottom: 1px solid rgba(120, 100, 60, .16); }
+.pnl-table th:first-child, .pnl-table td:first-child { text-align: left; }
+.pnl-table td.up { color: #1a9a55; }
+.pnl-table td.down { color: #d0393a; }
+.pnl-empty { text-align: center; color: #7a6a4a; padding: 20px 0; }
