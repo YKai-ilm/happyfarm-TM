@@ -356,6 +356,8 @@ function openPondDialog() {
       '<div class="pond-actions">' +
         '<button type="button" class="pond-btn" data-pond="raise">🐟 養魚</button>' +
         (good ? '<button type="button" class="pond-btn" id="pondFishBtn">🎣 釣魚</button>' : '') +
+        '<button type="button" class="pond-btn" id="pondBaitBtn">🐛 放餌</button>' +
+        '<div class="bait-count" id="baitCount"></div>' +
         '<button type="button" id="pondClose" class="pond-btn pond-close-btn">關閉</button>' +
       '</div>' +
     '</div></div>';
@@ -363,6 +365,9 @@ function openPondDialog() {
   box.querySelectorAll("[data-pond]").forEach((b) => b.addEventListener("click", () => { openFishFarm(); }));
   const fb = box.querySelector("#pondFishBtn");
   if (fb) fb.addEventListener("click", onFishClick);
+  const bb = box.querySelector("#pondBaitBtn");
+  if (bb) bb.addEventListener("click", useBait);
+  updateBaitCount();
 }
 
 function pondConfirm(text, onOk) {
@@ -539,6 +544,11 @@ function onFishStop() {
     state.items = state.items || {};
     state.items.treasureChest = (state.items.treasureChest || 0) + mult;
     pondMsg(mult === 1 ? "哇！釣到一個寶箱，運氣爆棚！" : "哇！釣到 " + mult + " 個寶箱，運氣爆棚！");
+  }
+  if (color === "orange" && (state.baitCharges || 0) > 0) {
+    state.baitCharges -= 1;
+    pondMsg(grantMermaid());
+    updateBaitCount();
   }
   saveState(); renderHeader();
   setFishBtns({ fish: false, stop: false, resume: false });
@@ -1349,6 +1359,8 @@ const GM_ITEMS = [
   ["expandCard", "🏗️ 牧場擴建卡"],
   ["expandCardPro", "🏗️ 牧場擴建卡（特）"],
   ["dogStick", "🦴 逗狗棒"],
+  ["worm", "🪱 蚯蚓"],
+  ["caterpillar", "🐛 毛毛蟲"],
   ["treasureChest", "🎁 寶箱"],
 ];
 
@@ -1690,8 +1702,12 @@ function createDefaultState() {
     friendGiftsClaimed: [],
     npcGiftsClaimed: [],
     openingSpinDone: false,
-    items: { weatherCard: 0, fertilizer: 0, thawCard: 0, guardCard: 0, coinCard500: 0, expSpinPack: 0, expandCard: 0, expandCardPro: 0 },
+    items: { weatherCard: 0, fertilizer: 0, thawCard: 0, guardCard: 0, coinCard500: 0, expSpinPack: 0, expandCard: 0, expandCardPro: 0, worm: 0, caterpillar: 0 },
     guardUntil: 0,
+    wormUntil: 0,
+    baitCharges: 0,
+    baitDayKey: "",
+    baitUsedToday: 0,
     redeemed: [],
     gmSelect: true,
     damaged: {},
@@ -2915,6 +2931,8 @@ function cloudFarmHelp(index) {
   // 除蟲／除草：同一塊田在對方刷新前只能幫一次
   if ((pl.weed || clearableBug) && !chfGet("d", index)) {
     chfSet("d", index, true);
+    if (pl.weed) rollWorm();
+    if (clearableBug) rollBug();
     writeFriendEvent(visiting.uid, { type: "depest", plotIndex: index });
     state.coins = (state.coins || 0) + 8; addXp(3);
     if (state.stats) state.stats.bug = (state.stats.bug || 0) + 1;
@@ -5727,6 +5745,29 @@ function renderItemList() {
       </div>
     </div>`;
   }
+  const wormN = (state.items && state.items.worm) || 0;
+  if (wormN > 0) {
+    const wa = state.wormUntil && Date.now() < state.wormUntil;
+    const wleft = wa ? "（作用中，剩餘 " + fmtWormLeft(state.wormUntil - Date.now()) + "）" : "";
+    rows += `
+    <div class="gift-row is-claimable">
+      <div class="gift-row-main">
+        <strong>🪱 蚯蚓 ×${wormN}</strong>
+        <span class="gift-contents">使用後 30 分鐘自動收成農產品，可疊加最多 8 小時${wleft}</span>
+      </div>
+      <button class="gift-claim" type="button" id="useWorm">使用</button>
+    </div>`;
+  }
+  const catN = (state.items && state.items.caterpillar) || 0;
+  if (catN > 0) {
+    rows += `
+    <div class="gift-row">
+      <div class="gift-row-main">
+        <strong>🐛 毛毛蟲 ×${catN}</strong>
+        <span class="gift-contents">到水池「釣魚 → 放餌」使用；放餌後 3 次橘區命中多召喚美人魚（一天最多放餌 5 次）</span>
+      </div>
+    </div>`;
+  }
   const chest = (state.items && state.items.treasureChest) || 0;
   if (chest > 0) {
     rows += `
@@ -5748,6 +5789,7 @@ function renderItemList() {
   document.querySelector("#useCoinCard")?.addEventListener("click", useCoinCard);
   document.querySelector("#useExpPack")?.addEventListener("click", useExpPack);
   document.querySelector("#useChest")?.addEventListener("click", openChest);
+  document.querySelector("#useWorm")?.addEventListener("click", useWorm);
 }
 
 function thawCost(id, n) {
@@ -6349,6 +6391,8 @@ function helpFriend(friendId, idx) {
   const hk = { weed: "weed", bug: "bug", dry: "water" }[p.hazard];
   if (hk && state.stats) state.stats[hk] = (state.stats[hk] || 0) + 1;
   state.stats = state.stats || {}; state.stats.help = (state.stats.help || 0) + 1; bumpWeekly("help");
+  if (p.hazard === "weed") rollWorm();
+  if (p.hazard === "bug") rollBug();
   p.hazard = null; p.hazardPlaced = false;
   const coin = 20 + state.level * 3;
   state.coins += coin;
@@ -6647,6 +6691,8 @@ function tick() {
   maybeRefreshOrders();
   const wp = document.querySelector(".work-panel");
   if (wp && wp.classList.contains("is-open") && state.activeTab === "orders") renderTabContent();
+  try { wormTick(); } catch (e) {}
+  try { renderWormBox(); } catch (e) {}
 }
 
 let lastHazardAt = 0;
@@ -7248,6 +7294,8 @@ const MKT = {
   expandCard: { name: "牧場擴建卡", cost: 20000, sell: 14000 },
   expandCardPro: { name: "牧場擴建卡（特）", cost: 60000, sell: 42000 },
   dogStick: { name: "逗狗棒", cost: 300, sell: 210 },
+  worm: { name: "蚯蚓", cost: 0, sell: 500, sellOnly: true },
+  caterpillar: { name: "毛毛蟲", cost: 0, sell: 400, sellOnly: true },
 };
 function setMktQty(key, v, writeInput) {
   mktQty[key] = Math.max(0, Math.floor(v) || 0);
@@ -7255,6 +7303,7 @@ function setMktQty(key, v, writeInput) {
 }
 function buyMktItem(key) {
   const meta = MKT[key]; if (!meta) return;
+  if (meta.sellOnly) { toast("這個道具不可購買。"); return; }
   const q = Math.max(0, Math.floor(mktQty[key] || 0));
   if (q <= 0) { toast("先設定數量。"); return; }
   if (key === "expandCard" && (state.animalsSoldForCard || 0) < 10) { toast("要累計售出 10 隻動物才能購買擴建卡。"); return; }
@@ -7287,7 +7336,7 @@ function marketRow(key, name, cost, desc, opts) {
       <span class="seed-details">
         <span class="seed-title">
           <span class="seed-name-wrap"><strong>${name}</strong></span>
-          <span class="seed-price">買 ${cost.toLocaleString()} / 賣 ${sell.toLocaleString()}</span>
+          <span class="seed-price">${opts.sellOnly ? `賣 ${sell.toLocaleString()}` : `買 ${cost.toLocaleString()} / 賣 ${sell.toLocaleString()}`}</span>
         </span>
         <span class="seed-meta">${desc}</span>
         <span class="seed-actions">
@@ -7297,7 +7346,7 @@ function marketRow(key, name, cost, desc, opts) {
             <input class="qty-num" type="number" inputmode="numeric" min="0" data-mqty="${key}" value="${q}" />
             <button class="qty-btn" type="button" data-minc="${key}">＋</button>
           </span>
-          <button class="seed-button mkt-buy" type="button" data-mbuy="${key}" ${locked ? "disabled" : ""}>${locked ? "🔒 未解鎖" : "購買"}</button>
+          <button class="seed-button mkt-buy" type="button" data-mbuy="${key}" ${(locked || opts.sellOnly) ? "disabled" : ""}>${opts.sellOnly ? "不可購買" : (locked ? "🔒 未解鎖" : "購買")}</button>
           <button class="seed-button mkt-sell" type="button" data-msell="${key}" ${have > 0 ? "" : "disabled"}>賣出</button>
         </span>
       </span>
@@ -7318,7 +7367,9 @@ function renderMarket() {
     marketRow("expandCardPro", "🏗️ 牧場擴建卡（特）", 60000,
       "大牧場升級超大牧場時消耗。<br>解鎖：售出動物 " + soldPro + "/25",
       { locked: expProLocked, lockText: "售出動物 " + soldPro + "/25" }) +
-    marketRow("dogStick", "🦴 逗狗棒", 300, "參觀好友時逗牠家的狗，每次好感度 +5%（好感越高越不會被趕）");
+    marketRow("dogStick", "🦴 逗狗棒", 300, "參觀好友時逗牠家的狗，每次好感度 +5%（好感越高越不會被趕）") +
+    marketRow("worm", "🪱 蚯蚓", 0, "使用後 30 分鐘自動收成農產品（可疊加，上限 8 小時）；拔草有機率挖到，可賣不可買", { sellOnly: true }) +
+    marketRow("caterpillar", "🐛 毛毛蟲", 0, "水池釣魚「放餌」使用；放餌後 3 次橘區命中多召喚美人魚（一天最多放餌 5 次）；除蟲有機率抓到，可賣不可買", { sellOnly: true });
   const tc = elements.tabContent;
   tc.querySelectorAll("[data-mbuy]").forEach((b) => b.addEventListener("click", () => buyMktItem(b.dataset.mbuy)));
   tc.querySelectorAll("[data-msell]").forEach((b) => b.addEventListener("click", () => sellMktItem(b.dataset.msell)));
@@ -7653,7 +7704,11 @@ function handlePlotClick(index) {
     if (plot.pest || plot.weed) {
       const what = (plot.pest && plot.weed) ? "蟲害和雜草" : plot.pest ? "蟲害" : "雜草";
       if (plot.hazardSince) { plot.pausedMs = (plot.pausedMs || 0) + (Date.now() - plot.hazardSince); plot.hazardSince = 0; }
+      const _hadWeed = plot.weed;
+      const _hadPest = plot.pest;
       plot.pest = false; plot.weed = false; plot.pestBy = null;
+      if (_hadWeed) rollWorm();
+      if (_hadPest) rollBug();
       saveState(); render(); toast("清除了" + what + "，作物恢復生長 🌱");
     } else {
       toast("這格沒有蟲害或雜草。");
@@ -7800,6 +7855,167 @@ function doHarvest(index) {
   return `${crop.name} 收成 ${amount} 個。${penaltyNote}`;
 }
 
+/* ===== 蚯蚓：拔草取得 → 使用後自動收成農產品（可疊加、背景/離線可運行） ===== */
+const WORM_MS = 30 * 60 * 1000;     // 每隻 30 分鐘
+const WORM_MAX = 8 * 3600 * 1000;   // 疊加上限 8 小時
+function rollWorm() {
+  const chance = 0.05 + Math.random() * 0.05; // 5~10%
+  if (Math.random() < chance) {
+    state.items = state.items || {};
+    state.items.worm = (state.items.worm || 0) + 1;
+    setTimeout(function () { toast("🪱 拔草時挖到 1 隻蚯蚓！"); }, 950);
+    return true;
+  }
+  return false;
+}
+function rollBug() {
+  const chance = 0.05 + Math.random() * 0.05; // 5~10%
+  if (Math.random() < chance) {
+    state.items = state.items || {};
+    state.items.caterpillar = (state.items.caterpillar || 0) + 1;
+    setTimeout(function () { toast("🐛 除蟲時抓到 1 隻毛毛蟲！"); }, 950);
+    return true;
+  }
+  return false;
+}
+function baitTodayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function baitUsesLeft() {
+  if (state.baitDayKey !== baitTodayKey()) return 5;
+  return Math.max(0, 5 - (state.baitUsedToday || 0));
+}
+function grantMermaid() {
+  state.pondFish = (state.pondFish || []).map((e) => (typeof e === "string") ? { type: e, eaten: 0, stage: 0 } : e);
+  state.fryBag = state.fryBag || {}; state.items = state.items || {};
+  state.pondFish.forEach((data) => ffFeedData(data, 4));
+  state.items.treasureChest = (state.items.treasureChest || 0) + 3;
+  const pool = FISH_NAMES.slice(), chosen = [];
+  for (let k = 0; k < 3 && pool.length; k++) { const j = Math.floor(Math.random() * pool.length); const t = pool.splice(j, 1)[0]; chosen.push(t); state.fryBag[t] = (state.fryBag[t] || 0) + 5; }
+  return "🧜‍♀️ 毛毛蟲餌引來美人魚！全池魚吃飽長大，寶箱 ×3 ＋魚苗：" + chosen.map((t) => t + "×5").join("、") + "。";
+}
+function updateBaitCount() {
+  const el = document.querySelector("#baitCount");
+  if (!el) return;
+  const ch = state.baitCharges || 0;
+  el.innerHTML = (ch > 0 ? '<span class="bait-charge">🧜‍♀️ 美人魚機會 ×' + ch + '</span>' : '') +
+                 '<span class="bait-daily">今日放餌 ' + (5 - baitUsesLeft()) + '/5 次</span>';
+}
+function useBait() {
+  const have = (state.items && state.items.caterpillar) || 0;
+  if (have <= 0) { toast("沒有毛毛蟲可以放餌，除蟲有機率抓到。"); return; }
+  if (baitUsesLeft() <= 0) { toast("放餌一天最多 5 次，明天再來。"); return; }
+  pondConfirm(
+    "放餌要消耗 1 隻毛毛蟲。<br>接下來的釣魚，有 <b>3 次</b>命中「橘色區間」時，除了原本效果外，還會額外召喚 <b>美人魚</b> 祝福！<br>（今日放餌還剩 " + baitUsesLeft() + " 次）",
+    function () {
+      const tk = baitTodayKey();
+      if (state.baitDayKey !== tk) { state.baitDayKey = tk; state.baitUsedToday = 0; }
+      if (baitUsesLeft() <= 0) { toast("放餌一天最多 5 次。"); return; }
+      if (((state.items && state.items.caterpillar) || 0) <= 0) { toast("沒有毛毛蟲了。"); return; }
+      state.items.caterpillar -= 1;
+      state.baitUsedToday = (state.baitUsedToday || 0) + 1;
+      state.baitCharges = (state.baitCharges || 0) + 3;
+      saveState();
+      updateBaitCount();
+      renderItemList();
+      toast("🐛 已放餌！接下來 3 次橘區命中會多召喚美人魚。");
+    }
+  );
+}
+function fmtWormLeft(ms) {
+  ms = Math.max(0, ms);
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return h > 0 ? h + ":" + p(m) + ":" + p(ss) : p(m) + ":" + p(ss);
+}
+function useWorm() {
+  const have = (state.items && state.items.worm) || 0;
+  if (have <= 0) { toast("沒有蚯蚓可用。"); return; }
+  const now = Date.now();
+  const base = Math.max(state.wormUntil || 0, now);
+  const newUntil = Math.min(base + WORM_MS, now + WORM_MAX);
+  if (newUntil <= (state.wormUntil || 0) + 1000) { toast("蚯蚓效果已達上限 8 小時，先讓它作用一段再疊加。"); return; }
+  state.items.worm = have - 1;
+  state.wormUntil = newUntil;
+  saveState();
+  renderItemList();
+  renderWormBox();
+  wormTick();
+  toast("🪱 使用蚯蚓！自動收成中，剩餘 " + fmtWormLeft(newUntil - now) + "。");
+}
+// 每秒由 tick 呼叫；離線期間成熟的作物會在回來後第一次 tick 補收（readyTime<=until）
+function wormTick() {
+  if (!state.wormUntil) return;
+  const now = Date.now(), until = state.wormUntil;
+  if (!visiting) {
+    let got = 0;
+    (state.plots || []).forEach((p, i) => {
+      if (!p || !p.unlocked || !p.crop || p.thief) return;
+      if (getPlotProgress(p) < 1) return;
+      const readyTime = (p.plantedAt || 0) + getPlotDuration(p) + (p.pausedMs || 0);
+      if (now < until || readyTime <= until) { doHarvest(i); got++; }
+    });
+    if (got) { saveState(); if (state.scene !== "ranch") render(); }
+  }
+  if (now >= until && !visiting) { state.wormUntil = 0; saveState(); renderWormBox(); }
+}
+function renderWormBox() {
+  const active = state.wormUntil && Date.now() < state.wormUntil;
+  const onFarm = !visiting && state.scene !== "ranch";
+  let box = document.querySelector("#wormBox");
+  if (!active || !onFarm) { if (box) box.hidden = true; return; }
+  const frame = document.querySelector(".field-frame") || document.body;
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "wormBox";
+    box.innerHTML = '<span class="worm-box-title">🪱 蚯蚓自動收成</span><span class="worm-box-time"></span>';
+    frame.appendChild(box);
+    makeWormBoxDraggable(box);
+  } else if (box.parentElement !== frame) {
+    frame.appendChild(box);
+  }
+  box.hidden = false;
+  if (state.wormBoxPos && typeof state.wormBoxPos.x === "number" && !box.classList.contains("dragging")) {
+    box.style.left = state.wormBoxPos.x + "px";
+    box.style.top = state.wormBoxPos.y + "px";
+    box.style.right = "auto"; box.style.bottom = "auto";
+  }
+  const t = box.querySelector(".worm-box-time");
+  if (t) t.textContent = "剩餘 " + fmtWormLeft(state.wormUntil - Date.now());
+}
+function makeWormBoxDraggable(box) {
+  let sx, sy, ox, oy, drag = false;
+  const down = (e) => {
+    drag = true; box.classList.add("dragging");
+    const pt = e.touches ? e.touches[0] : e;
+    sx = pt.clientX; sy = pt.clientY;
+    const par = box.offsetParent || box.parentElement;
+    const r = box.getBoundingClientRect(), pr = par.getBoundingClientRect();
+    ox = r.left - pr.left; oy = r.top - pr.top;
+    if (e.cancelable) e.preventDefault();
+  };
+  const move = (e) => {
+    if (!drag) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const par = box.offsetParent || box.parentElement;
+    let nx = ox + (pt.clientX - sx), ny = oy + (pt.clientY - sy);
+    nx = Math.max(0, Math.min(nx, par.clientWidth - box.offsetWidth));
+    ny = Math.max(0, Math.min(ny, par.clientHeight - box.offsetHeight));
+    box.style.left = nx + "px"; box.style.top = ny + "px";
+    box.style.right = "auto"; box.style.bottom = "auto";
+    if (e.cancelable) e.preventDefault();
+  };
+  const up = () => {
+    if (!drag) return; drag = false; box.classList.remove("dragging");
+    state.wormBoxPos = { x: parseFloat(box.style.left) || 0, y: parseFloat(box.style.top) || 0 };
+    saveState();
+  };
+  box.addEventListener("mousedown", down);
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+  box.addEventListener("touchstart", down, { passive: false });
+  document.addEventListener("touchmove", move, { passive: false });
+  document.addEventListener("touchend", up);
+}
+
 function showActionConfirm(msg, onYes) {
   const old = document.querySelector("#actConfirm"); if (old) old.remove();
   const m = document.createElement("div");
@@ -7830,8 +8046,12 @@ function oneClickFarm() {
     (state.plots || []).forEach((p, i) => {
       if (!p.unlocked || !p.crop) return;
       if (p.pest || p.weed) {
+        const _hadWeed = p.weed;
+        const _hadPest = p.pest;
         if (p.hazardSince) { p.pausedMs = (p.pausedMs || 0) + (Date.now() - p.hazardSince); p.hazardSince = 0; }
         p.pest = false; p.weed = false; p.pestBy = null;
+        if (_hadWeed) rollWorm();
+        if (_hadPest) rollBug();
       }
       if (getPlotProgress(p) >= 1) { doHarvest(i); }
       else if (!p.watered) { p.watered = true; }
