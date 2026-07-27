@@ -660,7 +660,7 @@ function ffDarken(hex, amt) {
 function ffMakeFishEl(type) {
   const el = document.createElement("div"); el.className = "ff-fish";
   if (FISH_NAMES.indexOf(type) >= 0) {
-    el.innerHTML = '<img class="ff-fish-img" src="./assets/pondfish/' + type + '.png" alt="" draggable="false" />';
+    el.innerHTML = '<img class="ff-fish-img" src="./assets/pondfish/' + type + '.png?v=20260726b" alt="" draggable="false" />';
     return el;
   }
   const col = FRY_COLORS[type] || "#7fb0d0", dk = ffDarken(col, 0.3);
@@ -889,8 +889,9 @@ function ffWaterClick(e) {
   if (ffMode === "place") {
     state.fryBag = state.fryBag || {};
     if ((state.fryBag[ffPlaceType] || 0) <= 0) { toast("這種魚苗不夠了。"); ffMode = ""; ffUpdateBtns(); return; }
-    state.fryBag[ffPlaceType] -= 1;
     state.pondFish = state.pondFish || [];
+    if (state.pondFish.length >= 60) { toast("養魚池最多 60 隻，先撈魚／釣走一些再放。"); ffMode = ""; ffUpdateBtns(); return; }
+    state.fryBag[ffPlaceType] -= 1;
     const data = { type: ffPlaceType, eaten: 0, stage: 0, sat: 50, satAt: Date.now() };
     state.pondFish.push(data);
     ffSpawnFish(data, x, y); saveState();
@@ -952,7 +953,7 @@ function openFishMarket() {
 
 function fmBadge(key, type) {
   if (type === "fry") return '<span class="fm-badge fm-badge-fry">🐟</span>';
-  return '<img class="fm-badge" src="./assets/pondfish/' + key + '.png" alt="" draggable="false" />';
+  return '<img class="fm-badge" src="./assets/pondfish/' + key + '.png?v=20260726b" alt="" draggable="false" />';
 }
 function fmStepperHtml(have) {
   return '<span class="fm-stepper">' +
