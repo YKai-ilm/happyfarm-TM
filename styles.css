@@ -4172,6 +4172,7 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .ranch-prod-img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .fm-badge { width: 36px; height: 26px; object-fit: contain; flex: 0 0 auto; margin-right: 3px; }
 .fm-badge-fry { width: 30px; text-align: center; font-size: 1.35rem; line-height: 1; flex: 0 0 auto; margin-right: 3px; }
+.fm-badge-fry-img { width: 28px; height: 20px; }
 
 /* 農民市集：標題允許換行(避免長價格撐爆面板) */
 .seed-title { flex-wrap: wrap; row-gap: 2px; }

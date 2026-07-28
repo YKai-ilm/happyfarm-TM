@@ -952,8 +952,8 @@ function openFishMarket() {
 }
 
 function fmBadge(key, type) {
-  if (type === "fry") return '<span class="fm-badge fm-badge-fry">🐟</span>';
-  return '<img class="fm-badge" src="./assets/pondfish/' + key + '.png?v=20260726b" alt="" draggable="false" />';
+  if (type === "fry" && !key) return '<span class="fm-badge fm-badge-fry">🐟</span>';
+  return '<img class="fm-badge' + (type === "fry" ? ' fm-badge-fry-img' : '') + '" src="./assets/pondfish/' + key + '.png?v=20260726b" alt="" draggable="false" />';
 }
 function fmStepperHtml(have) {
   return '<span class="fm-stepper">' +
