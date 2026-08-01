@@ -1753,6 +1753,10 @@ function createDefaultState() {
     dinerToday: 0,
     ordersTab: "farm",
     buildTab: "fac",
+    promoDay: "",
+    promoCount: 0,
+    promoActive: null,
+    promoStats: { xp: 0, friendship: 0 },
     upgrades: {
       windmill: 0,
       stand: 0,
@@ -7504,8 +7508,104 @@ function buyExpandCard() {
   toast("購買牧場擴建卡 ×1（花費 20000 金幣）。");
 }
 
+let promoSel = { friendId: null, friendName: "", items: null };
+const PROMO_DAILY = 3;
+const PROMO_MS = 10 * 60 * 1000;
+function ensurePromoDay() { const t = baitTodayKey(); if (state.promoDay !== t) { state.promoDay = t; state.promoCount = 0; } }
+function promoFriendList() {
+  const real = (state.cloudFriends || []).map((f) => ({ id: "c:" + f.uid, name: f.name || "農友" }));
+  const virt = (state.friends || []).map((f) => ({ id: "v:" + f.id, name: f.name }));
+  return real.concat(virt);
+}
+function genPromoItems() {
+  const pool = Object.keys(CROPS).filter((id) => CROPS[id].unlock <= state.level);
+  const p = pool.slice(), picks = [];
+  for (let i = 0; i < 3 && p.length; i++) { picks.push(p.splice(Math.floor(Math.random() * p.length), 1)[0]); }
+  return picks.map((id) => ({ crop: id, qty: 30 + Math.floor(Math.random() * 91) }));
+}
+function promoReward(items) {
+  let gold = 0, xp = 0;
+  items.forEach((it) => { gold += (sellPrice(it.crop) || CROPS[it.crop].sell) * it.qty; xp += (CROPS[it.crop].xp || 10) * it.qty; });
+  return { gold: Math.round(gold * 1.6), xp: Math.round(xp * 0.2), friendship: 10 };
+}
+function renderPromoCol(el) {
+  if (!el) return;
+  ensurePromoDay();
+  const act = state.promoActive, now = Date.now();
+  let mode;
+  if (act && now < act.until) mode = "transit";
+  else if (act) mode = "delivered";
+  else if ((state.promoCount || 0) >= PROMO_DAILY) mode = "done";
+  else mode = "select";
+  const sig = mode + "|" + (act ? act.friendName + JSON.stringify(act.items) + act.until : (promoSel.friendId || "") + JSON.stringify(promoSel.items || null)) + "|" + (state.promoCount || 0);
+  if (el.dataset.sig === sig) {
+    if (mode === "transit") { const cd = el.querySelector("#promoCountdown"); if (cd) cd.textContent = "運送至好友城鎮銷售，剩餘 " + fmtWormLeft(act.until - now); }
+    return;
+  }
+  el.dataset.sig = sig;
+  let html = "";
+  if (mode === "transit") {
+    html = '<div class="promo-head">推銷 <span id="promoCountdown" class="promo-countdown">運送至好友城鎮銷售，剩餘 ' + fmtWormLeft(act.until - now) + '</span></div>' +
+      '<p class="promo-transit">目前正在運送物資：' + act.items.map((it) => CROPS[it.crop].name + " × " + it.qty).join("、") + '，到 ' + act.friendName + ' 的城鎮銷售。</p>';
+  } else if (mode === "delivered") {
+    const last = (state.promoCount || 0) >= PROMO_DAILY - 1;
+    html = '<div class="promo-head">推銷</div>' +
+      '<p class="promo-delivered">已將物資全數送達，進行推廣銷售，獲得....</p>' +
+      '<ol class="promo-reward"><li>取得金幣 ' + (act.gold || 0).toLocaleString() + '</li><li>獲得相關經驗及友情值</li></ol>' +
+      '<button type="button" id="promoClaim" class="promo-btn claim">' + (last ? "本日推銷已全數結束" : "領取後進行下一輪") + '</button>';
+  } else if (mode === "done") {
+    html = '<div class="promo-head">推銷</div><p class="promo-done">本日推銷已全數結束，好友們皆大歡喜，明日再派送物資進行販售吧</p>';
+  } else {
+    const friends = promoFriendList();
+    const opts = '<option value="">— 選擇好友 —</option>' + friends.map((f) => '<option value="' + f.id + '"' + (promoSel.friendId === f.id ? " selected" : "") + '>' + f.name + '</option>').join("");
+    let mid = '<p class="promo-hint">選一位好友，系統會列出他們城鎮想要的三樣農產品。</p>';
+    if (promoSel.friendId && promoSel.items) {
+      mid = '<div class="promo-items">' + promoSel.items.map((it) => '<div class="promo-item"><span>' + CROPS[it.crop].name + '</span><b>× ' + it.qty + '</b></div>').join("") + '</div>' +
+        '<div class="promo-confirm-row"><button type="button" id="promoYes" class="promo-btn yes">✓ 確認送出</button><button type="button" id="promoNo" class="promo-btn no">✕ 換一批</button></div>';
+    }
+    html = '<div class="promo-head">推銷</div>' +
+      '<p class="promo-desc">將優質農產品對外推廣給好友們，推銷到它們的城鎮內進行買賣交易(自動)</p>' +
+      '<div class="promo-daily">本日推銷 ' + (state.promoCount || 0) + '/' + PROMO_DAILY + '</div>' +
+      '<select id="promoFriendSel" class="promo-select">' + opts + '</select>' + mid;
+  }
+  el.innerHTML = html;
+  const sel = el.querySelector("#promoFriendSel");
+  if (sel) sel.addEventListener("change", () => {
+    const fid = sel.value;
+    if (!fid) promoSel = { friendId: null, friendName: "", items: null };
+    else { const f = promoFriendList().find((x) => x.id === fid); promoSel = { friendId: fid, friendName: f ? f.name : "", items: genPromoItems() }; }
+    renderPromoCol(el);
+  });
+  el.querySelector("#promoNo") && el.querySelector("#promoNo").addEventListener("click", () => { promoSel.items = genPromoItems(); renderPromoCol(el); });
+  el.querySelector("#promoYes") && el.querySelector("#promoYes").addEventListener("click", () => {
+    if (!promoSel.friendId || !promoSel.items) { toast("先選一位好友。"); return; }
+    ensurePromoDay();
+    if ((state.promoCount || 0) >= PROMO_DAILY) { toast("今日推銷已達 " + PROMO_DAILY + " 次。"); return; }
+    const rw = promoReward(promoSel.items);
+    state.promoActive = { friendName: promoSel.friendName, items: promoSel.items.slice(), until: Date.now() + PROMO_MS, gold: rw.gold, xp: rw.xp, friendship: rw.friendship };
+    promoSel = { friendId: null, friendName: "", items: null };
+    saveState(); renderPromoCol(el);
+    toast("已出貨！運送到 " + state.promoActive.friendName + " 的城鎮，約 10 分鐘後送達。");
+  });
+  el.querySelector("#promoClaim") && el.querySelector("#promoClaim").addEventListener("click", () => {
+    const a = state.promoActive; if (!a) return;
+    state.coins = (state.coins || 0) + (a.gold || 0);
+    state.promoStats = state.promoStats || { xp: 0, friendship: 0 };
+    state.promoStats.xp += a.xp || 0; state.promoStats.friendship += a.friendship || 0;
+    state.promoCount = (state.promoCount || 0) + 1;
+    state.promoActive = null;
+    saveState(); renderHeader(); renderPromoCol(el);
+    toast("領取推銷收益 +$" + (a.gold || 0).toLocaleString());
+  });
+}
 function renderOrders() {
   maybeRefreshOrders();
+  if (!elements.tabContent.querySelector(".orders-2col")) {
+    elements.tabContent.innerHTML = '<div class="orders-2col"><div id="promoCol" class="promo-col"></div><div id="ordersMain" class="orders-main"></div></div>';
+  }
+  renderPromoCol(elements.tabContent.querySelector("#promoCol"));
+  const main = elements.tabContent.querySelector("#ordersMain");
+  if (!main) return;
   const tab = state.ordersTab === "diner" ? "diner" : "farm";
   const now = Date.now();
   const remain = Math.max(0, (state.ordersRefreshAt || now) - now);
@@ -7602,19 +7702,19 @@ function renderOrders() {
       .join("");
   }
 
-  const _prevOS = elements.tabContent.querySelector(".order-scroll");
+  const _prevOS = main.querySelector(".order-scroll");
   const _osTop = _prevOS ? _prevOS.scrollTop : 0;
-  elements.tabContent.innerHTML = tabsHtml + headHtml + '<div class="order-scroll">' + cardsHtml + '</div>';
-  const _newOS = elements.tabContent.querySelector(".order-scroll");
+  main.innerHTML = tabsHtml + headHtml + '<div class="order-scroll">' + cardsHtml + '</div>';
+  const _newOS = main.querySelector(".order-scroll");
   if (_newOS) _newOS.scrollTop = _osTop;
 
-  elements.tabContent.querySelectorAll("[data-order-tab]").forEach((b) => {
+  main.querySelectorAll("[data-order-tab]").forEach((b) => {
     b.addEventListener("click", (e) => { e.stopPropagation(); state.ordersTab = b.dataset.orderTab; renderOrders(); });
   });
-  elements.tabContent.querySelectorAll("[data-complete-order]").forEach((button) => {
+  main.querySelectorAll("[data-complete-order]").forEach((button) => {
     button.addEventListener("click", (e) => { e.stopPropagation(); completeOrder(button.dataset.completeOrder); });
   });
-  elements.tabContent.querySelectorAll("[data-complete-diner]").forEach((button) => {
+  main.querySelectorAll("[data-complete-diner]").forEach((button) => {
     button.addEventListener("click", (e) => { e.stopPropagation(); completeDinerOrder(button.dataset.completeDiner); });
   });
 }

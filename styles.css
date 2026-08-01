@@ -4268,8 +4268,31 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .fishmkt-tab.is-active { background: #e3b53f; color: #4a3410; box-shadow: 0 2px 8px rgba(190, 150, 50, .35); }
 .fishmkt-pane { max-height: 64vh; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.03); }
 
-/* 訂單面板：分頁列＋刷新列固定，僅卡片捲動 */
+/* 訂單面板：左推銷欄 + 右(農產/餐廳分頁，頭固定卡片捲動) */
+.work-panel[data-tab="orders"] { width: min(760px, 94vw); right: clamp(82px, 8.5vw, 124px); }
 .work-panel.is-open[data-tab="orders"] { display: flex; flex-direction: column; overflow: hidden; }
-.work-panel[data-tab="orders"] .tab-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 12px; }
-.work-panel[data-tab="orders"] .order-tabs, .work-panel[data-tab="orders"] .order-head { flex: 0 0 auto; }
-.work-panel[data-tab="orders"] .order-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.work-panel[data-tab="orders"] .tab-content { flex: 1 1 auto; min-height: 0; display: flex; margin-top: 12px; }
+.orders-2col { display: flex; gap: 12px; flex: 1 1 auto; min-height: 0; width: 100%; }
+.promo-col { flex: 0 0 244px; min-height: 0; overflow-y: auto; border-right: 1px solid var(--line); padding-right: 10px; }
+.orders-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.orders-main .order-tabs, .orders-main .order-head { flex: 0 0 auto; }
+.orders-main .order-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+
+/* 推銷欄 */
+.promo-head { font-weight: 900; font-size: 1.05rem; color: #557a44; margin-bottom: 8px; }
+.promo-countdown { display: block; font-size: 0.82rem; font-weight: 700; color: #b06a2e; margin-top: 2px; }
+.promo-desc, .promo-hint, .promo-transit, .promo-delivered, .promo-done { font-size: 0.86rem; line-height: 1.5; color: #5a4a2e; margin: 0 0 10px; }
+.promo-daily { font-size: 0.8rem; color: #7a6a4a; margin-bottom: 6px; }
+.promo-select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid var(--line); font-size: 0.95rem; margin-bottom: 10px; background: #fff; }
+.promo-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.promo-item { display: flex; justify-content: space-between; background: rgba(150, 130, 90, 0.12); border-radius: 8px; padding: 6px 10px; font-size: 0.9rem; }
+.promo-confirm-row { display: flex; gap: 8px; }
+.promo-btn { flex: 1 1 0; border: none; border-radius: 10px; padding: 9px 6px; font-weight: 800; cursor: pointer; font-size: 0.9rem; }
+.promo-btn.yes { background: #6fae54; color: #fff; }
+.promo-btn.no { background: rgba(150, 130, 90, 0.2); color: #6a5a3a; }
+.promo-btn.claim { width: 100%; background: #e3b53f; color: #4a3410; margin-top: 4px; }
+.promo-reward { margin: 0 0 10px; padding-left: 20px; font-size: 0.9rem; line-height: 1.8; color: #3a2f1a; }
+@media (max-width: 640px) {
+  .orders-2col { flex-direction: column; }
+  .promo-col { flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--line); padding-right: 0; padding-bottom: 8px; max-height: 42vh; }
+}
