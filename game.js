@@ -932,6 +932,13 @@ function ffMakePanelDraggable(panel) {
   panel.addEventListener("pointercancel", end);
 }
 
+let fmTab = "fry";
+function setFmTab(t) {
+  fmTab = (t === "fish" || t === "stock") ? t : "fry";
+  const box = document.querySelector("#fishMarketBox"); if (!box) return;
+  box.querySelectorAll("[data-fm-tab]").forEach((b) => b.classList.toggle("is-active", b.dataset.fmTab === fmTab));
+  box.querySelectorAll("[data-fm-pane]").forEach((p) => { p.hidden = p.dataset.fmPane !== fmTab; });
+}
 function openFishMarket() {
   let box = document.querySelector("#fishMarketBox");
   if (!box) {
@@ -941,14 +948,21 @@ function openFishMarket() {
   }
   box.innerHTML = '<div class="gift-card fishmkt-card">' +
     '<h2 class="fishmkt-title">🐟 漁市場　<span class="fishmkt-coin">🪙 <b id="fmCoin">' + (state.coins || 0) + '</b></span></h2>' +
-    '<div class="fishmkt-split">' +
-      '<div class="fishmkt-col"><div class="fishmkt-head">魚苗買賣</div><div class="fishmkt-list" id="fmFry"></div></div>' +
-      '<div class="fishmkt-col"><div class="fishmkt-head">漁貨批發</div><div class="fishmkt-list" id="fmFish"></div></div>' +
-      '<div class="fishmkt-col"><div class="fishmkt-head">漁貨庫存</div><div class="fishmkt-list" id="fmStock"></div></div>' +
+    '<div class="fishmkt-tabs">' +
+      '<button type="button" class="fishmkt-tab is-active" data-fm-tab="fry">魚苗買賣</button>' +
+      '<button type="button" class="fishmkt-tab" data-fm-tab="fish">漁貨批發</button>' +
+      '<button type="button" class="fishmkt-tab" data-fm-tab="stock">漁貨庫存</button>' +
+    '</div>' +
+    '<div class="fishmkt-panes">' +
+      '<div class="fishmkt-list fishmkt-pane" id="fmFry" data-fm-pane="fry"></div>' +
+      '<div class="fishmkt-list fishmkt-pane" id="fmFish" data-fm-pane="fish" hidden></div>' +
+      '<div class="fishmkt-list fishmkt-pane" id="fmStock" data-fm-pane="stock" hidden></div>' +
     '</div>' +
     '<button type="button" id="fishMarketClose" class="gift-close">關閉</button></div>';
   box.querySelector("#fishMarketClose").addEventListener("click", () => box.remove());
+  box.querySelectorAll("[data-fm-tab]").forEach((b) => b.addEventListener("click", () => setFmTab(b.dataset.fmTab)));
   renderFishMarket();
+  setFmTab(fmTab);
 }
 
 function fmBadge(key, type) {
@@ -5222,6 +5236,8 @@ function bindStaticEvents() {
   elements.restButton.addEventListener("click", restOneDay);
   elements.sellAllButton.addEventListener("click", sellAllInventory);
   document.querySelector("#sellAllRanchButton")?.addEventListener("click", sellAllRanchProducts);
+  document.querySelectorAll("[data-inv-tab]").forEach((b) => b.addEventListener("click", () => setInvTab(b.dataset.invTab)));
+  setInvTab(invTab);
 }
 
 const HOUSE_BRAND_SVG = '<svg viewBox="0 0 64 64" role="img"><path d="M8 28 32 10l24 18v28H8z" fill="#cf4b3f"/><path d="M8 28 32 10l24 18" fill="none" stroke="#703629" stroke-width="4" stroke-linejoin="round"/><path d="M24 56V36h16v20" fill="#f4c66a"/><path d="M18 56V42h8v14M38 56V42h8v14" fill="#ffe09a" opacity=".8"/><path d="M29 20h6v9h-6z" fill="#f7efe3"/></svg>';
@@ -5867,6 +5883,13 @@ function thawCost(id, n) {
   return Math.round((CROPS[id] ? CROPS[id].sell : 1) * n * 0.5);
 }
 
+let invTab = "farm";
+function setInvTab(t) {
+  invTab = (t === "ranch") ? "ranch" : "farm";
+  document.querySelectorAll("[data-inv-tab]").forEach((b) => b.classList.toggle("is-active", b.dataset.invTab === invTab));
+  document.querySelectorAll("[data-inv-pane]").forEach((p) => { p.hidden = p.dataset.invPane !== invTab; });
+  document.querySelectorAll("[data-inv-for]").forEach((b) => { b.hidden = b.dataset.invFor !== invTab; });
+}
 function renderDamaged() {
   const list = document.querySelector("#damagedList");
   if (!list) return;

@@ -47,7 +47,7 @@
     <meta name="theme-color" content="#557a44" />
     <link rel="manifest" href="./manifest.json" />
     <title>開心農場</title>
-    <link rel="stylesheet" href="./styles.css?v=20260624-claude-405" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-claude-408" />
   </head>
   <body>
     <div class="farm-app">
@@ -112,24 +112,22 @@
               <div id="damagedList" class="inventory-list"></div>
             </div>
             <div class="inv-col stock-col">
-              <div class="panel-head">
-                <h2>農場</h2>
-                <button class="compact-button" id="sellAllButton" type="button">
+              <div class="inv-head-row">
+                <div class="inv-tabs">
+                  <button class="inv-tab is-active" type="button" data-inv-tab="farm">農場</button>
+                  <button class="inv-tab" type="button" data-inv-tab="ranch">牧場</button>
+                </div>
+                <button class="compact-button inv-sellall" id="sellAllButton" data-inv-for="farm" type="button">
+                  <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
+                  全部出售
+                </button>
+                <button class="compact-button inv-sellall" id="sellAllRanchButton" data-inv-for="ranch" type="button" hidden>
                   <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
                   全部出售
                 </button>
               </div>
-              <div id="inventoryList" class="inventory-list"></div>
-            </div>
-            <div class="inv-col ranch-col">
-              <div class="panel-head">
-                <h2>牧場</h2>
-                <button class="compact-button" id="sellAllRanchButton" type="button">
-                  <span class="button-icon" aria-hidden="true" data-icon="cart"></span>
-                  全部出售
-                </button>
-              </div>
-              <div id="ranchProductList" class="inventory-list"></div>
+              <div id="inventoryList" class="inventory-list inv-pane" data-inv-pane="farm"></div>
+              <div id="ranchProductList" class="inventory-list inv-pane" data-inv-pane="ranch" hidden></div>
             </div>
           </div>
         </section>
