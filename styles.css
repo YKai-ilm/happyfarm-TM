@@ -4267,3 +4267,9 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .fishmkt-tab:hover { background: rgba(150, 130, 90, 0.26); }
 .fishmkt-tab.is-active { background: #e3b53f; color: #4a3410; box-shadow: 0 2px 8px rgba(190, 150, 50, .35); }
 .fishmkt-pane { max-height: 64vh; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,0.03); }
+
+/* 訂單面板：分頁列＋刷新列固定，僅卡片捲動 */
+.work-panel.is-open[data-tab="orders"] { display: flex; flex-direction: column; overflow: hidden; }
+.work-panel[data-tab="orders"] .tab-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 12px; }
+.work-panel[data-tab="orders"] .order-tabs, .work-panel[data-tab="orders"] .order-head { flex: 0 0 auto; }
+.work-panel[data-tab="orders"] .order-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }

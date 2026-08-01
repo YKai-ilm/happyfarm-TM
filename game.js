@@ -7514,12 +7514,13 @@ function renderOrders() {
       <button type="button" class="order-tab ${tab === "diner" ? "is-active" : ""}" data-order-tab="diner">🍽️ 餐廳</button>
     </div>`;
 
-  let body;
+  let headHtml, cardsHtml;
   if (tab === "diner") {
     const today = state.dinerToday || 0;
     const capped = today >= DINER_DAILY_CAP;
     const head = `<div class="order-head">下次刷新 ${mm}:${ss}　·　今日 ${today}/${DINER_DAILY_CAP}${capped ? "（已額滿）" : ""}</div>`;
-    body = head + (state.dinerOrders || [])
+    headHtml = head;
+    cardsHtml = (state.dinerOrders || [])
       .map((order) => {
         const canFill = canCompleteDinerOrder(order);
         const done = !!order.done;
@@ -7559,7 +7560,8 @@ function renderOrders() {
     const today = state.ordersToday || 0;
     const capped = today >= ORDER_DAILY_CAP;
     const head = `<div class="order-head">下次刷新 ${mm}:${ss}　·　今日 ${today}/${ORDER_DAILY_CAP}${capped ? "（已額滿）" : ""}</div>`;
-    body = head + state.orders
+    headHtml = head;
+    cardsHtml = state.orders
       .map((order) => {
         const canFill = canCompleteOrder(order);
         const done = !!order.done;
@@ -7596,7 +7598,7 @@ function renderOrders() {
       .join("");
   }
 
-  elements.tabContent.innerHTML = tabsHtml + body;
+  elements.tabContent.innerHTML = tabsHtml + headHtml + '<div class="order-scroll">' + cardsHtml + '</div>';
 
   elements.tabContent.querySelectorAll("[data-order-tab]").forEach((b) => {
     b.addEventListener("click", (e) => { e.stopPropagation(); state.ordersTab = b.dataset.orderTab; renderOrders(); });
