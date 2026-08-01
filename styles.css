@@ -4257,6 +4257,9 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .inv-tab.is-active { background: #e3b53f; color: #4a3410; box-shadow: 0 2px 8px rgba(190, 150, 50, .35); }
 .inv-sellall { margin-left: auto; flex: 0 0 auto; }
 .inventory-panel.is-open .inventory-list.inv-pane { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.inv-pane[hidden], .inv-sellall[hidden] { display: none !important; }
+.inventory-panel.is-open .damaged-col { display: flex; flex-direction: column; min-height: 0; }
+.inventory-panel.is-open .damaged-col .inventory-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
 
 /* 漁市場：魚苗買賣／漁貨批發／漁貨庫存 分頁 */
 .fishmkt-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
