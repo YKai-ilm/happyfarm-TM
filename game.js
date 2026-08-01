@@ -1002,9 +1002,11 @@ function renderFishMarket() {
   const fry = document.querySelector("#fmFry"), fish = document.querySelector("#fmFish"), stock = document.querySelector("#fmStock");
   if (!fry) return;
   const coinEl = document.querySelector("#fmCoin"); if (coinEl) coinEl.textContent = state.coins || 0;
+  const _fmT = { fry: fry.scrollTop, fish: fish.scrollTop, stock: stock.scrollTop };
   fry.innerHTML = FISH_MARKET.map((f) => fmRow(f.k + "(苗)", f.fry, fishSellPrice(f.fry), state.fryBag[f.k] || 0, "fry", f.k)).join("");
   fish.innerHTML = FISH_MARKET.map((f) => fmRow(f.k, f.fish, fishSellPrice(f.fish), state.fishBag[f.k] || 0, "fish", f.k)).join("");
   stock.innerHTML = FISH_MARKET.map((f) => fmStockRow(f.k, fishSellPrice(f.fish), state.fishBag[f.k] || 0, f.k)).join("");
+  fry.scrollTop = _fmT.fry; fish.scrollTop = _fmT.fish; stock.scrollTop = _fmT.stock;
   const box = document.querySelector("#fishMarketBox");
   box.querySelectorAll(".fm-step").forEach((b) => b.addEventListener("click", () => {
     const inp = b.parentElement.querySelector(".fm-qty");
@@ -4143,6 +4145,7 @@ function renderStockPnl(view) {
   const trades = (st.wins || 0) + (st.losses || 0);
   const winRate = trades > 0 ? (st.wins / trades * 100) : 0;
   const money = (v) => (v >= 0 ? "+" : "") + Math.round(v).toLocaleString();
+  const _pnlPrev = view.querySelector(".stk-pnl"); const _pnlTop = _pnlPrev ? _pnlPrev.scrollTop : 0;
   view.innerHTML =
     '<div class="stk-pnl">' +
       '<div class="pnl-head"><h2>💰 收益情形</h2><button type="button" class="pnl-back" id="pnlBack">← 返回圖表</button></div>' +
@@ -4159,6 +4162,7 @@ function renderStockPnl(view) {
         ? '<table class="pnl-table"><thead><tr><th>股票</th><th>持股</th><th>市值</th><th>未實現</th><th>已實現</th></tr></thead><tbody>' + rows + '</tbody></table>'
         : '<p class="pnl-empty">還沒有持股或交易紀錄，先去買幾張吧。</p>') +
     '</div>';
+  const _pnlNew = view.querySelector(".stk-pnl"); if (_pnlNew) _pnlNew.scrollTop = _pnlTop;
   const back = view.querySelector("#pnlBack");
   if (back) back.addEventListener("click", () => { stockPnlView = false; renderStock(); });
 }
@@ -7598,7 +7602,11 @@ function renderOrders() {
       .join("");
   }
 
+  const _prevOS = elements.tabContent.querySelector(".order-scroll");
+  const _osTop = _prevOS ? _prevOS.scrollTop : 0;
   elements.tabContent.innerHTML = tabsHtml + headHtml + '<div class="order-scroll">' + cardsHtml + '</div>';
+  const _newOS = elements.tabContent.querySelector(".order-scroll");
+  if (_newOS) _newOS.scrollTop = _osTop;
 
   elements.tabContent.querySelectorAll("[data-order-tab]").forEach((b) => {
     b.addEventListener("click", (e) => { e.stopPropagation(); state.ordersTab = b.dataset.orderTab; renderOrders(); });
