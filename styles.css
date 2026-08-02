@@ -4331,4 +4331,4 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .friend-pill-ico { font-size: 1rem; line-height: 1; }
 
 /* 場景抬頭友情值：框與金幣/等級一致，只把愛心稍微放大 */
-.scene-friend-pill .friend-pill-ico { font-size: 1rem; line-height: 1; }
+.scene-friend-pill .friend-pill-ico { font-size: 0.8rem; line-height: 1; }
