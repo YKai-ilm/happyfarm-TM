@@ -1361,6 +1361,7 @@ const GM_FIELDS = {
   coins: { min: 0, max: 1000000, step: 100 },
   level: { min: 1, max: 50, step: 1 },
   xp: { min: 0, max: 50000, step: 50 },
+  friendship: { min: 0, max: 100000, step: 1 },
 };
 
 let gmEditSnap = null;
@@ -3437,7 +3438,10 @@ function gmExit() {
 }
 
 function gmGet(key) {
-  return key === "coins" ? state.coins : key === "level" ? state.level : state.xp;
+  if (key === "coins") return state.coins;
+  if (key === "level") return state.level;
+  if (key === "friendship") return (state.promoStats && state.promoStats.friendship) || 0;
+  return state.xp;
 }
 
 function gmSyncField(key) {
@@ -3464,6 +3468,7 @@ function gmSetVal(key, v) {
   v = Math.max(f.min, Math.min(f.max, Math.round(v)));
   if (key === "coins") state.coins = v;
   else if (key === "level") state.level = Math.max(1, v);
+  else if (key === "friendship") { state.promoStats = state.promoStats || { xp: 0, friendship: 0 }; state.promoStats.friendship = v; }
   else state.xp = v;
   gmSyncField(key);
   saveState();
@@ -3478,12 +3483,13 @@ function openGmEdit() {
 }
 
 function gmCaptureEdit() {
-  return { coins: state.coins, level: state.level, xp: state.xp, weather: state.weather, weatherNextAt: state.weatherNextAt, orders: JSON.parse(JSON.stringify(state.orders || [])) };
+  return { coins: state.coins, level: state.level, xp: state.xp, friendship: (state.promoStats && state.promoStats.friendship) || 0, weather: state.weather, weatherNextAt: state.weatherNextAt, orders: JSON.parse(JSON.stringify(state.orders || [])) };
 }
 function gmApplyEdit(s) {
   state.coins = s.coins;
   state.level = s.level;
   state.xp = s.xp;
+  if (typeof s.friendship === "number") { state.promoStats = state.promoStats || { xp: 0, friendship: 0 }; state.promoStats.friendship = s.friendship; }
   state.weather = s.weather;
   state.weatherNextAt = s.weatherNextAt;
   state.orders = JSON.parse(JSON.stringify(s.orders || []));

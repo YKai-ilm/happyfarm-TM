@@ -1657,7 +1657,8 @@ body {
 }
 
 .scene-stat-pill,
-.scene-level-pill {
+.scene-level-pill,
+.scene-friend-pill {
   min-height: 32px;
   display: inline-flex;
   align-items: center;
@@ -1836,7 +1837,8 @@ body {
 
   .scene-stat,
   .scene-stat-pill,
-  .scene-level-pill {
+  .scene-level-pill,
+  .scene-friend-pill {
     min-height: 28px;
     padding: 3px 6px;
     gap: 4px;
@@ -4328,5 +4330,5 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .friend-pill { gap: 4px; }
 .friend-pill-ico { font-size: 1rem; line-height: 1; }
 
-/* 場景抬頭友情值 pill */
-.scene-friend-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.55); border-radius: 999px; padding: 4px 12px; font-weight: 800; color: #b04a6a; }
+/* 場景抬頭友情值：框與金幣/等級一致，只把愛心稍微放大 */
+.scene-friend-pill .friend-pill-ico { font-size: 1rem; line-height: 1; }
