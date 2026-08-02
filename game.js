@@ -1757,6 +1757,10 @@ function createDefaultState() {
     promoCount: 0,
     promoActive: null,
     promoStats: { xp: 0, friendship: 0 },
+    friendBond: {},
+    promoPubDay: "",
+    promoPubCount: 0,
+    myDemandId: null,
     upgrades: {
       windmill: 0,
       stand: 0,
@@ -7508,36 +7512,141 @@ function buyExpandCard() {
   toast("購買牧場擴建卡 ×1（花費 20000 金幣）。");
 }
 
-let promoSel = { friendId: null, friendName: "", items: null };
+let promoSel = { friendId: null, friendName: "", items: null, demand: null, demandId: null };
 const PROMO_DAILY = 3;
+const PROMO_PUB_DAILY = 3;
 const PROMO_MS = 10 * 60 * 1000;
+const DEMAND_TYPES = ["crop", "ranch", "fish", "item"];
+const DEMAND_TYPE_LABEL = { crop: "農產", ranch: "牧產", fish: "漁產", item: "道具" };
 function ensurePromoDay() { const t = baitTodayKey(); if (state.promoDay !== t) { state.promoDay = t; state.promoCount = 0; } }
-function promoFriendList() {
-  const real = (state.cloudFriends || []).map((f) => ({ id: "c:" + f.uid, name: f.name || "農友" }));
-  const virt = (state.friends || []).map((f) => ({ id: "v:" + f.id, name: f.name }));
-  return real.concat(virt);
-}
+function ensurePromoPubDay() { const t = baitTodayKey(); if (state.promoPubDay !== t) { state.promoPubDay = t; state.promoPubCount = 0; } }
+function promoFriendList() { return (state.cloudFriends || []).map((f) => ({ id: "c:" + f.uid, name: f.name || "農友" })); }
 function genPromoItems() {
   const pool = Object.keys(CROPS).filter((id) => CROPS[id].unlock <= state.level);
   const p = pool.slice(), picks = [];
   for (let i = 0; i < 3 && p.length; i++) { picks.push(p.splice(Math.floor(Math.random() * p.length), 1)[0]); }
-  return picks.map((id) => ({ crop: id, qty: 30 + Math.floor(Math.random() * 91) }));
+  return picks.map((id) => ({ type: "crop", key: id, name: CROPS[id].name, qty: 10 + Math.floor(Math.random() * 31) }));
+}
+function demandCatalog(type) {
+  if (type === "crop") return Object.keys(CROPS).map((k) => ({ key: k, name: CROPS[k].name }));
+  if (type === "ranch") return Object.keys(RANCH_ANIMALS).map((k) => ({ key: k, name: RANCH_ANIMALS[k].product })).concat(Object.keys(RANCH_BYPRODUCTS).map((k) => ({ key: k, name: RANCH_BYPRODUCTS[k].name })));
+  if (type === "fish") return FISH_NAMES.map((k) => ({ key: k, name: k }));
+  return GM_ITEMS.map((e) => ({ key: e[0], name: e[1] }));
+}
+function demandItemName(type, key) {
+  if (type === "crop") return CROPS[key] ? CROPS[key].name : key;
+  if (type === "ranch") { const i = ranchProdInfo(key); return i ? i.product : key; }
+  if (type === "fish") return key;
+  const gg = GM_ITEMS.find((e) => e[0] === key); return gg ? gg[1] : key;
+}
+function demandContainer(type) {
+  if (type === "crop") return (state.inventory = state.inventory || {});
+  if (type === "ranch") return (state.ranchProducts = state.ranchProducts || {});
+  if (type === "fish") return (state.fishBag = state.fishBag || {});
+  return (state.items = state.items || {});
+}
+function demandItemValue(type, key) {
+  if (type === "crop") return sellPrice(key) || (CROPS[key] ? CROPS[key].sell : 0);
+  if (type === "ranch") { const i = ranchProdInfo(key); return i ? i.value : 0; }
+  if (type === "fish") { const f = FISH_MARKET.find((x) => x.k === key); return f ? fishSellPrice(f.fish) : 0; }
+  const m = MKT[key]; return (m && m.sell) || 50;
 }
 function promoReward(items) {
   let gold = 0, xp = 0;
-  items.forEach((it) => { gold += (sellPrice(it.crop) || CROPS[it.crop].sell) * it.qty; xp += (CROPS[it.crop].xp || 10) * it.qty; });
-  return { gold: Math.round(gold * 1.6), xp: Math.round(xp * 0.2), friendship: 10 };
+  items.forEach((it) => { const t = it.type || "crop"; gold += demandItemValue(t, it.key) * it.qty; if (t === "crop" && CROPS[it.key]) xp += (CROPS[it.key].xp || 10) * it.qty; });
+  const finalGold = Math.round(gold * 1.6);
+  return { gold: finalGold, xp: Math.round(xp * 0.2), friendship: Math.max(4, Math.min(15, Math.round(finalGold / 600))) };
+}
+async function fetchFriendDemand(uid) {
+  if (!fbDb || !fbUser || !uid) return null;
+  try {
+    const q = await fbDb.collection("demands").where("owner", "==", uid).where("claimed", "==", false).limit(1).get();
+    if (q.empty) return null;
+    const d = q.docs[0];
+    return { id: d.id, items: d.data().items || [] };
+  } catch (e) { return null; }
+}
+async function claimDemand(demandId) {
+  if (!fbDb || !fbUser || !demandId) return false;
+  const ref = fbDb.collection("demands").doc(demandId);
+  try {
+    return await fbDb.runTransaction(async (tx) => {
+      const d = await tx.get(ref);
+      if (!d.exists || d.data().claimed) return false;
+      tx.update(ref, { claimed: true, claimedBy: fbUser.uid });
+      return true;
+    });
+  } catch (e) { return false; }
+}
+function deliverDemandItems(ownerUid, items) {
+  if (!fbDb || !fbUser || !ownerUid) return;
+  const reward = {};
+  items.forEach((it) => {
+    const b = it.type === "crop" ? "crops" : it.type === "ranch" ? "ranch" : it.type === "fish" ? "fish" : "items";
+    reward[b] = reward[b] || {}; reward[b][it.key] = (reward[b][it.key] || 0) + it.qty;
+  });
+  const body = myDisplayName() + " 回應了你發布的需求，送來：" + items.map((it) => it.name + "×" + it.qty).join("、") + "。開信領取入庫。";
+  try { fbDb.collection("mail").doc(ownerUid).collection("items").add({ from: fbUser.uid, fromName: myDisplayName(), subject: "好友滿足了你的需求 🎁", body: body, at: firebase.firestore.FieldValue.serverTimestamp(), read: false, kind: "event", reward: reward }); } catch (e) {}
+}
+async function publishDemand(items) {
+  if (!fbDb || !fbUser) { toast("登入 Google 後才能發布需求。"); return; }
+  ensurePromoPubDay();
+  if ((state.promoPubCount || 0) >= PROMO_PUB_DAILY) { toast("今日發布需求已達 " + PROMO_PUB_DAILY + " 次。"); return; }
+  if (!items.length) { toast("至少選一樣物品並設定數量。"); return; }
+  if (state.myDemandId) { try { await fbDb.collection("demands").doc(state.myDemandId).delete(); } catch (e) {} state.myDemandId = null; }
+  try {
+    const d = await fbDb.collection("demands").add({ owner: fbUser.uid, ownerName: myDisplayName(), items: items, claimed: false, claimedBy: null, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    state.myDemandId = d.id;
+    state.promoPubCount = (state.promoPubCount || 0) + 1;
+    saveState();
+    toast("已發布需求，好友推銷到你時會看到特殊需求。");
+    const el = document.querySelector("#promoCol"); if (el) { el.dataset.sig = ""; renderPromoCol(el); }
+  } catch (e) { toast("發布失敗，請稍後再試。"); }
+}
+function openDemandModal() {
+  ensurePromoPubDay();
+  if ((state.promoPubCount || 0) >= PROMO_PUB_DAILY) { toast("今日發布需求已達 " + PROMO_PUB_DAILY + " 次。"); return; }
+  const ov = document.createElement("div"); ov.className = "gift-box"; ov.style.zIndex = "95";
+  const cols = DEMAND_TYPES.map((t) => {
+    const opts = '<option value="">— 選擇物品 —</option>' + demandCatalog(t).map((it) => '<option value="' + it.key + '">' + it.name + '</option>').join("");
+    return '<div class="dm-col"><div class="dm-head">' + DEMAND_TYPE_LABEL[t] + '</div>' +
+      '<select class="dm-sel" data-dm-type="' + t + '">' + opts + '</select>' +
+      '<div class="sell-stepper dm-stepper"><button class="qty-btn" type="button" data-dm-dec="' + t + '">−</button>' +
+      '<input class="qty-num" type="number" min="0" value="0" data-dm-qty="' + t + '" />' +
+      '<button class="qty-btn" type="button" data-dm-inc="' + t + '">＋</button></div></div>';
+  }).join("");
+  ov.innerHTML = '<div class="gift-card dm-card"><h2 class="dm-title">發布需求（今日 ' + (state.promoPubCount || 0) + '/' + PROMO_PUB_DAILY + '）</h2>' +
+    '<p class="dm-desc">每欄各可選一項並設定數量；好友推銷到你時會看到這些特殊需求，滿足者友情 +5%，物資直接送進你的倉庫／行囊／魚市場。</p>' +
+    '<div class="dm-cols">' + cols + '</div>' +
+    '<div class="dm-btns"><button type="button" class="promo-btn yes" id="dmOk">確認發布</button><button type="button" class="promo-btn no" id="dmCancel">取消</button></div></div>';
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#dmCancel").addEventListener("click", close);
+  ov.querySelectorAll("[data-dm-dec]").forEach((b) => b.addEventListener("click", () => { const i = ov.querySelector('[data-dm-qty="' + b.dataset.dmDec + '"]'); i.value = Math.max(0, (parseInt(i.value, 10) || 0) - 1); }));
+  ov.querySelectorAll("[data-dm-inc]").forEach((b) => b.addEventListener("click", () => { const i = ov.querySelector('[data-dm-qty="' + b.dataset.dmInc + '"]'); i.value = Math.max(0, (parseInt(i.value, 10) || 0) + 1); }));
+  ov.querySelector("#dmOk").addEventListener("click", () => {
+    const items = [];
+    DEMAND_TYPES.forEach((t) => {
+      const sel = ov.querySelector('[data-dm-type="' + t + '"]'), qi = ov.querySelector('[data-dm-qty="' + t + '"]');
+      const key = sel.value, qty = Math.max(0, parseInt(qi.value, 10) || 0);
+      if (key && qty > 0) items.push({ type: t, key: key, name: demandItemName(t, key), qty: qty });
+    });
+    if (!items.length) { toast("至少選一樣物品並設定數量。"); return; }
+    close(); publishDemand(items);
+  });
 }
 function renderPromoCol(el) {
   if (!el) return;
-  ensurePromoDay();
+  ensurePromoDay(); ensurePromoPubDay();
   const act = state.promoActive, now = Date.now();
   let mode;
   if (act && now < act.until) mode = "transit";
   else if (act) mode = "delivered";
   else if ((state.promoCount || 0) >= PROMO_DAILY) mode = "done";
   else mode = "select";
-  const sig = mode + "|" + (act ? act.friendName + JSON.stringify(act.items) + act.until : (promoSel.friendId || "") + JSON.stringify(promoSel.items || null)) + "|" + (state.promoCount || 0);
+  const okSig = (mode === "select" && promoSel.items) ? promoSel.items.concat(promoSel.demand || []).map((it) => (demandContainer(it.type)[it.key] || 0) >= it.qty ? "1" : "0").join("") : "";
+  const sig = mode + "|" + (act ? act.friendName + JSON.stringify(act.items) + act.until : (promoSel.friendId || "") + JSON.stringify(promoSel.items || null) + JSON.stringify(promoSel.demand || null)) + "|" + (state.promoCount || 0) + "|" + okSig + "|" + (state.myDemandId || "") + "|" + (state.promoPubCount || 0);
   if (el.dataset.sig === sig) {
     if (mode === "transit") { const cd = el.querySelector("#promoCountdown"); if (cd) cd.textContent = "運送至好友城鎮銷售，剩餘 " + fmtWormLeft(act.until - now); }
     return;
@@ -7546,12 +7655,12 @@ function renderPromoCol(el) {
   let html = "";
   if (mode === "transit") {
     html = '<div class="promo-head">推銷 <span id="promoCountdown" class="promo-countdown">運送至好友城鎮銷售，剩餘 ' + fmtWormLeft(act.until - now) + '</span></div>' +
-      '<p class="promo-transit">目前正在運送物資：' + act.items.map((it) => CROPS[it.crop].name + " × " + it.qty).join("、") + '，到 ' + act.friendName + ' 的城鎮銷售。</p>';
+      '<p class="promo-transit">目前正在運送物資：' + act.items.map((it) => it.name + " × " + it.qty).join("、") + '，到 ' + act.friendName + ' 的城鎮銷售。</p>';
   } else if (mode === "delivered") {
     const last = (state.promoCount || 0) >= PROMO_DAILY - 1;
     html = '<div class="promo-head">推銷</div>' +
       '<p class="promo-delivered">已將物資全數送達，進行推廣銷售，獲得....</p>' +
-      '<ol class="promo-reward"><li>取得金幣 ' + (act.gold || 0).toLocaleString() + '</li><li>獲得相關經驗及友情值</li></ol>' +
+      '<ol class="promo-reward"><li>取得金幣 ' + (act.gold || 0).toLocaleString() + '</li><li>獲得經驗 ' + (act.xp || 0).toLocaleString() + ' ・ 友情值 +' + (act.friendship || 0) + (act.special ? '（含特殊需求 +5%）' : '') + '</li></ol>' +
       '<button type="button" id="promoClaim" class="promo-btn claim">' + (last ? "本日推銷已全數結束" : "領取後進行下一輪") + '</button>';
   } else if (mode === "done") {
     html = '<div class="promo-head">推銷</div><p class="promo-done">本日推銷已全數結束，好友們皆大歡喜，明日再派送物資進行販售吧</p>';
@@ -7560,31 +7669,60 @@ function renderPromoCol(el) {
     const opts = '<option value="">— 選擇好友 —</option>' + friends.map((f) => '<option value="' + f.id + '"' + (promoSel.friendId === f.id ? " selected" : "") + '>' + f.name + '</option>').join("");
     let mid = '<p class="promo-hint">選一位好友，系統會列出他們城鎮想要的三樣農產品。</p>';
     if (promoSel.friendId && promoSel.items) {
-      mid = '<div class="promo-items">' + promoSel.items.map((it) => '<div class="promo-item"><span>' + CROPS[it.crop].name + '</span><b>× ' + it.qty + '</b></div>').join("") + '</div>' +
-        '<div class="promo-confirm-row"><button type="button" id="promoYes" class="promo-btn yes">✓ 確認送出</button><button type="button" id="promoNo" class="promo-btn no">✕ 換一批</button></div>';
+      const rows = promoSel.items.map((it) => {
+        const ok = (demandContainer(it.type)[it.key] || 0) >= it.qty;
+        return '<div class="promo-item"><span>' + it.name + '</span><span class="promo-item-right"><b>× ' + it.qty + '</b><span class="promo-status ' + (ok ? "ok" : "short") + '">' + (ok ? "已滿足" : "數量不足") + '</span></span></div>';
+      }).join("");
+      let special = "";
+      if (promoSel.demand && promoSel.demand.length) {
+        special = '<div class="promo-special-label">特殊需求（滿足友情 +5%，物資直送給他）</div>' + promoSel.demand.map((it) => {
+          const ok = (demandContainer(it.type)[it.key] || 0) >= it.qty;
+          return '<div class="promo-item is-special"><span>⭐ ' + it.name + '</span><span class="promo-item-right"><b>× ' + it.qty + '</b><span class="promo-status ' + (ok ? "ok" : "short") + '">' + (ok ? "已滿足" : "數量不足") + '</span></span></div>';
+        }).join("");
+      }
+      const allOk = promoSel.items.concat(promoSel.demand || []).every((it) => (demandContainer(it.type)[it.key] || 0) >= it.qty);
+      mid = '<div class="promo-items">' + rows + special + '</div>' +
+        '<div class="promo-confirm-row"><button type="button" id="promoYes" class="promo-btn yes"' + (allOk ? "" : " disabled") + '>✓ 確認送出</button><button type="button" id="promoNo" class="promo-btn no">✕ 換一批</button></div>';
     }
     html = '<div class="promo-head">推銷</div>' +
       '<p class="promo-desc">將優質農產品對外推廣給好友們，推銷到它們的城鎮內進行買賣交易(自動)</p>' +
       '<div class="promo-daily">本日推銷 ' + (state.promoCount || 0) + '/' + PROMO_DAILY + '</div>' +
       '<select id="promoFriendSel" class="promo-select">' + opts + '</select>' + mid;
   }
+  html += '<div class="promo-pub"><div class="promo-pub-head">我的需求發布 <span class="promo-pub-cnt">今日 ' + (state.promoPubCount || 0) + '/' + PROMO_PUB_DAILY + '</span></div>' +
+    '<div class="promo-pub-state">' + (state.myDemandId ? "發布中：好友滿足後你會收到物資" : "尚未發布需求") + '</div>' +
+    '<button type="button" id="promoPublish" class="promo-btn pub">＋ 發布需求</button></div>';
   el.innerHTML = html;
   const sel = el.querySelector("#promoFriendSel");
-  if (sel) sel.addEventListener("change", () => {
+  if (sel) sel.addEventListener("change", async () => {
     const fid = sel.value;
-    if (!fid) promoSel = { friendId: null, friendName: "", items: null };
-    else { const f = promoFriendList().find((x) => x.id === fid); promoSel = { friendId: fid, friendName: f ? f.name : "", items: genPromoItems() }; }
+    if (!fid) { promoSel = { friendId: null, friendName: "", items: null, demand: null, demandId: null }; renderPromoCol(el); return; }
+    const f = promoFriendList().find((x) => x.id === fid);
+    promoSel = { friendId: fid, friendName: f ? f.name : "", items: genPromoItems(), demand: null, demandId: null };
     renderPromoCol(el);
+    const dem = await fetchFriendDemand(fid.slice(2));
+    if (promoSel.friendId === fid) { promoSel.demand = dem ? dem.items : null; promoSel.demandId = dem ? dem.id : null; el.dataset.sig = ""; renderPromoCol(el); }
   });
-  el.querySelector("#promoNo") && el.querySelector("#promoNo").addEventListener("click", () => { promoSel.items = genPromoItems(); renderPromoCol(el); });
-  el.querySelector("#promoYes") && el.querySelector("#promoYes").addEventListener("click", () => {
+  el.querySelector("#promoNo") && el.querySelector("#promoNo").addEventListener("click", () => { promoSel.items = genPromoItems(); el.dataset.sig = ""; renderPromoCol(el); });
+  el.querySelector("#promoPublish") && el.querySelector("#promoPublish").addEventListener("click", openDemandModal);
+  el.querySelector("#promoYes") && el.querySelector("#promoYes").addEventListener("click", async () => {
     if (!promoSel.friendId || !promoSel.items) { toast("先選一位好友。"); return; }
     ensurePromoDay();
     if ((state.promoCount || 0) >= PROMO_DAILY) { toast("今日推銷已達 " + PROMO_DAILY + " 次。"); return; }
-    const rw = promoReward(promoSel.items);
-    state.promoActive = { friendName: promoSel.friendName, items: promoSel.items.slice(), until: Date.now() + PROMO_MS, gold: rw.gold, xp: rw.xp, friendship: rw.friendship };
-    promoSel = { friendId: null, friendName: "", items: null };
-    saveState(); renderPromoCol(el);
+    const special = promoSel.demand ? promoSel.demand.slice() : [];
+    const allItems = promoSel.items.slice().concat(special);
+    for (let i = 0; i < allItems.length; i++) { const it = allItems[i]; if ((demandContainer(it.type)[it.key] || 0) < it.qty) { toast("「" + it.name + "」數量不足，無法送出。"); return; } }
+    if (special.length && promoSel.demandId) {
+      const okc = await claimDemand(promoSel.demandId);
+      if (!okc) { toast("這筆特殊需求剛被別人搶先滿足了。"); promoSel.demand = null; promoSel.demandId = null; el.dataset.sig = ""; renderPromoCol(el); return; }
+      deliverDemandItems(promoSel.friendId.slice(2), special);
+    }
+    allItems.forEach((it) => { const c = demandContainer(it.type); c[it.key] = (c[it.key] || 0) - it.qty; });
+    const rw = promoReward(allItems);
+    if (special.length) rw.friendship = Math.round(rw.friendship * 1.05);
+    state.promoActive = { friendId: promoSel.friendId, friendName: promoSel.friendName, items: allItems, until: Date.now() + PROMO_MS, gold: rw.gold, xp: rw.xp, friendship: rw.friendship, special: special.length > 0 };
+    promoSel = { friendId: null, friendName: "", items: null, demand: null, demandId: null };
+    saveState(); renderHeader(); el.dataset.sig = ""; renderPromoCol(el);
     toast("已出貨！運送到 " + state.promoActive.friendName + " 的城鎮，約 10 分鐘後送達。");
   });
   el.querySelector("#promoClaim") && el.querySelector("#promoClaim").addEventListener("click", () => {
@@ -7592,12 +7730,15 @@ function renderPromoCol(el) {
     state.coins = (state.coins || 0) + (a.gold || 0);
     state.promoStats = state.promoStats || { xp: 0, friendship: 0 };
     state.promoStats.xp += a.xp || 0; state.promoStats.friendship += a.friendship || 0;
+    state.friendBond = state.friendBond || {};
+    if (a.friendId) state.friendBond[a.friendId] = (state.friendBond[a.friendId] || 0) + (a.friendship || 0);
     state.promoCount = (state.promoCount || 0) + 1;
     state.promoActive = null;
-    saveState(); renderHeader(); renderPromoCol(el);
+    saveState(); renderHeader(); el.dataset.sig = ""; renderPromoCol(el);
     toast("領取推銷收益 +$" + (a.gold || 0).toLocaleString());
   });
 }
+
 function renderOrders() {
   maybeRefreshOrders();
   if (!elements.tabContent.querySelector(".orders-2col")) {
@@ -9914,6 +10055,9 @@ function claimMailReward(reward, id, isBroadcast) {
   const parts = [];
   if (reward.coins) { state.coins = (state.coins || 0) + reward.coins; parts.push(reward.coins + " 金幣"); }
   if (reward.items) { state.items = state.items || {}; for (const k in reward.items) state.items[k] = (state.items[k] || 0) + reward.items[k]; parts.push("道具"); }
+  if (reward.crops) { state.inventory = state.inventory || {}; for (const k in reward.crops) state.inventory[k] = (state.inventory[k] || 0) + reward.crops[k]; parts.push("農產"); }
+  if (reward.ranch) { state.ranchProducts = state.ranchProducts || {}; for (const k in reward.ranch) state.ranchProducts[k] = (state.ranchProducts[k] || 0) + reward.ranch[k]; parts.push("牧產"); }
+  if (reward.fish) { state.fishBag = state.fishBag || {}; for (const k in reward.fish) state.fishBag[k] = (state.fishBag[k] || 0) + reward.fish[k]; parts.push("漁產"); }
   if (reward.dishes) { state.dishBag = state.dishBag || {}; for (const k in reward.dishes) state.dishBag[k] = (state.dishBag[k] || 0) + reward.dishes[k]; parts.push("料理"); }
   if (reward.seedsAll) { state.seeds = state.seeds || {}; Object.keys(CROPS).forEach(function (id) { state.seeds[id] = (state.seeds[id] || 0) + reward.seedsAll; }); parts.push("種子"); }
   if (reward.fryAll) { state.fryBag = state.fryBag || {}; FISH_NAMES.forEach(function (n) { state.fryBag[n] = (state.fryBag[n] || 0) + reward.fryAll; }); parts.push("魚苗"); }

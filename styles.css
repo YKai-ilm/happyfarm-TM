@@ -4285,7 +4285,12 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 .promo-daily { font-size: 0.8rem; color: #7a6a4a; margin-bottom: 6px; }
 .promo-select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid var(--line); font-size: 0.95rem; margin-bottom: 10px; background: #fff; }
 .promo-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-.promo-item { display: flex; justify-content: space-between; background: rgba(150, 130, 90, 0.12); border-radius: 8px; padding: 6px 10px; font-size: 0.9rem; }
+.promo-item { display: flex; justify-content: space-between; align-items: center; background: rgba(150, 130, 90, 0.12); border-radius: 8px; padding: 6px 10px; font-size: 0.9rem; }
+.promo-item-right { display: flex; align-items: center; gap: 8px; }
+.promo-status { font-size: 0.72rem; font-weight: 800; padding: 2px 7px; border-radius: 6px; }
+.promo-status.ok { color: #1a7a3f; background: rgba(40, 150, 80, 0.16); }
+.promo-status.short { color: #c0392b; background: rgba(200, 60, 50, 0.15); }
+.promo-btn.yes:disabled { opacity: 0.5; cursor: default; }
 .promo-confirm-row { display: flex; gap: 8px; }
 .promo-btn { flex: 1 1 0; border: none; border-radius: 10px; padding: 9px 6px; font-weight: 800; cursor: pointer; font-size: 0.9rem; }
 .promo-btn.yes { background: #6fae54; color: #fff; }
@@ -4295,4 +4300,26 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 @media (max-width: 640px) {
   .orders-2col { flex-direction: column; }
   .promo-col { flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--line); padding-right: 0; padding-bottom: 8px; max-height: 42vh; }
+}
+
+/* 發布需求彈窗(四類欄) + 特殊需求 + 發布區 */
+.dm-card { max-width: 720px; width: 96%; }
+.dm-title { text-align: center; margin: 0 0 6px; font-size: 1.1rem; }
+.dm-desc { font-size: 0.82rem; color: #7a6a4a; text-align: center; margin: 0 0 12px; line-height: 1.5; }
+.dm-cols { display: flex; gap: 10px; }
+.dm-col { flex: 1 1 0; min-width: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.03); }
+.dm-head { background: #557a44; color: #fff; font-weight: 800; text-align: center; padding: 7px; font-size: 0.95rem; }
+.dm-sel { width: 100%; padding: 7px; border: 0; border-bottom: 1px solid var(--line); font-size: 0.88rem; background: #fff; }
+.dm-stepper { justify-content: center; padding: 8px; margin: 0; }
+.dm-btns { display: flex; gap: 10px; margin-top: 14px; }
+.promo-special-label { font-size: 0.76rem; font-weight: 800; color: #b06a2e; margin: 10px 0 4px; }
+.promo-item.is-special { background: rgba(230, 180, 60, 0.18); border: 1px solid rgba(200, 150, 40, 0.4); }
+.promo-pub { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.promo-pub-head { font-weight: 800; font-size: 0.92rem; color: #557a44; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.promo-pub-cnt { font-size: 0.74rem; font-weight: 700; color: #7a6a4a; }
+.promo-pub-state { font-size: 0.78rem; color: #7a6a4a; margin: 4px 0 8px; }
+.promo-btn.pub { width: 100%; background: #6b8fbf; color: #fff; }
+@media (max-width: 640px) {
+  .dm-cols { flex-wrap: wrap; }
+  .dm-col { flex: 1 1 46%; }
 }
