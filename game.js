@@ -1764,6 +1764,7 @@ function createDefaultState() {
     promoPubDay: "",
     promoPubCount: 0,
     myDemandId: null,
+    whackBest: 0,
     upgrades: {
       windmill: 0,
       stand: 0,
@@ -5102,6 +5103,7 @@ function bindStaticEvents() {
   const farmClose = document.querySelector("#farmClose");
   if (farmClose) farmClose.addEventListener("click", closeFarmSettings);
   document.querySelector("#guideBtn")?.addEventListener("click", openGuide);
+  document.querySelector("#miniGameBtn")?.addEventListener("click", openMiniGames);
   document.querySelector("#guideClose")?.addEventListener("click", closeGuide);
   const guideBox = document.querySelector("#guideBox");
   if (guideBox) guideBox.addEventListener("click", (e) => { if (e.target === guideBox) closeGuide(); });
@@ -6051,8 +6053,7 @@ function applyWeatherCard(w) {
 }
 
 function friendLevel(friend) {
-  const min = (Date.now() - (friend.startedAt || Date.now())) / 60000;
-  return Math.max(1, Math.min(30, 1 + Math.floor(Math.log2(min / 5 + 1))));
+  return Math.max(1, Math.min(50, state.level || 1));
 }
 
 function friendProgress(p) {
@@ -6727,6 +6728,90 @@ function renderProfile() {
     statLine("幫助合計", help),
   ].join("");
 }
+
+/* ===== 小遊戲：打地鼠(全螢幕, 由「小遊戲」選單開啟) ===== */
+const WHACK_POS = [
+  [14.5,15.2],[38.1,14.9],[61.7,15.1],[85.1,15.4],
+  [14.3,38.9],[37.9,38.5],[61.9,38.3],[85.5,38.7],
+  [14,62],[37.9,62.7],[61.7,63],[85.5,62.7],
+  [14,84.9],[38.2,85.2],[61.4,84.7],[85.4,85.8]
+];
+const WHACK_MOLE = '<svg viewBox="0 0 100 92" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="58" rx="33" ry="34" fill="#8a6a4a"/><ellipse cx="50" cy="70" rx="19" ry="20" fill="#d8b98c"/><path d="M22 40 q-8 -14 4 -20 q10 -4 12 8 z" fill="#8a6a4a"/><path d="M78 40 q8 -14 -4 -20 q-10 -4 -12 8 z" fill="#8a6a4a"/><circle cx="38" cy="48" r="5.5" fill="#241812"/><circle cx="40" cy="46.5" r="1.6" fill="#fff"/><circle cx="62" cy="48" r="5.5" fill="#241812"/><circle cx="64" cy="46.5" r="1.6" fill="#fff"/><ellipse cx="50" cy="60" rx="10" ry="8" fill="#eaa7b3"/><ellipse cx="50" cy="57" rx="4.5" ry="3.4" fill="#c05a6b"/><path d="M46 68 h8 v6 q-4 3 -8 0 z" fill="#fff"/><path d="M50 68 v6" stroke="#c9a878" stroke-width="1"/><g stroke="#5c4630" stroke-width="1.2" opacity=".7"><path d="M40 60 l-16 -3"/><path d="M40 63 l-15 2"/><path d="M60 60 l16 -3"/><path d="M60 63 l15 2"/></g><ellipse cx="30" cy="86" rx="8" ry="6" fill="#c9a878"/><ellipse cx="70" cy="86" rx="8" ry="6" fill="#c9a878"/></svg>';
+let wk = null;
+
+function openMiniGames() {
+  let box = document.querySelector("#miniGameBox");
+  if (!box) { box = document.createElement("div"); box.id = "miniGameBox"; box.className = "gift-box"; document.body.appendChild(box); box.addEventListener("click", function (e) { if (e.target === box) box.hidden = true; }); }
+  box.innerHTML = '<div class="gift-card" role="dialog" aria-modal="true" aria-label="小遊戲"><h2>🎮 小遊戲</h2>' +
+    '<div class="mg-list"><button class="mg-item" data-mg="whack">🐹 打地鼠 <span class="mg-best">最高 ' + (state.whackBest || 0) + '</span></button></div>' +
+    '<button class="gift-close" id="mgClose">關閉</button></div>';
+  box.hidden = false;
+  box.querySelector("#mgClose").addEventListener("click", function () { box.hidden = true; });
+  box.querySelector('[data-mg="whack"]').addEventListener("click", function () { box.hidden = true; openWhack(); });
+}
+
+function openWhack() {
+  let v = document.querySelector("#whackView"); if (v) v.remove();
+  v = document.createElement("div"); v.id = "whackView";
+  let holesHtml = "";
+  WHACK_POS.forEach(function (p) { holesHtml += '<div class="wk-hole" style="left:' + p[0] + '%;top:' + p[1] + '%"><div class="wk-burrow"></div><div class="wk-well"><div class="wk-mole">' + WHACK_MOLE + '</div></div><div class="wk-pow">POW!</div></div>'; });
+  v.innerHTML =
+    '<div id="wkStage"><div id="wkField">' + holesHtml + '</div></div>' +
+    '<div id="wkHud"><div class="wk-chip"><small>分數</small><span id="wkScore">0</span></div><div class="wk-chip" id="wkTimeChip"><small>時間</small><span id="wkTime">30</span></div><div class="wk-chip"><small>最高</small><span id="wkBest">' + (state.whackBest || 0) + '</span></div></div>' +
+    '<button id="wkExit">✕ 離開</button>' +
+    '<div id="wkOverlay"><h1>🌱 農場打地鼠</h1><p>地鼠會從 16 塊農地鑽出來，快點戳牠！<br>30 秒內盡量得分，越後面出現越快。</p><div class="wk-best">最高分 ' + (state.whackBest || 0) + '</div><div class="wk-obtns"><button class="wk-btn play" id="wkStart">開始遊戲</button><button class="wk-btn leave" id="wkLeave">離開</button></div></div>';
+  document.body.appendChild(v);
+  wk = { running: false, score: 0, miss: 0, timeLeft: 30, spawn: 0, tick: 0, holes: [] };
+  v.querySelectorAll(".wk-hole").forEach(function (el) { const h = { el: el, up: false, timer: 0 }; el.addEventListener("pointerdown", function (e) { e.preventDefault(); wkWhack(h); }); wk.holes.push(h); });
+  v.querySelector("#wkStart").addEventListener("click", wkStart);
+  v.querySelector("#wkLeave").addEventListener("click", closeWhack);
+  v.querySelector("#wkExit").addEventListener("click", closeWhack);
+}
+function wkHud() {
+  const sc = document.querySelector("#wkScore"), ti = document.querySelector("#wkTime"), be = document.querySelector("#wkBest"), tc = document.querySelector("#wkTimeChip");
+  if (!wk) return;
+  if (sc) sc.textContent = wk.score; if (ti) ti.textContent = wk.timeLeft; if (be) be.textContent = state.whackBest || 0;
+  if (tc) tc.classList.toggle("low", wk.timeLeft <= 10);
+}
+function wkPop() {
+  if (!wk || !wk.running) return;
+  const free = wk.holes.filter(function (h) { return !h.up; }); if (!free.length) return;
+  const h = free[Math.floor(Math.random() * free.length)]; const el = 30 - wk.timeLeft;
+  h.up = true; h.el.classList.add("up");
+  const dur = Math.max(650, 1300 - el * 22);
+  h.timer = setTimeout(function () { if (h.up) { h.up = false; h.el.classList.remove("up"); wk.miss++; } }, dur);
+}
+function wkSchedule() {
+  if (!wk || !wk.running) return;
+  const el = 30 - wk.timeLeft; const gap = Math.max(430, 1050 - el * 22);
+  wk.spawn = setTimeout(function () { wkPop(); if (el > 13 && Math.random() < 0.35) wkPop(); wkSchedule(); }, gap);
+}
+function wkWhack(h) {
+  if (!wk || !wk.running || !h.up) return;
+  h.up = false; clearTimeout(h.timer); h.el.classList.remove("up"); h.el.classList.add("hit");
+  setTimeout(function () { h.el.classList.remove("hit"); }, 240);
+  wk.score++; wkHud();
+}
+function wkTick() { if (!wk) return; wk.timeLeft--; wkHud(); if (wk.timeLeft <= 0) { wkEnd(); return; } wk.tick = setTimeout(wkTick, 1000); }
+function wkStart() {
+  if (!wk) return;
+  wk.running = true; wk.score = 0; wk.miss = 0; wk.timeLeft = 30; wkHud();
+  document.querySelector("#wkOverlay").classList.add("hidden");
+  wk.holes.forEach(function (h) { h.up = false; clearTimeout(h.timer); h.el.classList.remove("up", "hit"); });
+  wkSchedule(); wk.tick = setTimeout(wkTick, 1000);
+}
+function wkStop() { if (!wk) return; wk.running = false; clearTimeout(wk.spawn); clearTimeout(wk.tick); wk.holes.forEach(function (h) { clearTimeout(h.timer); }); }
+function wkSaveBest() { if (wk && wk.score > (state.whackBest || 0)) { state.whackBest = wk.score; saveState(); } }
+function wkEnd() {
+  wkStop(); wkSaveBest();
+  const ov = document.querySelector("#wkOverlay");
+  ov.querySelector("h1").textContent = "⏱ 時間到！";
+  ov.querySelector("p").innerHTML = "得分 <b style='font-size:1.4em'>" + wk.score + "</b>　·　Miss " + wk.miss;
+  ov.querySelector(".wk-best").textContent = "最高分 " + (state.whackBest || 0);
+  ov.querySelector("#wkStart").textContent = "再玩一次";
+  ov.classList.remove("hidden"); wkHud();
+}
+function closeWhack() { wkStop(); wkSaveBest(); const v = document.querySelector("#whackView"); if (v) v.remove(); wk = null; }
 
 function openGuide() { const b = document.querySelector("#guideBox"); if (b) b.hidden = false; }
 function closeGuide() { const b = document.querySelector("#guideBox"); if (b) b.hidden = true; }
@@ -8757,12 +8842,13 @@ function maybeRefreshOrders() {
 
 function addXp(amount) {
   state.xp += amount;
-  while (state.xp >= xpToNextLevel()) {
+  while (state.level < 50 && state.xp >= xpToNextLevel()) {
     state.xp -= xpToNextLevel();
     state.level += 1;
     state.coins += (25 + state.level * 5) * 2;
     toast(`升到 Lv.${state.level}，解鎖新作物更近了。`);
   }
+  if (state.level >= 50) state.xp = Math.min(state.xp, xpToNextLevel());
 }
 
 function xpToNextLevel() {

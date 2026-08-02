@@ -4332,3 +4332,42 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 
 /* 場景抬頭友情值：框與金幣/等級一致，只把愛心稍微放大 */
 .scene-friend-pill .friend-pill-ico { font-size: 0.8rem; line-height: 1; }
+
+/* ===== 小遊戲：打地鼠(全螢幕) ===== */
+#whackView { position: fixed; inset: 0; z-index: 200; overflow: hidden; touch-action: none; user-select: none;
+  background: radial-gradient(120% 120% at 50% 30%, #9ccc5a 0%, #7fb24a 55%, #6da23f 100%); }
+#whackView #wkStage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+#whackView #wkField { position: relative; aspect-ratio: 1120 / 900; height: 96%; max-width: 98%;
+  background: url("./assets/minigame/whack-field.png") center center / 100% 100% no-repeat; border-radius: 10px; box-shadow: 0 10px 26px rgba(0,0,0,.25); }
+#whackView .wk-hole { position: absolute; width: 16.9%; aspect-ratio: 1 / 0.95; transform: translate(-50%,-50%); cursor: pointer; }
+#whackView .wk-burrow { position: absolute; left: 15%; right: 15%; bottom: 14%; height: 30%;
+  background: radial-gradient(50% 62% at 50% 42%, #241609 0%, #3d2a17 60%, rgba(61,42,23,0) 100%); border-radius: 50%; }
+#whackView .wk-well { position: absolute; left: 8%; right: 8%; bottom: 22%; height: 94%; overflow: hidden; }
+#whackView .wk-mole { position: absolute; left: 50%; bottom: 0; width: 70%; transform: translate(-50%,110%); transition: transform .13s cubic-bezier(.34,1.56,.64,1); }
+#whackView .wk-hole.up .wk-mole { transform: translate(-50%,4%); }
+#whackView .wk-hole.hit .wk-mole { transform: translate(-50%,66%) scale(.85); transition: transform .1s ease-in; }
+#whackView .wk-mole svg { width: 100%; display: block; filter: drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
+#whackView .wk-pow { position: absolute; left: 50%; top: 4%; transform: translate(-50%,-50%) scale(0); font-size: 2.4vmax; font-weight: 900; color: #ffd23f; text-shadow: 0 2px 0 #b5651d, 0 0 6px rgba(0,0,0,.4); pointer-events: none; }
+#whackView .wk-hole.hit .wk-pow { animation: wkpow .35s ease-out; }
+@keyframes wkpow { 0%{transform:translate(-50%,-50%) scale(0)} 40%{transform:translate(-50%,-90%) scale(1.2)} 100%{transform:translate(-50%,-130%) scale(1); opacity:0} }
+#whackView #wkHud { position: absolute; top: 8px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 10px; pointer-events: none; z-index: 12; }
+#whackView .wk-chip { background: rgba(255,253,245,.94); border: 2px solid rgba(120,90,40,.35); border-radius: 999px; padding: 5px 15px; font-weight: 900; color: #3a2f1a; font-size: clamp(13px, 2.6vmin, 22px); box-shadow: 0 4px 10px rgba(0,0,0,.18); white-space: nowrap; }
+#whackView .wk-chip small { font-weight: 700; opacity: .65; margin-right: 4px; }
+#whackView .wk-chip.low { color: #d0392b; }
+#whackView #wkExit { position: absolute; right: 10px; top: 10px; z-index: 15; border: none; border-radius: 10px; padding: 7px 13px; font-size: clamp(13px,2.4vmin,18px); font-weight: 800; background: rgba(255,253,245,.92); color: #3a2f1a; box-shadow: 0 3px 8px rgba(0,0,0,.2); cursor: pointer; }
+#whackView #wkOverlay { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(20,40,15,.5); backdrop-filter: blur(3px); color: #fff; text-align: center; }
+#whackView #wkOverlay.hidden { display: none; }
+#whackView #wkOverlay h1 { font-size: clamp(22px,5.5vmin,46px); text-shadow: 0 3px 0 rgba(0,0,0,.3); }
+#whackView #wkOverlay p { font-size: clamp(13px,3vmin,22px); opacity: .95; max-width: 76%; line-height: 1.6; }
+#whackView .wk-best { font-size: clamp(15px,3.2vmin,24px); font-weight: 900; color: #ffe08a; }
+#whackView .wk-obtns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+#whackView .wk-btn { border: none; border-radius: 999px; padding: 12px 34px; font-size: clamp(16px,3.2vmin,26px); font-weight: 900; cursor: pointer; }
+#whackView .wk-btn.play { color: #4a3410; background: linear-gradient(#ffd85c,#e9b13f); box-shadow: 0 6px 0 #b5842a, 0 10px 20px rgba(0,0,0,.3); }
+#whackView .wk-btn.play:active { transform: translateY(3px); box-shadow: 0 3px 0 #b5842a, 0 6px 12px rgba(0,0,0,.3); }
+#whackView .wk-btn.leave { color: #fff; background: rgba(110,84,46,.6); box-shadow: 0 6px 0 rgba(70,50,25,.5); }
+#whackView .wk-btn.leave:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(70,50,25,.5); }
+/* 小遊戲選單 */
+.mg-list { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+.mg-item { border: none; border-radius: 12px; padding: 16px; font-size: 1.1rem; font-weight: 800; color: #3a2f1a; background: rgba(150,130,90,.16); cursor: pointer; display: flex; align-items: center; gap: 10px; justify-content: center; }
+.mg-item:hover { background: rgba(150,130,90,.28); }
+.mg-item .mg-best { font-size: .8rem; font-weight: 700; color: #7a6a4a; }
