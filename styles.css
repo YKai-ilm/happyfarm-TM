@@ -4323,3 +4323,7 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
   .dm-cols { flex-wrap: wrap; }
   .dm-col { flex: 1 1 46%; }
 }
+
+/* 頂部友情值 pill */
+.friend-pill { gap: 4px; }
+.friend-pill-ico { font-size: 1rem; line-height: 1; }

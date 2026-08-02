@@ -1478,6 +1478,7 @@ const elements = {
   coinValue: document.querySelector("#coinValue"),
   energyValue: document.querySelector("#energyValue"),
   levelValue: document.querySelector("#levelValue"),
+  friendshipValue: document.querySelector("#friendshipValue"),
   xpFill: document.querySelector("#xpFill"),
   statusLine: document.querySelector("#statusLine"),
   sceneStatusLine: document.querySelector("#sceneStatusLine"),
@@ -6983,6 +6984,7 @@ function renderHeader() {
   const requiredXp = xpToNextLevel();
   elements.coinValue.textContent = state.coins;
   elements.levelValue.textContent = `Lv. ${state.level}`;
+  if (elements.friendshipValue) elements.friendshipValue.textContent = (state.promoStats && state.promoStats.friendship) || 0;
   elements.xpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
   elements.sceneCoinValue.textContent = state.coins;
   elements.sceneLevelValue.textContent = `Lv. ${state.level}`;
