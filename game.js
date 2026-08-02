@@ -1489,6 +1489,7 @@ const elements = {
   sceneCoinValue: document.querySelector("#sceneCoinValue"),
   sceneEnergyValue: document.querySelector("#sceneEnergyValue"),
   sceneLevelValue: document.querySelector("#sceneLevelValue"),
+  sceneFriendshipValue: document.querySelector("#sceneFriendshipValue"),
   sceneXpFill: document.querySelector("#sceneXpFill"),
   farmGrid: document.querySelector("#farmGrid"),
   inventoryList: document.querySelector("#inventoryList"),
@@ -6988,6 +6989,7 @@ function renderHeader() {
   elements.xpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
   elements.sceneCoinValue.textContent = state.coins;
   elements.sceneLevelValue.textContent = `Lv. ${state.level}`;
+  if (elements.sceneFriendshipValue) elements.sceneFriendshipValue.textContent = (state.promoStats && state.promoStats.friendship) || 0;
   elements.sceneXpFill.style.width = `${Math.min(100, Math.round((state.xp / requiredXp) * 100))}%`;
   if (elements.weatherValue) {
     elements.weatherValue.textContent = WEATHERS[state.weather].name;

@@ -4327,3 +4327,6 @@ body.is-stock .bottom-tool-row .stock-tool { display: inline-flex; }
 /* 頂部友情值 pill */
 .friend-pill { gap: 4px; }
 .friend-pill-ico { font-size: 1rem; line-height: 1; }
+
+/* 場景抬頭友情值 pill */
+.scene-friend-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.55); border-radius: 999px; padding: 4px 12px; font-weight: 800; color: #b04a6a; }
